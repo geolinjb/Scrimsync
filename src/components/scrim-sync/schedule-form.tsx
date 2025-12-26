@@ -2,9 +2,9 @@
 
 import * as React from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { format } from 'date-fns';
+import { format, isSameDay, startOfWeek, addDays } from 'date-fns';
 import { Calendar as CalendarIcon, CalendarPlus } from 'lucide-react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import * as z from 'zod';
 
 import { cn } from '@/lib/utils';
@@ -37,6 +37,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Separator } from '@/components/ui/separator';
 
 const formSchema = z.object({
   type: z.enum(['Training', 'Tournament']),
@@ -48,9 +50,10 @@ const formSchema = z.object({
 
 type ScheduleFormProps = {
   onAddEvent: (data: z.infer<typeof formSchema>) => void;
+  currentDate: Date;
 };
 
-export function ScheduleForm({ onAddEvent }: ScheduleFormProps) {
+export function ScheduleForm({ onAddEvent, currentDate }: ScheduleFormProps) {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -59,9 +62,20 @@ export function ScheduleForm({ onAddEvent }: ScheduleFormProps) {
     },
   });
 
+  const selectedDate = useWatch({ control: form.control, name: 'date' });
+
+  const weekDates = React.useMemo(() => {
+    const start = startOfWeek(currentDate);
+    return Array.from({ length: 7 }, (_, i) => addDays(start, i));
+  }, [currentDate]);
+
   function onSubmit(values: z.infer<typeof formSchema>) {
     onAddEvent(values);
-    form.reset();
+    form.reset({
+        type: 'Training',
+        time: '',
+        date: undefined,
+    });
   }
 
   const timeOptions = Array.from({ length: 48 }, (_, i) => {
@@ -116,6 +130,25 @@ export function ScheduleForm({ onAddEvent }: ScheduleFormProps) {
               render={({ field }) => (
                 <FormItem className="flex flex-col">
                   <FormLabel>Date</FormLabel>
+                  <div className="grid grid-cols-4 gap-2">
+                    {weekDates.map((date) => (
+                      <Button
+                        key={date.toISOString()}
+                        variant={isSameDay(date, selectedDate) ? 'default' : 'outline'}
+                        onClick={(e) => {
+                            e.preventDefault();
+                            form.setValue('date', date, { shouldValidate: true });
+                        }}
+                        className='flex-col h-auto'
+                      >
+                        <span>{format(date, 'EEE')}</span>
+                        <span className='text-xs'>{format(date, 'd/M')}</span>
+                      </Button>
+                    ))}
+                  </div>
+
+                  <Separator />
+
                   <Popover>
                     <PopoverTrigger asChild>
                       <FormControl>
@@ -129,7 +162,7 @@ export function ScheduleForm({ onAddEvent }: ScheduleFormProps) {
                           {field.value ? (
                             format(field.value, 'd MMM, yyyy')
                           ) : (
-                            <span>Pick a date</span>
+                            <span>Pick a date from calendar</span>
                           )}
                           <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                         </Button>
@@ -140,7 +173,7 @@ export function ScheduleForm({ onAddEvent }: ScheduleFormProps) {
                         mode="single"
                         selected={field.value}
                         onSelect={field.onChange}
-                        disabled={(date) => date < new Date() || date < new Date("1900-01-01")}
+                        disabled={(date) => date < new Date(new Date().toDateString())}
                         initialFocus
                       />
                     </PopoverContent>
@@ -157,7 +190,7 @@ export function ScheduleForm({ onAddEvent }: ScheduleFormProps) {
                   <FormLabel>Time</FormLabel>
                   <Select
                     onValueChange={field.onChange}
-                    defaultValue={field.value}
+                    value={field.value}
                   >
                     <FormControl>
                       <SelectTrigger>
