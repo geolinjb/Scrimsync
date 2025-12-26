@@ -1,24 +1,40 @@
 'use server';
 
-import { discordPostVotingResults } from '@/ai/flows/discord-post-voting-results';
-import { revalidatePath } from 'next/cache';
+export async function postToDiscordWebhook(
+  webhookUrl: string,
+  message: string
+): Promise<{ success: boolean; message: string }> {
+  if (!webhookUrl) {
+    return { success: false, message: 'Webhook URL is required.' };
+  }
 
-export async function postToDiscordAction(
-  votingResults: string,
-  availabilityInfo: string,
-  selectedDays: string[]
-): Promise<{ success: boolean; message: string; }> {
   try {
-    const message = await discordPostVotingResults({
-      votingResults,
-      availabilityInfo,
-      selectedDays,
+    const response = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ content: message }),
     });
 
-    revalidatePath('/');
-    return { success: true, message: message };
+    if (response.ok) {
+      return { success: true, message: 'Successfully posted to Discord!' };
+    } else {
+      const errorText = await response.text();
+      console.error('Discord webhook error:', errorText);
+      return {
+        success: false,
+        message: `Failed to post to Discord. Status: ${response.status}.`,
+      };
+    }
   } catch (error) {
-    console.error('Failed to generate Discord post:', error);
-    return { success: false, message: 'An error occurred while generating the post.' };
+    console.error('Failed to post to Discord:', error);
+    if (error instanceof TypeError && error.message.includes('fetch failed')) {
+        return { success: false, message: 'Failed to send request. Please check the webhook URL and your network connection.'};
+    }
+    return {
+      success: false,
+      message: 'An unexpected error occurred.',
+    };
   }
 }

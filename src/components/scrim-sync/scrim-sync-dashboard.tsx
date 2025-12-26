@@ -4,7 +4,7 @@ import * as React from 'react';
 import { format, addDays, startOfWeek, endOfWeek, subWeeks, isSameDay } from 'date-fns';
 import { Send, ChevronLeft, ChevronRight, Copy, ClipboardCopy } from 'lucide-react';
 
-import { postToDiscordAction } from '@/app/actions';
+import { postToDiscordWebhook } from '@/app/actions';
 import type { PlayerProfileData, ScheduleEvent, UserVotes, AllVotes } from '@/lib/types';
 import { timeSlots, mockPlayers } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -40,6 +40,7 @@ import {
 import { Checkbox } from '../ui/checkbox';
 import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
+import { Input } from '../ui/input';
 
 
 export function ScrimSyncDashboard() {
@@ -63,6 +64,7 @@ export function ScrimSyncDashboard() {
   const [generatedPost, setGeneratedPost] = React.useState<string | null>(null);
   const [isGeneratingPost, setIsGeneratingPost] = React.useState(false);
   const [selectedDaysForPost, setSelectedDaysForPost] = React.useState<Date[]>([]);
+  const [webhookUrl, setWebhookUrl] = React.useState('');
 
 
   React.useEffect(() => {
@@ -244,56 +246,81 @@ export function ScrimSyncDashboard() {
     });
   };
 
-  const handleGeneratePost = async () => {
+  const handleGeneratePost = () => {
     if (selectedDaysForPost.length === 0) {
-        toast({
-            variant: 'destructive',
-            title: 'No days selected',
-            description: 'Please select at least one day to post results.',
-        });
-        return;
+      toast({
+        variant: 'destructive',
+        title: 'No days selected',
+        description: 'Please select at least one day to generate a report.',
+      });
+      return;
     }
-    setIsGeneratingPost(true);
 
-    const selectedDayStrings = selectedDaysForPost.map(d => format(d, 'yyyy-MM-dd'));
+    const sortedDays = selectedDaysForPost.sort((a, b) => a.getTime() - b.getTime());
 
-    const votingResultsString = Object.entries(allVotes)
-        .filter(([key]) => selectedDayStrings.some(d => key.startsWith(d)))
-        .map(([key, players]) => `${key.replace(/-/g, ' ')}: ${players.length} votes`)
-        .join('\n');
-    
-    const availabilityInfoString = scheduledEvents
-        .filter(event => selectedDaysForPost.some(d => isSameDay(d, event.date)))
-        .map(event => `Scheduled ${event.type} at ${event.time} on ${format(event.date, 'd MMM, yyyy')}`)
-        .join('\n');
+    let post = `**Team Availability for ${format(sortedDays[0], 'd MMM')} - ${format(sortedDays[sortedDays.length - 1], 'd MMM, yyyy')}**\n\n`;
+
+    sortedDays.forEach(day => {
+      const dayKey = format(day, 'yyyy-MM-dd');
+      post += `**${format(day, 'EEEE, d MMM')}**\n`;
+
+      const dayEvents = scheduledEvents.filter(event => isSameDay(day, event.date));
+      if (dayEvents.length > 0) {
+        post += '***Scheduled Events:***\n';
+        dayEvents.forEach(event => {
+          post += `- ${event.type} at ${event.time}\n`;
+        });
+        post += '\n';
+      }
+
+      const daySlots = Object.entries(allVotes).filter(([key]) => key.startsWith(dayKey));
       
-    const result = await postToDiscordAction(
-        votingResultsString, 
-        availabilityInfoString,
-        selectedDaysForPost.map(d => format(d, 'EEEE'))
-    );
+      const popularSlots = daySlots
+        .map(([key, players]) => ({ slot: key.split('-')[3], count: players.length, players }))
+        .filter(item => item.count > 0)
+        .sort((a, b) => b.count - a.count);
 
-    setIsGeneratingPost(false);
+      if (popularSlots.length > 0) {
+        post += '***Availability:***\n';
+        popularSlots.forEach(({slot, count, players}) => {
+          post += `- **${slot.replace(':', ' ')}**: ${count} players (${players.join(', ')})\n`;
+        });
+      } else {
+        post += '_No availability submitted for this day._\n';
+      }
+
+      post += '\n';
+    });
+
+    setGeneratedPost(post);
+  };
+  
+  const handleSendPost = async () => {
+    if (!generatedPost) return;
+    setIsGeneratingPost(true);
+    
+    const result = await postToDiscordWebhook(webhookUrl, generatedPost);
+
     if (result.success) {
-      setGeneratedPost(result.message);
+      toast({
+        title: 'Success!',
+        description: result.message,
+      });
+      closePostDialog();
     } else {
       toast({
         variant: 'destructive',
         title: 'Error',
         description: result.message,
       });
-      setPostDialogOpen(false);
     }
-    setSelectedDaysForPost([]);
+    setIsGeneratingPost(false);
   };
 
   const handleDaySelectForPost = (day: Date, checked: boolean) => {
     setSelectedDaysForPost(prev => {
-        if (checked) {
-            return [...prev, day];
-        } else {
-            return prev.filter(d => !isSameDay(d, day));
-        }
+        const newSelection = checked ? [...prev, day] : prev.filter(d => !isSameDay(d, day));
+        return newSelection.sort((a,b) => a.getTime() - b.getTime());
     })
   }
 
@@ -383,37 +410,54 @@ export function ScrimSyncDashboard() {
                         Post Results
                       </Button>
                     </DialogTrigger>
-                    <DialogContent>
+                    <DialogContent className="sm:max-w-[600px]">
                         {generatedPost ? (
                             <>
                                 <DialogHeader>
-                                    <DialogTitle>Your Generated Post</DialogTitle>
+                                    <DialogTitle>Post to Discord</DialogTitle>
                                     <DialogDescription>
-                                        Copy the message below and paste it into your Discord channel.
+                                        Copy the message below or enter your webhook URL to post directly to Discord.
                                     </DialogDescription>
                                 </DialogHeader>
                                 <Textarea
                                     readOnly
                                     value={generatedPost}
-                                    className="min-h-[200px] text-sm"
+                                    className="min-h-[250px] text-sm bg-muted/50"
                                 />
+                                <div className="space-y-2">
+                                  <Label htmlFor="webhook-url">Discord Webhook URL</Label>
+                                  <Input 
+                                    id="webhook-url"
+                                    placeholder="https://discord.com/api/webhooks/..."
+                                    value={webhookUrl}
+                                    onChange={(e) => setWebhookUrl(e.target.value)}
+                                  />
+                                </div>
                                 <DialogFooter>
-                                    <Button variant="outline" onClick={closePostDialog}>Close</Button>
-                                    <Button onClick={copyToClipboard}>
+                                    <Button variant="outline" onClick={() => setGeneratedPost(null)}>Back</Button>
+                                    <Button onClick={copyToClipboard} variant="secondary">
                                         <ClipboardCopy className="mr-2 h-4 w-4" />
-                                        Copy to Clipboard
+                                        Copy
                                     </Button>
+                                    <Button onClick={handleSendPost} disabled={isGeneratingPost || !webhookUrl}>
+                                      {isGeneratingPost ? 'Sending...' : (
+                                        <>
+                                          <Send className="mr-2 h-4 w-4" />
+                                          Send to Discord
+                                        </>
+                                      )}
+                                  </Button>
                                 </DialogFooter>
                             </>
                         ) : (
                             <>
                                 <DialogHeader>
-                                    <DialogTitle>Post to Discord</DialogTitle>
+                                    <DialogTitle>Create Discord Post</DialogTitle>
                                     <DialogDescription>
                                         Select the days you want to include in the availability report.
                                     </DialogDescription>
                                 </DialogHeader>
-                                <div className='grid grid-cols-2 gap-4 py-4'>
+                                <div className='grid grid-cols-2 lg:grid-cols-3 gap-4 py-4'>
                                     {weekDates.map(day => (
                                         <div key={day.toISOString()} className='flex items-center space-x-2'>
                                             <Checkbox
@@ -421,21 +465,16 @@ export function ScrimSyncDashboard() {
                                                 onCheckedChange={(checked) => handleDaySelectForPost(day, checked as boolean)}
                                                 checked={selectedDaysForPost.some(d => isSameDay(d, day))}
                                             />
-                                            <Label htmlFor={format(day, 'yyyy-MM-dd')} className='text-sm font-medium leading-none'>
+                                            <Label htmlFor={format(day, 'yyyy-MM-dd')} className='text-sm font-medium leading-none cursor-pointer'>
                                                 {format(day, 'EEEE, d MMM')}
                                             </Label>
                                         </div>
                                     ))}
                                 </div>
                                 <DialogFooter>
-                                  <Button variant="outline" onClick={closePostDialog} disabled={isGeneratingPost}>Cancel</Button>
-                                  <Button onClick={handleGeneratePost} disabled={isGeneratingPost}>
-                                      {isGeneratingPost ? 'Generating...' : (
-                                          <>
-                                            <Send className="mr-2 h-4 w-4" />
-                                            Generate Post
-                                          </>
-                                      )}
+                                  <Button variant="outline" onClick={closePostDialog}>Cancel</Button>
+                                  <Button onClick={handleGeneratePost} disabled={selectedDaysForPost.length === 0}>
+                                    Generate Post
                                   </Button>
                                 </DialogFooter>
                             </>
