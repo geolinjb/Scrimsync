@@ -21,12 +21,13 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+  } from "@/components/ui/table";
 
 type HeatmapGridProps = {
   votes: Record<string, number>;
@@ -37,8 +38,6 @@ export function HeatmapGrid({
   votes,
   scheduledEvents,
 }: HeatmapGridProps) {
-  const [selectedDay, setSelectedDay] = React.useState(daysOfWeek[0]);
-
   const maxVotes = React.useMemo(() => {
     const voteCounts = daysOfWeek.flatMap(day => timeSlots.map(slot => votes[`${day}-${slot}`] || 0));
     return Math.max(...voteCounts, 1);
@@ -49,12 +48,11 @@ export function HeatmapGrid({
     return Math.max(0.1, voteCount / maxVotes);
   };
   
-  const getEventForSlot = (slot: string) => {
-    // This logic needs to be aware of the selected day of the week
+  const getEventForSlot = (day: string, slot: string) => {
     return scheduledEvents.find(event => {
       const eventDate = new Date(event.date);
       const dayName = daysOfWeek[eventDate.getDay()];
-      return dayName === selectedDay && event.time === slot;
+      return dayName === day && event.time === slot;
     });
   };
 
@@ -64,79 +62,83 @@ export function HeatmapGrid({
         <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
             <Vote className="w-6 h-6" />
-            <CardTitle>Team Availability</CardTitle>
+            <CardTitle>Team Availability Heatmap</CardTitle>
             </div>
-            <Select value={selectedDay} onValueChange={setSelectedDay}>
-                <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Select a day" />
-                </SelectTrigger>
-                <SelectContent>
-                    {daysOfWeek.map(day => (
-                        <SelectItem key={day} value={day}>{day}</SelectItem>
-                    ))}
-                </SelectContent>
-            </Select>
         </div>
         <CardDescription>
-          Darker slots are more popular for the selected day.
+          Darker slots indicate higher player availability across the week.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <TooltipProvider>
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-11 gap-2">
-            {timeSlots.map((slot) => {
-              const voteKey = `${selectedDay}-${slot}`;
-              const voteCount = votes[voteKey] || 0;
-              const event = getEventForSlot(slot);
-
-              return (
-                <Tooltip key={slot}>
-                  <TooltipTrigger asChild>
-                    <motion.div
-                      className={cn(
-                        'relative aspect-square rounded-lg flex flex-col justify-center items-center text-center p-1 transition-all duration-300',
-                        'border-2 border-transparent'
-                      )}
-                      style={{
-                        backgroundColor: `hsl(var(--card))`,
-                      }}
-                    >
-                      <div
-                        className="absolute inset-0 bg-primary rounded-md transition-opacity duration-300"
-                        style={{
-                          opacity: getHeatmapOpacity(voteCount),
-                        }}
-                      />
-                      <div className="relative z-10 text-xs sm:text-sm font-medium">
-                        {slot.replace(' PM', '').replace(' AM', '')}
-                      </div>
-                      <div className="relative z-10 text-[10px] sm:text-xs text-muted-foreground">
-                        {voteCount} votes
-                      </div>
-                      {event && (
-                        <div className="absolute top-1 right-1 z-20">
-                          {event.type === 'Training' ? (
-                            <Swords className="w-3 h-3 text-foreground" />
-                          ) : (
-                            <Trophy className="w-3 h-3 text-foreground" />
-                          )}
-                        </div>
-                      )}
-                    </motion.div>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>{slot}</p>
-                    <p>{voteCount} players available on {selectedDay}</p>
-                    {event && (
-                      <p className="mt-1 font-bold">
-                        {event.type} scheduled
-                      </p>
-                    )}
-                  </TooltipContent>
-                </Tooltip>
-              );
-            })}
-          </div>
+            <div className="border rounded-lg overflow-auto">
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead className="w-[100px]">Time</TableHead>
+                            {daysOfWeek.map(day => (
+                                <TableHead key={day} className="text-center">{day}</TableHead>
+                            ))}
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {timeSlots.map(slot => (
+                            <TableRow key={slot}>
+                                <TableCell className="font-medium">{slot}</TableCell>
+                                {daysOfWeek.map(day => {
+                                    const voteKey = `${day}-${slot}`;
+                                    const voteCount = votes[voteKey] || 0;
+                                    const event = getEventForSlot(day, slot);
+                                    return (
+                                        <TableCell key={day} className="text-center p-0">
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <div
+                                                        className={cn(
+                                                            'relative h-12 w-full flex flex-col justify-center items-center text-center p-1 transition-all duration-300'
+                                                        )}
+                                                    >
+                                                        <div
+                                                            className="absolute inset-0 bg-primary transition-opacity duration-300"
+                                                            style={{
+                                                            opacity: getHeatmapOpacity(voteCount),
+                                                            }}
+                                                        />
+                                                        <div className="relative z-10 text-xs sm:text-sm font-medium">
+                                                            {voteCount}
+                                                        </div>
+                                                        <div className="relative z-10 text-[10px] sm:text-xs text-muted-foreground">
+                                                            votes
+                                                        </div>
+                                                        {event && (
+                                                            <div className="absolute top-1 right-1 z-20">
+                                                            {event.type === 'Training' ? (
+                                                                <Swords className="w-3 h-3 text-foreground" />
+                                                            ) : (
+                                                                <Trophy className="w-3 h-3 text-foreground" />
+                                                            )}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </TooltipTrigger>
+                                                <TooltipContent>
+                                                    <p>{day} at {slot}</p>
+                                                    <p>{voteCount} players available</p>
+                                                    {event && (
+                                                    <p className="mt-1 font-bold">
+                                                        {event.type} scheduled
+                                                    </p>
+                                                    )}
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        </TableCell>
+                                    )
+                                })}
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            </div>
         </TooltipProvider>
       </CardContent>
     </Card>

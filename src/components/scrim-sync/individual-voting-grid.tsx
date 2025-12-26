@@ -15,12 +15,6 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
-import {
   Table,
   TableBody,
   TableCell,
@@ -47,7 +41,7 @@ export function IndividualVotingGrid({
           <CardTitle>Set Your Weekly Availability</CardTitle>
         </div>
         <CardDescription>
-          Click on a time slot to mark yourself as available.
+          Click on a time slot to mark yourself as available. Selected slots are highlighted.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -55,9 +49,9 @@ export function IndividualVotingGrid({
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead className="w-[100px]">Time</TableHead>
+                        <TableHead className="w-[100px] font-bold">Time</TableHead>
                         {daysOfWeek.map(day => (
-                            <TableHead key={day} className="text-center">{day}</TableHead>
+                            <TableHead key={day} className="text-center font-bold">{day}</TableHead>
                         ))}
                     </TableRow>
                 </TableHeader>
@@ -72,7 +66,7 @@ export function IndividualVotingGrid({
                                          <motion.div
                                             onClick={() => onVote(day, slot)}
                                             className={cn(
-                                                'h-12 w-full cursor-pointer flex justify-center items-center transition-colors',
+                                                'h-12 w-full cursor-pointer flex justify-center items-center transition-colors border-l border-t',
                                                 isVoted ? 'bg-primary/20 hover:bg-primary/30' : 'hover:bg-accent'
                                             )}
                                             whileTap={{ scale: 0.95 }}
