@@ -5,6 +5,7 @@ import { useAuth, useUser } from '@/firebase';
 import { Button } from '@/components/ui/button';
 import { Loader, Chrome } from 'lucide-react';
 import { GoogleAuthProvider, signInWithPopup, type FirebaseError } from 'firebase/auth';
+import { AnimatePresence, motion } from 'framer-motion';
 
 export default function Home() {
   const { user, isUserLoading } = useUser();
@@ -28,8 +29,38 @@ export default function Home() {
   if (isUserLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-background">
-        <Loader className="w-12 h-12 animate-spin text-primary" />
-        <p className="mt-4 text-lg text-muted-foreground">Loading ScrimSync...</p>
+        <AnimatePresence>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.5 }}
+            className="flex flex-col items-center justify-center text-center"
+          >
+            <div className="relative mb-4">
+              <Loader className="w-16 h-16 text-primary" />
+              <motion.div
+                className="absolute inset-0 flex items-center justify-center"
+                initial={{ scale: 0 }}
+                animate={{ scale: 1, transition: { delay: 0.2 } }}
+              >
+                <svg
+                  className="w-8 h-8 text-yellow-500"
+                  fill="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path d="M18.829 5.303a11.034 11.034 0 00-13.658 0L4 6.46l5.732 5.733-4.508 4.508 1.157 1.157 4.508-4.508L16.62 19.18l1.157-1.157-4.508-4.508L19.999 7.62l-1.17-2.317z" />
+                </svg>
+              </motion.div>
+            </div>
+            <h2 className="text-2xl font-semibold text-foreground">
+              Connecting to Firebase...
+            </h2>
+            <p className="text-muted-foreground mt-2">
+              Syncing your data, just a moment.
+            </p>
+          </motion.div>
+        </AnimatePresence>
       </div>
     );
   }
