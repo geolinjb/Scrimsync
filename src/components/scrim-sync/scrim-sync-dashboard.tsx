@@ -16,6 +16,7 @@ import { Header } from './header';
 import { PlayerProfile } from './player-profile';
 import { ScheduleForm } from './schedule-form';
 import { IndividualVotingGrid } from './individual-voting-grid';
+import { ScheduledEvents } from './scheduled-events';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -297,6 +298,7 @@ export function ScrimSyncDashboard() {
           <div className="md:col-span-1 lg:col-span-1 space-y-8">
             <PlayerProfile profile={profile} onProfileChange={setProfile} />
             <ScheduleForm onAddEvent={handleAddEvent} currentDate={currentDate} />
+            <ScheduledEvents events={scheduledEvents} votes={allVotes} currentDate={currentDate} />
           </div>
           <div className="md:col-span-2 lg:col-span-3 space-y-6">
             <Tabs defaultValue="individual">
