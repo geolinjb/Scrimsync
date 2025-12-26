@@ -2,10 +2,11 @@
 
 import * as React from 'react';
 import { format, startOfToday } from 'date-fns';
-import { CalendarCheck, Users, Trash2 } from 'lucide-react';
+import { CalendarCheck, Users, Trash2, Copy } from 'lucide-react';
 import type { User } from 'firebase/auth';
 
 import type { AllVotes, ScheduleEvent } from '@/lib/types';
+import { useToast } from '@/hooks/use-toast';
 import {
   Card,
   CardContent,
@@ -42,6 +43,7 @@ type ScheduledEventsProps = {
 };
 
 export function ScheduledEvents({ events, votes, onRemoveEvent, currentUser }: ScheduledEventsProps) {
+    const { toast } = useToast();
     const upcomingEvents = React.useMemo(() => {
         if (!events) return [];
         const today = startOfToday();
@@ -54,6 +56,28 @@ export function ScheduledEvents({ events, votes, onRemoveEvent, currentUser }: S
     const dateKey = format(event.date, 'yyyy-MM-dd');
     const voteKey = `${dateKey}-${event.time}`;
     return votes[voteKey] || [];
+  };
+
+  const handleCopyList = (event: ScheduleEvent, players: string[]) => {
+    const header = `${event.type} on ${format(event.date, 'EEEE, d MMM')} at ${event.time}:`;
+    const playerList = players.length > 0
+      ? players.map(p => `- ${p}`).join('\n')
+      : 'No players available.';
+    const fullText = `${header}\n${playerList}`;
+    
+    navigator.clipboard.writeText(fullText).then(() => {
+        toast({
+            title: 'Copied to Clipboard',
+            description: 'The list of available players has been copied.',
+        });
+    }, (err) => {
+        console.error('Could not copy text: ', err);
+        toast({
+            variant: 'destructive',
+            title: 'Copy Failed',
+            description: 'Could not copy the list to your clipboard.',
+        });
+    });
   };
 
   return (
@@ -88,8 +112,8 @@ export function ScheduledEvents({ events, votes, onRemoveEvent, currentUser }: S
                     </div>
                   </AccordionTrigger>
                   <AccordionContent>
-                    <div className='flex justify-between items-start'>
-                        <div>
+                    <div className='flex justify-between items-start gap-4'>
+                        <div className='flex-grow'>
                             <h4 className="font-semibold mb-3">
                             {availablePlayers.length} Available Players:
                             </h4>
@@ -118,29 +142,40 @@ export function ScheduledEvents({ events, votes, onRemoveEvent, currentUser }: S
                             </div>
                             )}
                         </div>
-                        {canDelete && (
-                            <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive shrink-0">
-                                        <Trash2 className="w-4 h-4" />
-                                    </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                        This action cannot be undone. This will permanently delete the scheduled {event.type.toLowerCase()}.
-                                    </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => onRemoveEvent(event.id)} className="bg-destructive hover:bg-destructive/90">
-                                        Delete
-                                    </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                </AlertDialogContent>
-                            </AlertDialog>
-                        )}
+                        <div className="flex flex-col items-center gap-2 shrink-0">
+                            {canDelete && (
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive h-8 w-8">
+                                            <Trash2 className="w-4 h-4" />
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            This action cannot be undone. This will permanently delete the scheduled {event.type.toLowerCase()}.
+                                        </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction onClick={() => onRemoveEvent(event.id)} className="bg-destructive hover:bg-destructive/90">
+                                            Delete
+                                        </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            )}
+                            <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => handleCopyList(event, availablePlayers)}
+                                disabled={availablePlayers.length === 0}
+                            >
+                                <Copy className="w-4 h-4" />
+                            </Button>
+                        </div>
                     </div>
                   </AccordionContent>
                 </AccordionItem>
