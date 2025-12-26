@@ -16,7 +16,7 @@ export async function postToDiscordAction(
     });
 
     revalidatePath('/');
-    return { success: true, message };
+    return { success: true, message: message };
   } catch (error) {
     console.error('Failed to generate Discord post:', error);
     return { success: false, message: 'An error occurred while generating the post.' };

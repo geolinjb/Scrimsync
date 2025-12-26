@@ -26,7 +26,8 @@ export type DiscordPostVotingResultsInput = z.infer<
 export async function discordPostVotingResults(
   input: DiscordPostVotingResultsInput
 ): Promise<string> {
-  return await discordPostVotingResultsFlow(input);
+  const result = await discordPostVotingResultsFlow(input);
+  return result;
 }
 
 const prompt = ai.definePrompt({
