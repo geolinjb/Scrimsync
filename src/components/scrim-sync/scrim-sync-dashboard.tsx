@@ -22,6 +22,8 @@ import { useCollection, useDoc, useFirestore, useMemoFirebase } from '@/firebase
 import { addDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Skeleton } from '../ui/skeleton';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
+import { FirestorePermissionError } from '@/firebase/errors';
+import { errorEmitter } from '@/firebase/error-emitter';
 
 type ScrimSyncDashboardProps = {
     user: User;
@@ -163,16 +165,13 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
         }
     });
 
-    try {
-        await batch.commit();
-    } catch (e: any) {
-        console.error("Batch vote failed:", e);
-        toast({
-            variant: "destructive",
-            title: "Uh oh! Something went wrong.",
-            description: "Could not save all your votes. Please try again.",
+    batch.commit().catch(e => {
+        const permissionError = new FirestorePermissionError({
+            path: 'batch-operation',
+            operation: 'write',
         });
-    }
+        errorEmitter.emit('permission-error', permissionError);
+    });
   };
 
   const handleVoteAllTime = async (timeSlot: string) => {
@@ -205,17 +204,14 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
             batch.set(voteRef, voteData);
         }
     }
-
-    try {
-        await batch.commit();
-    } catch (e: any) {
-        console.error("Batch vote failed:", e);
-        toast({
-            variant: "destructive",
-            title: "Uh oh! Something went wrong.",
-            description: "Could not save all your votes. Please. Please try again.",
+    
+    batch.commit().catch(e => {
+        const permissionError = new FirestorePermissionError({
+            path: 'batch-operation',
+            operation: 'write',
         });
-    }
+        errorEmitter.emit('permission-error', permissionError);
+    });
   };
 
   const handleClearAllVotes = async () => {
@@ -245,20 +241,20 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
         return;
     }
 
-    try {
-        await batch.commit();
+    batch.commit().then(() => {
         toast({
             title: "Votes Cleared",
             description: "All your votes for this week have been removed.",
         });
-    } catch (e: any) {
-        console.error("Clear all votes failed:", e);
-        toast({
-            variant: "destructive",
-            title: "Uh oh! Something went wrong.",
-            description: "Could not clear all your votes. Please try again.",
+    }).catch(e => {
+        // Since this is a batch delete, we don't have a single path.
+        // We can provide a more generic path or context for the error.
+        const permissionError = new FirestorePermissionError({
+            path: `users/${user.uid}/votes`, // A representative path
+            operation: 'delete',
         });
-    }
+        errorEmitter.emit('permission-error', permissionError);
+    });
 };
 
 
