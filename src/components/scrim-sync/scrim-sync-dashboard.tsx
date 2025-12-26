@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { format, addDays, startOfWeek, endOfWeek, isSameDay, parseISO } from 'date-fns';
-import { Send, ChevronLeft, ChevronRight, ClipboardCopy } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import type { User } from 'firebase/auth';
 import { collection, doc, writeBatch } from 'firebase/firestore';
 
@@ -18,18 +18,6 @@ import { PlayerProfile } from './player-profile';
 import { ScheduleForm } from './schedule-form';
 import { IndividualVotingGrid } from './individual-voting-grid';
 import { ScheduledEvents } from './scheduled-events';
-import { 
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogDescription,
-    DialogFooter,
-    DialogTrigger,
-} from '@/components/ui/dialog';
-import { Checkbox } from '../ui/checkbox';
-import { Label } from '../ui/label';
-import { Textarea } from '../ui/textarea';
 import { useCollection, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import { addDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Skeleton } from '../ui/skeleton';
@@ -45,9 +33,6 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
 
   const [currentDate, setCurrentDate] = React.useState(() => new Date());
   
-  const [postDialogOpen, setPostDialogOpen] = React.useState(false);
-  const [generatedPost, setGeneratedPost] = React.useState<string | null>(null);
-  const [selectedDaysForPost, setSelectedDaysForPost] = React.useState<Date[]>([]);
   const [isSavingProfile, setIsSavingProfile] = React.useState(false);
 
   // Firestore References
@@ -228,7 +213,7 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
         toast({
             variant: "destructive",
             title: "Uh oh! Something went wrong.",
-            description: "Could not save all your votes. Please try again.",
+            description: "Could not save all your votes. Please. Please try again.",
         });
     }
   };
@@ -260,81 +245,6 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
     });
   };
 
-  const handleGeneratePost = () => {
-    if (selectedDaysForPost.length === 0) {
-      toast({
-        variant: 'destructive',
-        title: 'No days selected',
-        description: 'Please select at least one day to generate a report.',
-      });
-      return;
-    }
-  
-    let post = `**Team Availability Report**\n\n`;
-  
-    selectedDaysForPost.forEach(day => {
-      const dayKey = format(day, 'yyyy-MM-dd');
-      post += `**${format(day, 'EEEE, d MMM')}**\n`;
-  
-      const dayEvents = scheduledEvents?.filter(event => isSameDay(event.date, day))
-                                     .sort((a, b) => a.time.localeCompare(b.time));
-  
-      if (dayEvents && dayEvents.length > 0) {
-        post += '***Scheduled Events:***\n';
-        dayEvents.forEach(event => {
-          post += `- ${event.type} at ${event.time}\n`;
-        });
-        post += '\n';
-      }
-  
-      const popularSlots = timeSlots
-        .map(slot => {
-          const voteKey = `${dayKey}-${slot}`;
-          const players = allVotes[voteKey] || [];
-          return { slot, count: players.length, players };
-        })
-        .filter(item => item.count > 0)
-        .sort((a, b) => b.count - a.count);
-  
-      if (popularSlots.length > 0) {
-        post += '***Availability:***\n';
-        popularSlots.forEach(({ slot, count, players }) => {
-          post += `- **${slot}**: ${count} players (${players.join(', ')})\n`;
-        });
-      } else {
-        post += '_No availability submitted for this day._\n';
-      }
-  
-      post += '\n';
-    });
-  
-    setGeneratedPost(post);
-  };
-  
-  const handleDaySelectForPost = (day: Date, checked: boolean) => {
-    setSelectedDaysForPost(prev => {
-        const newSelection = checked ? [...prev, day] : prev.filter(d => !isSameDay(d, day));
-        return newSelection.sort((a,b) => a.getTime() - b.getTime());
-    })
-  }
-
-  const closePostDialog = () => {
-    setPostDialogOpen(false);
-    setTimeout(() => {
-        setGeneratedPost(null);
-        setSelectedDaysForPost([]);
-    }, 300);
-  }
-
-  const copyToClipboard = () => {
-    if (generatedPost) {
-        navigator.clipboard.writeText(generatedPost);
-        toast({
-            title: 'Copied to clipboard!',
-        });
-    }
-  }
-
   const goToPreviousWeek = () => {
     setCurrentDate(prev => addDays(prev, -7));
   };
@@ -343,8 +253,6 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
     setCurrentDate(prev => addDays(prev, 7));
   };
   
-  const weekDates = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
-
   const allPlayerNames = React.useMemo(() => {
       if (!allProfiles) return [];
       return allProfiles.map(p => p.username).filter(Boolean);
@@ -414,69 +322,6 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
                 )}
               </TabsContent>
               <TabsContent value="heatmap" className="space-y-4">
-                <div className="flex justify-end">
-                    <Dialog open={postDialogOpen} onOpenChange={(isOpen) => !isOpen && closePostDialog()}>
-                        <DialogTrigger asChild>
-                        <Button>
-                            <Send className="mr-2 h-4 w-4" />
-                            Send to Discord
-                        </Button>
-                        </DialogTrigger>
-                        <DialogContent className="sm:max-w-[600px]">
-                            {generatedPost ? (
-                                <>
-                                    <DialogHeader>
-                                        <DialogTitle>Post to Discord</DialogTitle>
-                                        <DialogDescription>
-                                            Copy the message below and paste it in your Discord server.
-                                        </DialogDescription>
-                                    </DialogHeader>
-                                    <Textarea
-                                        readOnly
-                                        value={generatedPost}
-                                        className="min-h-[250px] text-sm bg-muted/50"
-                                    />
-                                    <DialogFooter>
-                                        <Button variant="outline" onClick={() => setGeneratedPost(null)}>Back</Button>
-                                        <Button onClick={copyToClipboard}>
-                                            <ClipboardCopy className="mr-2 h-4 w-4" />
-                                            Copy
-                                        </Button>
-                                    </DialogFooter>
-                                </>
-                            ) : (
-                                <>
-                                    <DialogHeader>
-                                        <DialogTitle>Create Discord Post</DialogTitle>
-                                        <DialogDescription>
-                                            Select the days you want to include in the availability report.
-                                        </DialogDescription>
-                                    </DialogHeader>
-                                    <div className='grid grid-cols-2 lg:grid-cols-3 gap-4 py-4'>
-                                        {weekDates.map(day => (
-                                            <div key={day.toISOString()} className='flex items-center space-x-2'>
-                                                <Checkbox
-                                                    id={format(day, 'yyyy-MM-dd')}
-                                                    onCheckedChange={(checked) => handleDaySelectForPost(day, checked as boolean)}
-                                                    checked={selectedDaysForPost.some(d => isSameDay(d, day))}
-                                                />
-                                                <Label htmlFor={format(day, 'yyyy-MM-dd')} className='text-sm font-medium leading-none cursor-pointer'>
-                                                    {format(day, 'EEEE, d MMM')}
-                                                </Label>
-                                            </div>
-                                        ))}
-                                    </div>
-                                    <DialogFooter>
-                                    <Button variant="outline" onClick={closePostDialog}>Cancel</Button>
-                                    <Button onClick={handleGeneratePost} disabled={selectedDaysForPost.length === 0}>
-                                        Generate Post
-                                    </Button>
-                                    </DialogFooter>
-                                </>
-                            )}
-                        </DialogContent>
-                    </Dialog>
-                </div>
                 {isLoading ? (
                   <Card>
                     <CardHeader>
