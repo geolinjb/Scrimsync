@@ -1,8 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import { format } from 'date-fns';
-import { Send } from 'lucide-react';
+import { format, addDays, startOfWeek, endOfWeek } from 'date-fns';
+import { Send, ChevronLeft, ChevronRight } from 'lucide-react';
 
 import { postToDiscordAction } from '@/app/actions';
 import type { PlayerProfileData, ScheduleEvent, UserVotes } from '@/lib/types';
@@ -19,6 +19,7 @@ import { IndividualVotingGrid } from './individual-voting-grid';
 
 export function ScrimSyncDashboard() {
   const { toast } = useToast();
+  const [currentDate, setCurrentDate] = React.useState(new Date());
 
   const [profile, setProfile] = React.useState<PlayerProfileData>({
     username: 'Player1',
@@ -27,15 +28,7 @@ export function ScrimSyncDashboard() {
   });
 
   const [votes, setVotes] = React.useState<Record<string, number>>({});
-
-  const [userVotes, setUserVotes] = React.useState<UserVotes>(() => {
-    const initialVotes: UserVotes = {};
-    daysOfWeek.forEach(day => {
-      initialVotes[day] = new Set();
-    });
-    initialVotes['Sunday'] = new Set(['7:30 PM', '8:00 PM']);
-    return initialVotes;
-  });
+  const [userVotes, setUserVotes] = React.useState<UserVotes>({});
 
   const [scheduledEvents, setScheduledEvents] = React.useState<ScheduleEvent[]>([
     {
@@ -51,34 +44,44 @@ export function ScrimSyncDashboard() {
         time: '8:30 PM'
     }
   ]);
-
+  
   React.useEffect(() => {
     const initialVotes: Record<string, number> = {};
-    daysOfWeek.forEach(day => {
-      timeSlots.forEach(slot => {
-        const key = `${day}-${slot}`;
-        initialVotes[key] = Math.floor(Math.random() * 10);
-      });
-    });
+    const weekStart = startOfWeek(currentDate);
+    for (let i = 0; i < 7; i++) {
+        const day = addDays(weekStart, i);
+        const dayKey = format(day, 'yyyy-MM-dd');
+        timeSlots.forEach(slot => {
+            const key = `${dayKey}-${slot}`;
+            initialVotes[key] = Math.floor(Math.random() * 10);
+        });
+    }
 
-    // Recalculate based on initial user votes for Sunday
-    userVotes['Sunday'].forEach(slot => {
-        const key = `Sunday-${slot}`;
-        initialVotes[key] = (initialVotes[key] || 0) + 1;
+    Object.keys(userVotes).forEach(dateKey => {
+        if(userVotes[dateKey]) {
+            userVotes[dateKey].forEach(slot => {
+                const key = `${dateKey}-${slot}`;
+                if (initialVotes[key] !== undefined) {
+                  initialVotes[key]++;
+                }
+            });
+        }
     });
 
     setVotes(initialVotes);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [currentDate, userVotes]);
 
-  const handleVote = (day: string, timeSlot: string) => {
-    const newUserVotes = { ...userVotes };
-    if (!newUserVotes[day]) {
-      newUserVotes[day] = new Set();
+
+  const handleVote = (date: Date, timeSlot: string) => {
+    const dateKey = format(date, 'yyyy-MM-dd');
+    const newUserVotes: UserVotes = { ...userVotes };
+    if (!newUserVotes[dateKey]) {
+      newUserVotes[dateKey] = new Set();
     }
 
-    const dayVotes = newUserVotes[day];
-    const voteKey = `${day}-${timeSlot}`;
+    const dayVotes = newUserVotes[dateKey];
+    const voteKey = `${dateKey}-${timeSlot}`;
     const newAggregateVotes = { ...votes };
 
     if (dayVotes.has(timeSlot)) {
@@ -130,6 +133,16 @@ export function ScrimSyncDashboard() {
     }
   };
 
+  const goToPreviousWeek = () => {
+    setCurrentDate(prev => addDays(prev, -7));
+  };
+
+  const goToNextWeek = () => {
+    setCurrentDate(prev => addDays(prev, 7));
+  };
+  
+  const weekStart = startOfWeek(currentDate);
+  const weekEnd = endOfWeek(currentDate);
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
@@ -142,23 +155,39 @@ export function ScrimSyncDashboard() {
           </div>
           <div className="md:col-span-2 lg:col-span-3 space-y-6">
             <Tabs defaultValue="individual">
-              <div className="flex justify-between items-center mb-4">
+              <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
                 <TabsList>
                   <TabsTrigger value="individual">Individual Voting</TabsTrigger>
                   <TabsTrigger value="heatmap">Heatmap</TabsTrigger>
                 </TabsList>
+                <div className='flex items-center gap-2'>
+                    <Button variant="outline" size="icon" onClick={goToPreviousWeek}>
+                        <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <div className="text-sm font-medium text-center">
+                        {format(weekStart, 'MMM d')} - {format(weekEnd, 'MMM d, yyyy')}
+                    </div>
+                    <Button variant="outline" size="icon" onClick={goToNextWeek}>
+                        <ChevronRight className="h-4 w-4" />
+                    </Button>
+                </div>
                 <Button onClick={handlePostToDiscord}>
                   <Send className="mr-2 h-4 w-4" />
                   Post Results to Discord
                 </Button>
               </div>
               <TabsContent value="individual">
-                <IndividualVotingGrid userVotes={userVotes} onVote={handleVote} />
+                <IndividualVotingGrid 
+                    userVotes={userVotes} 
+                    onVote={handleVote} 
+                    currentDate={currentDate}
+                />
               </TabsContent>
               <TabsContent value="heatmap">
                 <HeatmapGrid
                   votes={votes}
                   scheduledEvents={scheduledEvents}
+                  currentDate={currentDate}
                 />
               </TabsContent>
             </Tabs>

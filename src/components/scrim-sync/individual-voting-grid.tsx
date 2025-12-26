@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { motion } from 'framer-motion';
 import { Check, Vote } from 'lucide-react';
+import { format, startOfWeek, addDays } from 'date-fns';
 
 import type { UserVotes } from '@/lib/types';
 import { timeSlots, daysOfWeek } from '@/lib/types';
@@ -26,13 +27,20 @@ import {
 
 type IndividualVotingGridProps = {
   userVotes: UserVotes;
-  onVote: (day: string, timeSlot: string) => void;
+  onVote: (date: Date, timeSlot: string) => void;
+  currentDate: Date;
 };
 
 export function IndividualVotingGrid({
   userVotes,
   onVote,
+  currentDate,
 }: IndividualVotingGridProps) {
+  const weekDates = React.useMemo(() => {
+    const start = startOfWeek(currentDate);
+    return Array.from({ length: 7 }, (_, i) => addDays(start, i));
+  }, [currentDate]);
+
   return (
     <Card className="flex-1">
       <CardHeader>
@@ -50,8 +58,11 @@ export function IndividualVotingGrid({
                 <TableHeader>
                     <TableRow>
                         <TableHead className="w-[100px] font-bold sticky left-0 bg-card z-20">Time</TableHead>
-                        {daysOfWeek.map(day => (
-                            <TableHead key={day} className="text-center font-bold">{day}</TableHead>
+                        {weekDates.map(date => (
+                            <TableHead key={date.toISOString()} className="text-center font-bold">
+                              <div>{format(date, 'EEE')}</div>
+                              <div>{format(date, 'M/d')}</div>
+                            </TableHead>
                         ))}
                     </TableRow>
                 </TableHeader>
@@ -59,12 +70,13 @@ export function IndividualVotingGrid({
                     {timeSlots.map(slot => (
                         <TableRow key={slot}>
                             <TableCell className="font-medium sticky left-0 bg-card z-10">{slot}</TableCell>
-                            {daysOfWeek.map(day => {
-                                const isVoted = userVotes[day]?.has(slot);
+                            {weekDates.map(date => {
+                                const dateKey = format(date, 'yyyy-MM-dd');
+                                const isVoted = userVotes[dateKey]?.has(slot);
                                 return (
-                                    <TableCell key={day} className="text-center p-0">
+                                    <TableCell key={date.toISOString()} className="text-center p-0">
                                          <motion.div
-                                            onClick={() => onVote(day, slot)}
+                                            onClick={() => onVote(date, slot)}
                                             className={cn(
                                                 'h-12 w-full cursor-pointer flex justify-center items-center transition-colors border-l border-t',
                                                 isVoted ? 'bg-primary/20 hover:bg-primary/30' : 'hover:bg-accent'

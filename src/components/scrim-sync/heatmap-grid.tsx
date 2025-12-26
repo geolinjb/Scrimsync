@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { motion } from 'framer-motion';
 import { Swords, Trophy, Vote } from 'lucide-react';
+import { format, startOfWeek, addDays, isSameDay } from 'date-fns';
 
 import type { ScheduleEvent } from '@/lib/types';
 import { timeSlots, daysOfWeek } from '@/lib/types';
@@ -32,27 +33,35 @@ import {
 type HeatmapGridProps = {
   votes: Record<string, number>;
   scheduledEvents: ScheduleEvent[];
+  currentDate: Date;
 };
 
 export function HeatmapGrid({
   votes,
   scheduledEvents,
+  currentDate,
 }: HeatmapGridProps) {
+  const weekDates = React.useMemo(() => {
+    const start = startOfWeek(currentDate);
+    return Array.from({ length: 7 }, (_, i) => addDays(start, i));
+  }, [currentDate]);
+
   const maxVotes = React.useMemo(() => {
-    const voteCounts = daysOfWeek.flatMap(day => timeSlots.map(slot => votes[`${day}-${slot}`] || 0));
+    const voteCounts = weekDates.flatMap(date => {
+        const dateKey = format(date, 'yyyy-MM-dd');
+        return timeSlots.map(slot => votes[`${dateKey}-${slot}`] || 0)
+    });
     return Math.max(...voteCounts, 1);
-  }, [votes]);
+  }, [votes, weekDates]);
 
   const getHeatmapOpacity = (voteCount: number) => {
     if (voteCount === 0) return 0;
     return Math.max(0.1, voteCount / maxVotes);
   };
   
-  const getEventForSlot = (day: string, slot: string) => {
+  const getEventForSlot = (day: Date, slot: string) => {
     return scheduledEvents.find(event => {
-      const eventDate = new Date(event.date);
-      const dayName = daysOfWeek[eventDate.getDay()];
-      return dayName === day && event.time === slot;
+      return isSameDay(event.date, day) && event.time === slot;
     });
   };
 
@@ -76,8 +85,11 @@ export function HeatmapGrid({
                     <TableHeader>
                         <TableRow>
                             <TableHead className="w-[100px] sticky left-0 bg-card z-20">Time</TableHead>
-                            {daysOfWeek.map(day => (
-                                <TableHead key={day} className="text-center">{day}</TableHead>
+                            {weekDates.map(date => (
+                                <TableHead key={date.toISOString()} className="text-center">
+                                  <div>{format(date, 'EEE')}</div>
+                                  <div>{format(date, 'M/d')}</div>
+                                </TableHead>
                             ))}
                         </TableRow>
                     </TableHeader>
@@ -85,12 +97,13 @@ export function HeatmapGrid({
                         {timeSlots.map(slot => (
                             <TableRow key={slot}>
                                 <TableCell className="font-medium sticky left-0 bg-card z-10">{slot}</TableCell>
-                                {daysOfWeek.map(day => {
-                                    const voteKey = `${day}-${slot}`;
+                                {weekDates.map(date => {
+                                    const dateKey = format(date, 'yyyy-MM-dd');
+                                    const voteKey = `${dateKey}-${slot}`;
                                     const voteCount = votes[voteKey] || 0;
-                                    const event = getEventForSlot(day, slot);
+                                    const event = getEventForSlot(date, slot);
                                     return (
-                                        <TableCell key={day} className="text-center p-0">
+                                        <TableCell key={date.toISOString()} className="text-center p-0">
                                             <Tooltip>
                                                 <TooltipTrigger asChild>
                                                     <div
@@ -122,7 +135,7 @@ export function HeatmapGrid({
                                                     </div>
                                                 </TooltipTrigger>
                                                 <TooltipContent>
-                                                    <p>{day} at {slot}</p>
+                                                    <p>{format(date, 'EEEE, MMM d')} at {slot}</p>
                                                     <p>{voteCount} players available</p>
                                                     {event && (
                                                     <p className="mt-1 font-bold">

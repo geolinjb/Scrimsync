@@ -23,5 +23,5 @@ export const daysOfWeek = [
 ] as const;
 
 export type UserVotes = {
-  [key: string]: Set<string>;
+  [dateKey: string]: Set<string>; // Key is 'yyyy-MM-dd'
 };
