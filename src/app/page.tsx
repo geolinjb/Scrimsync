@@ -39,7 +39,7 @@ export default function Home() {
       <div className="flex flex-col items-center justify-center min-h-screen bg-background text-center p-4">
           <h1 className="text-4xl font-bold tracking-tight text-foreground font-headline mb-4">Welcome to ScrimSync</h1>
           <p className="text-xl text-muted-foreground mb-8 max-w-2xl">The easiest way to coordinate your team's practice schedules and availability.</p>
-          <Button onClick={handleLogin} size="lg">
+          <Button onClick={handleLogin} size="lg" disabled={!auth}>
             <Chrome className="mr-2 h-5 w-5" />
             Sign in with Google
           </Button>
