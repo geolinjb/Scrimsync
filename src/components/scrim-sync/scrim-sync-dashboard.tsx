@@ -24,13 +24,7 @@ export function ScrimSyncDashboard() {
     role: 'Medium Tank',
   });
 
-  const [votes, setVotes] = React.useState<Record<string, number>>(() => {
-    const initialVotes: Record<string, number> = {};
-    timeSlots.forEach(slot => {
-        initialVotes[slot] = Math.floor(Math.random() * 10);
-    });
-    return initialVotes;
-  });
+  const [votes, setVotes] = React.useState<Record<string, number>>({});
 
   const [userVotes, setUserVotes] = React.useState<Set<string>>(() => new Set(['7:30 PM', '8:00 PM']));
 
@@ -48,6 +42,14 @@ export function ScrimSyncDashboard() {
         time: '8:30 PM'
     }
   ]);
+
+  React.useEffect(() => {
+    const initialVotes: Record<string, number> = {};
+    timeSlots.forEach(slot => {
+        initialVotes[slot] = Math.floor(Math.random() * 10);
+    });
+    setVotes(initialVotes);
+  }, []);
   
   const handleVote = (timeSlot: string) => {
     const newVotes = { ...votes };
