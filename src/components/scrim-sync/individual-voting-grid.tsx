@@ -70,7 +70,7 @@ export function IndividualVotingGrid({
         <TooltipProvider>
         <div className="border rounded-lg overflow-auto max-h-[60vh]">
             <Table>
-                <TableHeader>
+                <TableHeader className="sticky top-0 z-20 bg-card">
                     <TableRow>
                         <TableHead className="w-[100px] font-bold sticky left-0 bg-card z-20">Time</TableHead>
                         {weekDates.map(date => {
@@ -79,7 +79,7 @@ export function IndividualVotingGrid({
 
                             return (
                                 <TableHead key={date.toISOString()} className="text-center font-bold">
-                                  <div className='flex flex-col items-center gap-1'>
+                                  <div className='flex flex-col items-center gap-1 min-w-[6rem]'>
                                       <span>{format(date, 'EEE')}</span>
                                       <span>{format(date, 'd/M')}</span>
                                       <Tooltip>

@@ -112,12 +112,12 @@ export function HeatmapGrid({
         <TooltipProvider>
             <div className="border rounded-lg overflow-auto max-h-[60vh]">
                 <Table>
-                    <TableHeader>
+                    <TableHeader className="sticky top-0 z-20 bg-card">
                         <TableRow>
                             <TableHead className="w-[100px] sticky left-0 bg-card z-20">Time</TableHead>
                             {weekDates.map(date => (
                                 <TableHead key={date.toISOString()} className="text-center">
-                                  <div>{format(date, 'EEE')}</div>
+                                  <div className='min-w-[6rem]'>{format(date, 'EEE')}</div>
                                   <div>{format(date, 'd/M')}</div>
                                 </TableHead>
                             ))}
