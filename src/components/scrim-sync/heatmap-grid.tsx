@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Swords, Trophy, Vote, Users } from 'lucide-react';
+import { Swords, Trophy, Vote, Users, Copy } from 'lucide-react';
 import { format, startOfWeek, addDays, isSameDay } from 'date-fns';
 
 import type { ScheduleEvent, AllVotes } from '@/lib/types';
@@ -34,8 +34,11 @@ import {
     DialogHeader,
     DialogTitle,
     DialogDescription,
+    DialogFooter,
 } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
+import { Button } from '../ui/button';
+import { useToast } from '@/hooks/use-toast';
 
 type HeatmapGridProps = {
   allVotes: AllVotes;
@@ -66,6 +69,7 @@ export function HeatmapGrid({
   allPlayerNames
 }: HeatmapGridProps) {
   const [selectedSlot, setSelectedSlot] = React.useState<SelectedSlot>(null);
+  const { toast } = useToast();
 
   const weekDates = React.useMemo(() => {
     const start = startOfWeek(currentDate, { weekStartsOn: 1 });
@@ -94,6 +98,29 @@ export function HeatmapGrid({
 
   const handleSlotClick = (date: Date, slot: string, players: string[]) => {
     setSelectedSlot({date, slot, players});
+  };
+
+  const handleCopyList = () => {
+    if (!selectedSlot) return;
+
+    const { date, slot, players } = selectedSlot;
+    const header = `Available for ${format(date, 'EEEE, d MMM')} at ${slot}:`;
+    const playerList = players.map(p => `- ${p}`).join('\n');
+    const fullText = `${header}\n${players.length > 0 ? playerList : 'No players available.'}`;
+    
+    navigator.clipboard.writeText(fullText).then(() => {
+        toast({
+            title: 'Copied to Clipboard',
+            description: 'The list of available players has been copied.',
+        });
+    }, (err) => {
+        console.error('Could not copy text: ', err);
+        toast({
+            variant: 'destructive',
+            title: 'Copy Failed',
+            description: 'Could not copy the list to your clipboard.',
+        });
+    });
   };
 
   return (
@@ -209,6 +236,12 @@ export function HeatmapGrid({
                         </div>
                     )}
                 </div>
+                <DialogFooter>
+                    <Button onClick={handleCopyList} disabled={!selectedSlot || selectedSlot.players.length === 0}>
+                        <Copy className='w-4 h-4 mr-2' />
+                        Copy List
+                    </Button>
+                </DialogFooter>
             </DialogContent>
         </Dialog>
       </CardContent>
