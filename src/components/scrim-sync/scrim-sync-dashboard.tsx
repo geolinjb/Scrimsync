@@ -62,9 +62,7 @@ export function ScrimSyncDashboard() {
   
   const [postDialogOpen, setPostDialogOpen] = React.useState(false);
   const [generatedPost, setGeneratedPost] = React.useState<string | null>(null);
-  const [isGeneratingPost, setIsGeneratingPost] = React.useState(false);
   const [selectedDaysForPost, setSelectedDaysForPost] = React.useState<Date[]>([]);
-  const [webhookUrl, setWebhookUrl] = React.useState('');
 
 
   React.useEffect(() => {
@@ -280,7 +278,7 @@ export function ScrimSyncDashboard() {
       const daySlots = Object.entries(allVotes).filter(([key]) => key.startsWith(dayKey));
       
       const popularSlots = daySlots
-        .map(([key, players]) => ({ slot: key.split('-')[3], count: players.length, players }))
+        .map(([key, players]) => ({ slot: key.split('-')[2] + ':' + key.split('-')[3], count: players.length, players }))
         .filter(item => item.count > 0)
         .sort((a, b) => b.count - a.count);
 
@@ -299,28 +297,6 @@ export function ScrimSyncDashboard() {
     setGeneratedPost(post);
   };
   
-  const handleSendPost = async () => {
-    if (!generatedPost) return;
-    setIsGeneratingPost(true);
-    
-    const result = await postToDiscordWebhook(webhookUrl, generatedPost);
-
-    if (result.success) {
-      toast({
-        title: 'Success!',
-        description: result.message,
-      });
-      closePostDialog();
-    } else {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: result.message,
-      });
-    }
-    setIsGeneratingPost(false);
-  };
-
   const handleDaySelectForPost = (day: Date, checked: boolean) => {
     setSelectedDaysForPost(prev => {
         const newSelection = checked ? [...prev, day] : prev.filter(d => !isSameDay(d, day));
@@ -422,9 +398,9 @@ export function ScrimSyncDashboard() {
               </TabsContent>
               <TabsContent value="heatmap" className="space-y-4">
                 <div className="flex justify-end">
-                    <Dialog open={postDialogOpen} onOpenChange={closePostDialog}>
+                    <Dialog open={postDialogOpen} onOpenChange={setPostDialogOpen}>
                         <DialogTrigger asChild>
-                        <Button onClick={() => setPostDialogOpen(true)}>
+                        <Button>
                             <Send className="mr-2 h-4 w-4" />
                             Send to Discord
                         </Button>
@@ -435,7 +411,7 @@ export function ScrimSyncDashboard() {
                                     <DialogHeader>
                                         <DialogTitle>Post to Discord</DialogTitle>
                                         <DialogDescription>
-                                            Copy the message below or enter your webhook URL to post directly to Discord.
+                                            Copy the message below and paste it in your Discord server.
                                         </DialogDescription>
                                     </DialogHeader>
                                     <Textarea
@@ -443,29 +419,13 @@ export function ScrimSyncDashboard() {
                                         value={generatedPost}
                                         className="min-h-[250px] text-sm bg-muted/50"
                                     />
-                                    <div className="space-y-2">
-                                    <Label htmlFor="webhook-url">Discord Webhook URL</Label>
-                                    <Input 
-                                        id="webhook-url"
-                                        placeholder="https://discord.com/api/webhooks/..."
-                                        value={webhookUrl}
-                                        onChange={(e) => setWebhookUrl(e.target.value)}
-                                    />
-                                    </div>
                                     <DialogFooter>
                                         <Button variant="outline" onClick={() => setGeneratedPost(null)}>Back</Button>
                                         <Button onClick={copyToClipboard} variant="secondary">
                                             <ClipboardCopy className="mr-2 h-4 w-4" />
                                             Copy
                                         </Button>
-                                        <Button onClick={handleSendPost} disabled={isGeneratingPost || !webhookUrl}>
-                                        {isGeneratingPost ? 'Sending...' : (
-                                            <>
-                                            <Send className="mr-2 h-4 w-4" />
-                                            Send to Discord
-                                            </>
-                                        )}
-                                    </Button>
+                                        <Button onClick={closePostDialog}>Done</Button>
                                     </DialogFooter>
                                 </>
                             ) : (
