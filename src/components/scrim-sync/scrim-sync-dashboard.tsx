@@ -167,7 +167,7 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
 
     batch.commit().catch(e => {
         const permissionError = new FirestorePermissionError({
-            path: `users/${user.uid}/votes`,
+            path: `votes`,
             operation: 'write',
         });
         errorEmitter.emit('permission-error', permissionError);
@@ -207,7 +207,7 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
     
     batch.commit().catch(e => {
         const permissionError = new FirestorePermissionError({
-            path: `users/${user.uid}/votes`,
+            path: `votes`,
             operation: 'write',
         });
         errorEmitter.emit('permission-error', permissionError);
@@ -248,7 +248,7 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
         });
     }).catch(e => {
         const permissionError = new FirestorePermissionError({
-            path: `users/${user.uid}/votes`,
+            path: `votes`,
             operation: 'delete',
         });
         errorEmitter.emit('permission-error', permissionError);
