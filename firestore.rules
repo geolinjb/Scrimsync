@@ -1,0 +1,105 @@
+/**
+ * Core Philosophy:
+ * This ruleset enforces a strict user-ownership model. All data created by a user,
+ * including their profile and votes, is private and can only be accessed or modified
+ * by that user. This prevents users from viewing or tampering with each other's data.
+ *
+ * Data Structure:
+ * The data is organized into a user-centric hierarchy and a top-level collection:
+ * - /users/{userId}: A document containing the user's public profile.
+ * - /users/{userId}/votes/{voteId}: A subcollection for a user's private votes.
+ * - /scheduledEvents/{eventId}: A top-level collection for events, which are
+ *   publicly readable by any authenticated user.
+ *
+ * Key Security Decisions:
+ * - User Enumeration Disabled: Listing documents in the top-level `/users`
+ *   collection is explicitly forbidden to protect user privacy.
+ * - Private User Subcollections: All subcollections under `/users/{userId}`
+ *   are only accessible to the authenticated owner specified by `{userId}`.
+ * - Public Read-Only Events: The `/scheduledEvents` collection is readable by any
+ *   signed-in user. Write access is currently disabled because the data model
+ *   lacks an ownership field (e.g., 'creatorId'). This is a secure default
+ *   that prevents unauthorized event creation or modification until the schema
+ *   is updated.
+ *
+ * Denormalization for Authorization:
+ * This ruleset primarily uses path-based authorization by nesting user-specific
+ * data under `/users/{userId}`. This avoids the need for costly `get()` calls in rules.
+ * For relational integrity, documents like `UserProfile` and `Vote` must contain
+ * a user ID field that is validated against the path on creation and made immutable
+ * on update.
+ *
+ * Structural Segregation:
+ * Private user data (profiles, votes) is segregated into the `/users` collection,
+ * while shared data (scheduled events) is in a separate top-level collection.
+ * This separation allows for clean, simple, and performant security rules tailored
+ * to each data type's access requirements.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions for reusable logic
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Checks if the requesting user's UID matches the document's owner ID
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+    
+    // Checks for ownership on an existing document. Used for update/delete.
+    function isExistingOwner(userId) {
+      return isOwner(userId) && resource != null;
+    }
+
+    /**
+     * @description Secures a user's profile document. Only the owner can read or write their own profile.
+     * @path /users/{userId}
+     * @allow A user (auth.uid: 'user123') can (create) their own profile at `/users/user123`.
+     * @deny An anonymous user cannot (get) any user's profile. A user ('user456') cannot (update) another user's profile ('user123').
+     * @principle Restricts access to a user's own data tree and prevents user enumeration.
+     */
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isExistingOwner(userId);
+
+      /**
+       * @description Secures a user's votes. Only the owner can create, view, or manage their own votes.
+       * @path /users/{userId}/votes/{voteId}
+       * @allow A user (auth.uid: 'user123') can (list) all votes under `/users/user123/votes`.
+       * @deny A user ('user456') cannot (get) a vote from `/users/user123/votes/vote_abc`.
+       * @principle Enforces strict ownership on a user's private subcollection data.
+       */
+      match /votes/{voteId} {
+        allow get: if isOwner(userId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) && request.resource.data.userId == userId;
+        allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
+        allow delete: if isExistingOwner(userId);
+      }
+    }
+
+    /**
+     * @description Manages scheduled events. Allows any authenticated user to read events.
+     * Writes are currently disabled pending schema updates.
+     * @path /scheduledEvents/{eventId}
+     * @allow Any signed-in user can (get) or (list) all scheduled events.
+     * @deny Anonymous users cannot read events. No user can currently (create) an event.
+     * @principle Provides public read access for authenticated users while defaulting to secure (denied) writes.
+     */
+    match /scheduledEvents/{eventId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      // CRITICAL: Cannot implement owner-only writes. The 'ScheduledEvent' entity is missing an 'ownerId' or 'creatorId' field.
+      // To enable writes, add an ownership field to the document and update the rules below.
+      allow create: if false; // TODO: Add owner validation once the schema is updated with an ownership field (e.g., request.resource.data.creatorId == request.auth.uid).
+      allow update: if false; // TODO: Add owner validation (e.g., isOwner(resource.data.creatorId)).
+      allow delete: if false; // TODO: Add owner validation (e.g., isOwner(resource.data.creatorId)).
+    }
+  }
+}
