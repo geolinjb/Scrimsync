@@ -44,7 +44,9 @@ import { Textarea } from '../ui/textarea';
 
 export function ScrimSyncDashboard() {
   const { toast } = useToast();
-  const [currentDate, setCurrentDate] = React.useState(new Date());
+  const [currentDate, setCurrentDate] = React.useState(() => new Date());
+  const [isClient, setIsClient] = React.useState(false);
+
 
   const [profile, setProfile] = React.useState<PlayerProfileData>({
     username: 'Player1',
@@ -55,20 +57,7 @@ export function ScrimSyncDashboard() {
   const [allVotes, setAllVotes] = React.useState<AllVotes>({});
   const [userVotes, setUserVotes] = React.useState<UserVotes>({});
 
-  const [scheduledEvents, setScheduledEvents] = React.useState<ScheduleEvent[]>([
-    {
-      id: '1',
-      type: 'Training',
-      date: new Date(),
-      time: '6:30 PM',
-    },
-    {
-        id: '2',
-        type: 'Tournament',
-        date: new Date(),
-        time: '8:30 PM'
-    }
-  ]);
+  const [scheduledEvents, setScheduledEvents] = React.useState<ScheduleEvent[]>([]);
   
   const [postDialogOpen, setPostDialogOpen] = React.useState(false);
   const [generatedPost, setGeneratedPost] = React.useState<string | null>(null);
@@ -77,6 +66,23 @@ export function ScrimSyncDashboard() {
 
 
   React.useEffect(() => {
+    setIsClient(true);
+    
+    setScheduledEvents([
+        {
+          id: '1',
+          type: 'Training',
+          date: new Date(),
+          time: '6:30 PM',
+        },
+        {
+            id: '2',
+            type: 'Tournament',
+            date: new Date(),
+            time: '8:30 PM'
+        }
+    ]);
+
     const generateRandomData = () => {
         const initialVotes: AllVotes = {};
         const weekStart = startOfWeek(currentDate);
@@ -113,6 +119,9 @@ export function ScrimSyncDashboard() {
     
   }, [currentDate, userVotes, profile.username]);
 
+  if (!isClient) {
+    return null;
+  }
 
   const handleVote = (date: Date, timeSlot: string) => {
     const dateKey = format(date, 'yyyy-MM-dd');
