@@ -218,6 +218,49 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
     }
   };
 
+  const handleClearAllVotes = async () => {
+    if (!firestore) return;
+    const batch = writeBatch(firestore);
+    let votesToDelete = 0;
+
+    for (let i = 0; i < 7; i++) {
+        const date = addDays(weekStart, i);
+        const dateKey = format(date, 'yyyy-MM-dd');
+        const dayVotes = userVotes[dateKey];
+        if (dayVotes) {
+            dayVotes.forEach(slot => {
+                const timeslotId = `${dateKey}_${slot}`;
+                const voteId = `${user.uid}_${timeslotId}`;
+                const voteRef = doc(firestore, 'votes', voteId);
+                batch.delete(voteRef);
+                votesToDelete++;
+            });
+        }
+    }
+
+    if (votesToDelete === 0) {
+        toast({
+            description: "You have no votes to clear for this week.",
+        });
+        return;
+    }
+
+    try {
+        await batch.commit();
+        toast({
+            title: "Votes Cleared",
+            description: "All your votes for this week have been removed.",
+        });
+    } catch (e: any) {
+        console.error("Clear all votes failed:", e);
+        toast({
+            variant: "destructive",
+            title: "Uh oh! Something went wrong.",
+            description: "Could not clear all your votes. Please try again.",
+        });
+    }
+};
+
 
   const handleAddEvent = (data: { type: 'Training' | 'Tournament'; date: Date; time: string }) => {
     if (!firestore) return;
@@ -316,6 +359,7 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
                       onVote={handleVote}
                       onVoteAllDay={handleVoteAllDay}
                       onVoteAllTime={handleVoteAllTime}
+                      onClearAllVotes={handleClearAllVotes}
                       currentDate={currentDate}
                       scheduledEvents={scheduledEvents}
                   />

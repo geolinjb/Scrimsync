@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { motion } from 'framer-motion';
-import { Check, Vote, CheckCircle, Circle, Swords, Trophy } from 'lucide-react';
+import { Check, Vote, CheckCircle, Circle, Swords, Trophy, Trash2 } from 'lucide-react';
 import { format, startOfWeek, addDays, isSameDay } from 'date-fns';
 
 import type { UserVotes, ScheduleEvent } from '@/lib/types';
@@ -32,6 +32,7 @@ type IndividualVotingGridProps = {
   onVote: (date: Date, timeSlot: string) => void;
   onVoteAllDay: (date: Date) => void;
   onVoteAllTime: (timeSlot: string) => void;
+  onClearAllVotes: () => void;
   currentDate: Date;
   scheduledEvents: ScheduleEvent[];
 };
@@ -41,6 +42,7 @@ export function IndividualVotingGrid({
   onVote,
   onVoteAllDay,
   onVoteAllTime,
+  onClearAllVotes,
   currentDate,
   scheduledEvents,
 }: IndividualVotingGridProps) {
@@ -48,6 +50,13 @@ export function IndividualVotingGrid({
     const start = startOfWeek(currentDate, { weekStartsOn: 1 });
     return Array.from({ length: 7 }, (_, i) => addDays(start, i));
   }, [currentDate]);
+
+  const hasAnyVotes = React.useMemo(() => {
+    return weekDates.some(date => {
+        const dateKey = format(date, 'yyyy-MM-dd');
+        return userVotes[dateKey] && userVotes[dateKey].size > 0;
+    });
+  }, [userVotes, weekDates]);
 
   const getEventForSlot = (day: Date, slot: string) => {
     return scheduledEvents.find(event => {
@@ -58,9 +67,22 @@ export function IndividualVotingGrid({
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center gap-3">
-          <Vote className="w-6 h-6" />
-          <CardTitle>Set Your Weekly Availability</CardTitle>
+        <div className='flex items-start justify-between'>
+            <div className="flex items-center gap-3">
+            <Vote className="w-6 h-6" />
+            <CardTitle>Set Your Weekly Availability</CardTitle>
+            </div>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <Button variant="ghost" size="icon" onClick={onClearAllVotes} disabled={!hasAnyVotes}>
+                        <Trash2 className="w-5 h-5" />
+                        <span className="sr-only">Clear all votes for this week</span>
+                    </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                    <p>Clear all your votes for this week</p>
+                </TooltipContent>
+            </Tooltip>
         </div>
         <CardDescription>
           Click on a time slot to mark yourself as available. Use the header buttons to select entire days or time blocks.
