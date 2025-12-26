@@ -4,7 +4,7 @@ import { ScrimSyncDashboard } from '@/components/scrim-sync/scrim-sync-dashboard
 import { useAuth, useUser } from '@/firebase';
 import { Button } from '@/components/ui/button';
 import { Loader, Chrome } from 'lucide-react';
-import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { GoogleAuthProvider, signInWithPopup, type FirebaseError } from 'firebase/auth';
 
 export default function Home() {
   const { user, isUserLoading } = useUser();
@@ -16,7 +16,12 @@ export default function Home() {
     try {
       await signInWithPopup(auth, provider);
     } catch (error) {
-      console.error("Error during sign-in:", error);
+      const firebaseError = error as FirebaseError;
+      // This error occurs when the user closes the popup.
+      // It's a normal user action, so we can safely ignore it.
+      if (firebaseError.code !== 'auth/popup-closed-by-user') {
+        console.error("Error during sign-in:", error);
+      }
     }
   };
 
