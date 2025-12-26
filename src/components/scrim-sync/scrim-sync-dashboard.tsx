@@ -82,7 +82,7 @@ export function ScrimSyncDashboard() {
             const dayKey = format(day, 'yyyy-MM-dd');
             
             timeSlots.forEach(slot => {
-                const key = `${dayKey}-${slot}`;
+                const voteKey = `${dayKey}-${slot}`;
                 const availablePlayers = new Set<string>();
                 
                 // Add current user if they voted
@@ -99,14 +99,14 @@ export function ScrimSyncDashboard() {
                     availablePlayers.add(shuffledPlayers[j]);
                 }
                 
-                initialVotes[key] = Array.from(availablePlayers);
+                initialVotes[voteKey] = Array.from(availablePlayers);
             });
         }
         setAllVotes(initialVotes);
     };
-    if (typeof window !== 'undefined') {
-        generateRandomData();
-    }
+    
+    generateRandomData();
+    
   }, [currentDate, userVotes, profile.username]);
 
 
@@ -386,6 +386,7 @@ export function ScrimSyncDashboard() {
                     onVoteAllDay={handleVoteAllDay}
                     onVoteAllTime={handleVoteAllTime}
                     currentDate={currentDate}
+                    scheduledEvents={scheduledEvents}
                 />
               </TabsContent>
               <TabsContent value="heatmap">

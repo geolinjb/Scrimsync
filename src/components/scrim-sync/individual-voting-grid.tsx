@@ -2,10 +2,10 @@
 
 import * as React from 'react';
 import { motion } from 'framer-motion';
-import { Check, Vote, CheckCircle, Circle } from 'lucide-react';
-import { format, startOfWeek, addDays } from 'date-fns';
+import { Check, Vote, CheckCircle, Circle, Swords, Trophy } from 'lucide-react';
+import { format, startOfWeek, addDays, isSameDay } from 'date-fns';
 
-import type { UserVotes } from '@/lib/types';
+import type { UserVotes, ScheduleEvent } from '@/lib/types';
 import { timeSlots } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import {
@@ -33,6 +33,7 @@ type IndividualVotingGridProps = {
   onVoteAllDay: (date: Date) => void;
   onVoteAllTime: (timeSlot: string) => void;
   currentDate: Date;
+  scheduledEvents: ScheduleEvent[];
 };
 
 export function IndividualVotingGrid({
@@ -41,11 +42,18 @@ export function IndividualVotingGrid({
   onVoteAllDay,
   onVoteAllTime,
   currentDate,
+  scheduledEvents,
 }: IndividualVotingGridProps) {
   const weekDates = React.useMemo(() => {
     const start = startOfWeek(currentDate);
     return Array.from({ length: 7 }, (_, i) => addDays(start, i));
   }, [currentDate]);
+
+  const getEventForSlot = (day: Date, slot: string) => {
+    return scheduledEvents.find(event => {
+      return isSameDay(event.date, day) && event.time === slot;
+    });
+  };
 
   return (
     <Card className="flex-1">
@@ -115,17 +123,27 @@ export function IndividualVotingGrid({
                                 {weekDates.map(date => {
                                     const dateKey = format(date, 'yyyy-MM-dd');
                                     const isVoted = userVotes[dateKey]?.has(slot);
+                                    const event = getEventForSlot(date, slot);
                                     return (
                                         <TableCell key={date.toISOString()} className="text-center p-0">
                                              <motion.div
                                                 onClick={() => onVote(date, slot)}
                                                 className={cn(
-                                                    'h-12 w-full cursor-pointer flex justify-center items-center transition-colors border-l border-t',
+                                                    'h-12 w-full cursor-pointer flex justify-center items-center transition-colors border-l border-t relative',
                                                     isVoted ? 'bg-primary/20 hover:bg-primary/30' : 'hover:bg-accent'
                                                 )}
                                                 whileTap={{ scale: 0.95 }}
                                             >
                                                 {isVoted && <Check className="w-5 h-5 text-primary" />}
+                                                {event && (
+                                                    <div className="absolute top-1 right-1 z-20">
+                                                    {event.type === 'Training' ? (
+                                                        <Swords className="w-3 h-3 text-foreground" />
+                                                    ) : (
+                                                        <Trophy className="w-3 h-3 text-foreground" />
+                                                    )}
+                                                    </div>
+                                                )}
                                             </motion.div>
                                         </TableCell>
                                     )
