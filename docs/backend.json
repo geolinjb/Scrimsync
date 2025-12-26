@@ -8,7 +8,7 @@
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the user profile."
+          "description": "Unique identifier for the user profile, same as the user's UID."
         },
         "username": {
           "type": "string",
@@ -18,12 +18,9 @@
           "type": "string",
           "description": "The user's favorite tank."
         },
-        "favoriteRoles": {
-          "type": "array",
-          "description": "The user's favorite in-game roles.",
-          "items": {
-            "type": "string"
-          }
+        "role": {
+          "type": "string",
+          "description": "The user's favorite in-game role."
         }
       },
       "required": [
@@ -39,19 +36,19 @@
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the vote."
+          "description": "Unique identifier for the vote, composite of userId and timeslot."
         },
         "userId": {
           "type": "string",
-          "description": "Reference to UserProfile. (Relationship: UserProfile 1:N Vote)"
+          "description": "Reference to UserProfile ID."
         },
         "timeslot": {
           "type": "string",
-          "description": "The time slot that the vote is for (e.g., '16:30')."
+          "description": "The time slot that the vote is for (e.g., '2024-07-20_4:30 PM')."
         },
         "voteValue": {
           "type": "boolean",
-          "description": "Indicates whether the user is available (true) or not (false) for the given time slot."
+          "description": "Indicates whether the user is available (true)."
         }
       },
       "required": [
@@ -67,77 +64,66 @@
       "type": "object",
       "description": "Represents a scheduled training session or tournament.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the scheduled event."
+        "creatorId": {
+            "type": "string",
+            "description": "The UID of the user who created the event."
         },
-        "name": {
+        "type": {
           "type": "string",
-          "description": "The name of the scheduled event (e.g., 'Training Session 1')."
+          "enum": ["Training", "Tournament"]
         },
-        "startTime": {
+        "date": {
           "type": "string",
-          "description": "The start time of the event.",
-          "format": "date-time"
+          "description": "The date of the event in 'yyyy-MM-dd' format."
         },
-        "endTime": {
+        "time": {
           "type": "string",
-          "description": "The end time of the event.",
-          "format": "date-time"
-        },
-        "description": {
-          "type": "string",
-          "description": "A description of the event."
+          "description": "The time of the event (e.g., '6:30 PM')."
         }
       },
       "required": [
-        "id",
-        "name",
-        "startTime",
-        "endTime"
+        "creatorId",
+        "type",
+        "date",
+        "time"
       ]
     }
   },
   "auth": {
     "providers": [
-      "password",
       "anonymous"
     ]
   },
   "firestore": {
     "structure": [
       {
-        "path": "/users/{userId}/profile",
+        "path": "/users/{userId}",
         "definition": {
           "entityName": "UserProfile",
           "schema": {
             "$ref": "#/backend/entities/UserProfile"
           },
-          "description": "Stores user profile data.  Path-based authorization ensures only the user can access their profile.",
+          "description": "Stores user profile data. The document ID is the user's UID.",
           "params": [
             {
               "name": "userId",
-              "description": "The unique identifier of the user."
+              "description": "The unique identifier of the user (UID)."
             }
           ]
         }
       },
       {
-        "path": "/users/{userId}/votes/{voteId}",
+        "path": "/votes/{voteId}",
         "definition": {
           "entityName": "Vote",
           "schema": {
             "$ref": "#/backend/entities/Vote"
           },
-          "description": "Stores user votes for time slots. Path-based authorization ensures only the user can access their votes.",
+          "description": "Stores individual user votes for time slots. Document ID is a composite key for easy upserts.",
           "params": [
             {
-              "name": "userId",
-              "description": "The unique identifier of the user."
-            },
-            {
               "name": "voteId",
-              "description": "The unique identifier of the vote."
+              "description": "Composite ID: {userId}_{yyyy-MM-dd}_{time}"
             }
           ]
         }
@@ -149,7 +135,7 @@
           "schema": {
             "$ref": "#/backend/entities/ScheduledEvent"
           },
-          "description": "Stores information about scheduled events. If access control is needed, consider adding an 'ownerId' field or a 'members' map.",
+          "description": "Stores information about scheduled events. Rules allow any authenticated user to read, but only the creator to write or delete.",
           "params": [
             {
               "name": "eventId",
@@ -158,7 +144,6 @@
           ]
         }
       }
-    ],
-    "reasoning": "The Firestore data structure is designed to support user profiles, availability voting, and scheduled events with a focus on security, scalability, and ease of debugging. It leverages denormalization and structural segregation to achieve authorization independence and QAPs.\n\n**Authorization Independence:**\n\n*   `UserProfiles`: User profile data is stored under `/users/{userId}/profile`.  Since profile data is private to each user, path-based authorization is sufficient. No denormalization is needed here.\n*   `Votes`: Each user's votes are stored under `/users/{userId}/votes/{voteId}`. Each vote document contains the `timeslot` and `voteValue`. This structure makes authorization straightforward based on the `userId` in the path.\n\n**Structural Segregation:**\nThe structure separates user profiles, votes, and scheduled events into distinct collections to ensure homogeneous security postures.\n\n*   `/users/{userId}/profile`: Contains private user profile data, accessible only to the user (identified by `userId`).\n*   `/users/{userId}/votes/{voteId}`: Stores user votes, accessible only to the user who created the vote. This allows users to manage their own votes independently.\n*   `/scheduledEvents/{eventId}`: Contains information about scheduled events. Access to create, modify, or delete events can be controlled via a `members` map (if collaborative) or an `ownerId` field, but it depends on the security requirements for managing schedules. If public, read access can be granted to all authenticated users.\n\n**QAPs (Rules Are Not Filters):**\n\n*   The structure supports secure `list` operations by storing user data under their respective `userId`. Security rules can easily enforce that a user can only list their own profiles and votes.\n*   For scheduled events, if `list` operations need to be restricted (e.g., only members of a certain group can list events), a membership map can be added to the `scheduledEvent` document and included as denormalized authorization data.\n\nThis design prioritizes authorization independence by avoiding `get()` calls in security rules and enabling atomic operations. It achieves clarity by explicitly defining data ownership and access control through a consistent structure and naming conventions. By storing data in distinct collections based on access requirements, security rules can be simple and robust."
+    ]
   }
 }

@@ -5,7 +5,7 @@ import { Swords, Trophy, Vote, Users } from 'lucide-react';
 import { format, startOfWeek, addDays, isSameDay } from 'date-fns';
 
 import type { ScheduleEvent, AllVotes } from '@/lib/types';
-import { timeSlots, mockPlayers } from '@/lib/types';
+import { timeSlots } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import {
   Card,
@@ -41,6 +41,7 @@ type HeatmapGridProps = {
   allVotes: AllVotes;
   scheduledEvents: ScheduleEvent[];
   currentDate: Date;
+  allPlayerNames: string[];
 };
 
 type SelectedSlot = {
@@ -62,6 +63,7 @@ export function HeatmapGrid({
   allVotes,
   scheduledEvents,
   currentDate,
+  allPlayerNames
 }: HeatmapGridProps) {
   const [selectedSlot, setSelectedSlot] = React.useState<SelectedSlot>(null);
 
@@ -71,8 +73,8 @@ export function HeatmapGrid({
   }, [currentDate]);
 
   const maxVotes = React.useMemo(() => {
-    return mockPlayers.length;
-  }, []);
+    return allPlayerNames.length || 1;
+  }, [allPlayerNames]);
 
   const getHeatmapColor = (voteCount: number) => {
     if (voteCount === 0) return 'bg-transparent';

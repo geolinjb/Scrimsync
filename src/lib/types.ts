@@ -1,15 +1,24 @@
 export type ScheduleEvent = {
   id: string;
   type: 'Training' | 'Tournament';
-  date: Date;
+  date: Date | string; // Allow string for Firestore compatibility
   time: string;
+  creatorId?: string;
 };
 
 export type PlayerProfileData = {
+  id: string;
   username: string;
   favoriteTank: string;
   role: (typeof gameRoles)[number] | '';
 };
+
+export type Vote = {
+    id: string; // composite key: `${userId}_${date}_${timeslot}`
+    userId: string;
+    timeslot: string; // format: 'YYYY-MM-DD_HH:mm'
+    voteValue: boolean;
+}
 
 export const gameRoles = ['Tank Destroyer', 'Medium Tank', 'Heavy Tank', 'Assaulter', 'Defender', 'Light Tank'] as const;
 
@@ -23,11 +32,11 @@ export const daysOfWeek = [
 ] as const;
 
 export type UserVotes = {
-  [dateKey: string]: Set<string>; // Key is 'yyyy-MM-dd'
+  [dateKey: string]: Set<string>; // Key is 'yyyy-MM-dd', value is set of time slots
 };
 
 export type AllVotes = {
-  [voteKey: string]: string[]; // Key is 'yyyy-MM-dd-HH:mm', value is array of player names
+  [voteKey: string]: string[]; // Key is 'yyyy-MM-dd-HH:mm PM/AM', value is array of player usernames
 }
 
 export const mockPlayers = [

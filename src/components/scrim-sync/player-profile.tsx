@@ -1,6 +1,6 @@
 'use client';
 
-import type { PlayerProfileData } from '@/lib/types';
+import { PlayerProfileData } from '@/lib/types';
 import { gameRoles } from '@/lib/types';
 import {
   Card,
@@ -18,23 +18,34 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { User } from 'lucide-react';
+import { User, Loader } from 'lucide-react';
+import { Button } from '../ui/button';
+import { cn } from '@/lib/utils';
 
 type PlayerProfileProps = {
   profile: PlayerProfileData;
   onProfileChange: (profile: PlayerProfileData) => void;
+  isSaving: boolean;
 };
 
-export function PlayerProfile({ profile, onProfileChange }: PlayerProfileProps) {
+export function PlayerProfile({ profile, onProfileChange, isSaving }: PlayerProfileProps) {
+  
+  const handleInputChange = (field: keyof PlayerProfileData, value: string) => {
+    onProfileChange({ ...profile, [field]: value });
+  };
+
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center gap-3">
-          <User className="w-6 h-6" />
-          <CardTitle>Player Profile</CardTitle>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <User className="w-6 h-6" />
+            <CardTitle>Player Profile</CardTitle>
+          </div>
+          <Loader className={cn("w-5 h-5 text-muted-foreground animate-spin", isSaving ? "opacity-100" : "opacity-0")} />
         </div>
         <CardDescription>
-          Set your name, favorite tank, and preferred role.
+          Set your name, favorite tank, and preferred role. This is saved automatically.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -45,7 +56,7 @@ export function PlayerProfile({ profile, onProfileChange }: PlayerProfileProps) 
             placeholder="e.g., TankCommander"
             value={profile.username}
             onChange={(e) =>
-              onProfileChange({ ...profile, username: e.target.value })
+              handleInputChange('username', e.target.value)
             }
           />
         </div>
@@ -56,7 +67,7 @@ export function PlayerProfile({ profile, onProfileChange }: PlayerProfileProps) 
             placeholder="e.g., Tiger II"
             value={profile.favoriteTank}
             onChange={(e) =>
-              onProfileChange({ ...profile, favoriteTank: e.target.value })
+              handleInputChange('favoriteTank', e.target.value)
             }
           />
         </div>
@@ -65,7 +76,7 @@ export function PlayerProfile({ profile, onProfileChange }: PlayerProfileProps) 
           <Select
             value={profile.role}
             onValueChange={(value: (typeof gameRoles)[number]) =>
-              onProfileChange({ ...profile, role: value })
+              handleInputChange('role', value)
             }
           >
             <SelectTrigger id="role">

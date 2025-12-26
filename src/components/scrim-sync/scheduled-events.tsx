@@ -1,8 +1,9 @@
 'use client';
 
 import * as React from 'react';
-import { format, startOfToday } from 'date-fns';
+import { format, startOfToday, isSameDay } from 'date-fns';
 import { CalendarCheck, Users, Trash2 } from 'lucide-react';
+import type { User } from 'firebase/auth';
 
 import type { AllVotes, ScheduleEvent } from '@/lib/types';
 import {
@@ -30,7 +31,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 
 type ScheduledEventsProps = {
@@ -38,18 +38,22 @@ type ScheduledEventsProps = {
   votes: AllVotes;
   currentDate: Date;
   onRemoveEvent: (eventId: string) => void;
+  currentUser: User | null;
 };
 
-export function ScheduledEvents({ events, votes, onRemoveEvent }: ScheduledEventsProps) {
+export function ScheduledEvents({ events, votes, onRemoveEvent, currentUser }: ScheduledEventsProps) {
     const upcomingEvents = React.useMemo(() => {
+        if (!events) return [];
+        const today = startOfToday();
         return events
-            .filter(event => event.date >= startOfToday())
+            .filter(event => event.date >= today)
             .sort((a,b) => a.date.getTime() - b.date.getTime());
     }, [events]);
 
   const getAvailablePlayers = (event: ScheduleEvent): string[] => {
     const dateKey = format(event.date, 'yyyy-MM-dd');
-    const voteKey = `${dateKey}-${event.time}`;
+    const slotKey = event.time;
+    const voteKey = `${dateKey}-${slotKey}`;
     return votes[voteKey] || [];
   };
 
@@ -69,6 +73,8 @@ export function ScheduledEvents({ events, votes, onRemoveEvent }: ScheduledEvent
           <Accordion type="single" collapsible className="w-full">
             {upcomingEvents.map((event) => {
               const availablePlayers = getAvailablePlayers(event);
+              const canDelete = currentUser?.uid === event.creatorId;
+
               return (
                 <AccordionItem key={event.id} value={event.id}>
                   <AccordionTrigger>
@@ -113,27 +119,29 @@ export function ScheduledEvents({ events, votes, onRemoveEvent }: ScheduledEvent
                             </div>
                             )}
                         </div>
-                        <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive shrink-0">
-                                    <Trash2 className="w-4 h-4" />
-                                </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                    This action cannot be undone. This will permanently delete the scheduled {event.type.toLowerCase()}.
-                                </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => onRemoveEvent(event.id)} className="bg-destructive hover:bg-destructive/90">
-                                    Delete
-                                </AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
+                        {canDelete && (
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive shrink-0">
+                                        <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        This action cannot be undone. This will permanently delete the scheduled {event.type.toLowerCase()}.
+                                    </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => onRemoveEvent(event.id)} className="bg-destructive hover:bg-destructive/90">
+                                        Delete
+                                    </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                        )}
                     </div>
                   </AccordionContent>
                 </AccordionItem>

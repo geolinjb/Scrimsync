@@ -2,9 +2,11 @@
 
 import * as React from 'react';
 import { format, addDays, startOfWeek, endOfWeek, subWeeks, isSameDay } from 'date-fns';
-import { Send, ChevronLeft, ChevronRight, Copy, ClipboardCopy } from 'lucide-react';
+import { Send, ChevronLeft, ChevronRight, ClipboardCopy } from 'lucide-react';
+import type { User } from 'firebase/auth';
+import { collection, doc, writeBatch, deleteDoc, query, where, getDocs } from 'firebase/firestore';
 
-import type { PlayerProfileData, ScheduleEvent, UserVotes, AllVotes } from '@/lib/types';
+import type { PlayerProfileData, ScheduleEvent, UserVotes, AllVotes, Vote } from '@/lib/types';
 import { timeSlots, mockPlayers } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -16,17 +18,6 @@ import { PlayerProfile } from './player-profile';
 import { ScheduleForm } from './schedule-form';
 import { IndividualVotingGrid } from './individual-voting-grid';
 import { ScheduledEvents } from './scheduled-events';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
 import { 
     Dialog,
     DialogContent,
@@ -39,199 +30,185 @@ import {
 import { Checkbox } from '../ui/checkbox';
 import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
+import { useCollection, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
+import { addDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
+type ScrimSyncDashboardProps = {
+    user: User;
+};
 
-export function ScrimSyncDashboard() {
+export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
   const { toast } = useToast();
+  const firestore = useFirestore();
+
   const [currentDate, setCurrentDate] = React.useState(() => new Date());
-  const [isClient, setIsClient] = React.useState(false);
-
-
-  const [profile, setProfile] = React.useState<PlayerProfileData>({
-    username: 'Player1',
-    favoriteTank: 'M4A3E8 Sherman',
-    role: 'Medium Tank',
-  });
-
-  const [allVotes, setAllVotes] = React.useState<AllVotes>({});
-  const [userVotes, setUserVotes] = React.useState<UserVotes>({});
-
-  const [scheduledEvents, setScheduledEvents] = React.useState<ScheduleEvent[]>([]);
   
   const [postDialogOpen, setPostDialogOpen] = React.useState(false);
   const [generatedPost, setGeneratedPost] = React.useState<string | null>(null);
   const [selectedDaysForPost, setSelectedDaysForPost] = React.useState<Date[]>([]);
 
+  // Firestore References
+  const profileRef = useMemoFirebase(() => doc(firestore, 'users', user.uid), [firestore, user.uid]);
+  const allUsersRef = useMemoFirebase(() => collection(firestore, 'users'), [firestore]);
+  const eventsRef = useMemoFirebase(() => collection(firestore, 'scheduledEvents'), [firestore]);
+  const votesRef = useMemoFirebase(() => collection(firestore, 'votes'), [firestore]);
 
-  React.useEffect(() => {
-    setIsClient(true);
-  }, []);
-  
-  const generateRandomData = React.useCallback(() => {
-      const initialVotes: AllVotes = {};
-      const weekStart = startOfWeek(currentDate);
+  // Firestore Hooks
+  const { data: profile, isLoading: isProfileLoading } = useDoc<PlayerProfileData>(profileRef);
+  const { data: allProfiles, isLoading: areProfilesLoading } = useCollection<PlayerProfileData>(allUsersRef);
+  const { data: scheduledEvents, isLoading: areEventsLoading } = useCollection<ScheduleEvent>(eventsRef);
+  const { data: allVotesData, isLoading: areVotesLoading } = useCollection<Vote>(votesRef);
 
-      for (let i = 0; i < 7; i++) {
-          const day = addDays(weekStart, i);
-          const dayKey = format(day, 'yyyy-MM-dd');
-          
-          timeSlots.forEach(slot => {
-              const voteKey = `${dayKey}-${slot}`;
-              const availablePlayers = new Set<string>();
-              
-              // Add current user if they voted
-              if (userVotes[dayKey]?.has(slot)) {
-                  availablePlayers.add(profile.username);
-              }
-
-              // Add other random mock players
-              const otherPlayers = mockPlayers.filter(p => p !== profile.username);
-              const voterCount = Math.floor(Math.random() * (otherPlayers.length));
-              
-              const shuffledPlayers = otherPlayers.sort(() => 0.5 - Math.random());
-              for(let j = 0; j < voterCount; j++) {
-                  availablePlayers.add(shuffledPlayers[j]);
-              }
-              
-              initialVotes[voteKey] = Array.from(availablePlayers);
-          });
-      }
-      setAllVotes(initialVotes);
-  }, [currentDate, userVotes, profile.username]);
-
-  React.useEffect(() => {
-    if (!isClient) return;
-
-    setScheduledEvents([
-        {
-          id: '1',
-          type: 'Training',
-          date: new Date(),
-          time: '6:30 PM',
-        },
-        {
-            id: '2',
-            type: 'Tournament',
-            date: addDays(new Date(), 1),
-            time: '8:30 PM'
-        }
-    ]);
-    
-    generateRandomData();
-    
-  }, [isClient, generateRandomData]);
-
-  if (!isClient) {
-    return null;
+  const handleProfileChange = (newProfile: PlayerProfileData) => {
+    setDocumentNonBlocking(profileRef, { ...newProfile, id: user.uid }, { merge: true });
   }
 
-  const handleVote = (date: Date, timeSlot: string) => {
+  const userVotes: UserVotes = React.useMemo(() => {
+    if (!allVotesData) return {};
+    return allVotesData
+      .filter(vote => vote.userId === user.uid)
+      .reduce((acc, vote) => {
+        const [dateKey, slot] = vote.timeslot.split('_');
+        if (!acc[dateKey]) {
+          acc[dateKey] = new Set();
+        }
+        acc[dateKey].add(slot);
+        return acc;
+      }, {} as UserVotes);
+  }, [allVotesData, user.uid]);
+
+  const allVotes: AllVotes = React.useMemo(() => {
+    if (!allVotesData || !allProfiles) return {};
+    const profileMap = new Map(allProfiles.map(p => [p.id, p.username]));
+    return allVotesData.reduce((acc, vote) => {
+      const [dateKey, slot] = vote.timeslot.split('_');
+      const voteKey = `${dateKey}-${slot}`;
+      const username = profileMap.get(vote.userId);
+
+      if (username) {
+        if (!acc[voteKey]) {
+          acc[voteKey] = [];
+        }
+        acc[voteKey].push(username);
+      }
+      return acc;
+    }, {} as AllVotes);
+  }, [allVotesData, allProfiles]);
+
+  const handleVote = async (date: Date, timeSlot: string) => {
     const dateKey = format(date, 'yyyy-MM-dd');
-    setUserVotes(prev => {
-        const newVotes = { ...prev };
-        if (!newVotes[dateKey]) {
-            newVotes[dateKey] = new Set();
-        }
-        
-        const dayVotes = new Set(newVotes[dateKey]);
-        if (dayVotes.has(timeSlot)) {
-            dayVotes.delete(timeSlot);
-        } else {
-            dayVotes.add(timeSlot);
-        }
-        newVotes[dateKey] = dayVotes;
-        return newVotes;
-    });
+    const timeslotId = `${dateKey}_${timeSlot}`;
+    const voteId = `${user.uid}_${timeslotId}`;
+    const voteRef = doc(firestore, 'votes', voteId);
+
+    const isVoted = userVotes[dateKey]?.has(timeSlot);
+
+    if (isVoted) {
+        deleteDocumentNonBlocking(voteRef);
+    } else {
+        const voteData: Vote = {
+            id: voteId,
+            userId: user.uid,
+            timeslot: timeslotId,
+            voteValue: true,
+        };
+        setDocumentNonBlocking(voteRef, voteData, {});
+    }
   };
 
-  const handleVoteAllDay = (date: Date) => {
+  const handleVoteAllDay = async (date: Date) => {
     const dateKey = format(date, 'yyyy-MM-dd');
-    setUserVotes(prev => {
-        const newVotes = { ...prev };
-        const dayVotes = new Set(newVotes[dateKey]);
-        const allSelected = timeSlots.every(slot => dayVotes.has(slot));
+    const dayVotes = userVotes[dateKey] || new Set();
+    const allSelected = timeSlots.every(slot => dayVotes.has(slot));
+    
+    const batch = writeBatch(firestore);
+
+    if (allSelected) { // Deselect all
+        timeSlots.forEach(slot => {
+            const timeslotId = `${dateKey}_${slot}`;
+            const voteId = `${user.uid}_${timeslotId}`;
+            const voteRef = doc(firestore, 'votes', voteId);
+            batch.delete(voteRef);
+        });
+    } else { // Select all
+        timeSlots.forEach(slot => {
+            if (!dayVotes.has(slot)) {
+                const timeslotId = `${dateKey}_${slot}`;
+                const voteId = `${user.uid}_${timeslotId}`;
+                const voteRef = doc(firestore, 'votes', voteId);
+                const voteData: Vote = {
+                    id: voteId,
+                    userId: user.uid,
+                    timeslot: timeslotId,
+                    voteValue: true,
+                };
+                batch.set(voteRef, voteData);
+            }
+        });
+    }
+
+    try {
+        await batch.commit();
+    } catch (e: any) {
+        console.error(e);
+        toast({
+            variant: "destructive",
+            title: "Uh oh! Something went wrong.",
+            description: e.message || "Could not save your votes.",
+        });
+    }
+  };
+
+  const handleVoteAllTime = async (timeSlot: string) => {
+    const weekStart = startOfWeek(currentDate);
+    const allSelected = Array.from({length: 7}).every((_, i) => {
+        const date = addDays(weekStart, i);
+        const dateKey = format(date, 'yyyy-MM-dd');
+        return userVotes[dateKey]?.has(timeSlot);
+    });
+
+    const batch = writeBatch(firestore);
+
+    for (let i=0; i<7; i++) {
+        const date = addDays(weekStart, i);
+        const dateKey = format(date, 'yyyy-MM-dd');
+        const timeslotId = `${dateKey}_${timeSlot}`;
+        const voteId = `${user.uid}_${timeslotId}`;
+        const voteRef = doc(firestore, 'votes', voteId);
 
         if (allSelected) {
-            newVotes[dateKey] = new Set();
+            batch.delete(voteRef);
         } else {
-            newVotes[dateKey] = new Set(timeSlots);
+            const voteData: Vote = {
+                id: voteId,
+                userId: user.uid,
+                timeslot: timeslotId,
+                voteValue: true,
+            };
+            batch.set(voteRef, voteData);
         }
-        return newVotes;
-    });
-  };
-
-  const handleVoteAllTime = (timeSlot: string) => {
-    const weekStart = startOfWeek(currentDate);
-    setUserVotes(prev => {
-        const newVotes = { ...prev };
-        const allSelected = Array.from({length: 7}).every((_, i) => {
-            const date = addDays(weekStart, i);
-            const dateKey = format(date, 'yyyy-MM-dd');
-            return newVotes[dateKey]?.has(timeSlot);
-        });
-
-        for (let i=0; i<7; i++) {
-            const date = addDays(weekStart, i);
-            const dateKey = format(date, 'yyyy-MM-dd');
-            if (!newVotes[dateKey]) {
-                newVotes[dateKey] = new Set();
-            }
-            const dayVotes = new Set(newVotes[dateKey]);
-            if (allSelected) {
-                dayVotes.delete(timeSlot);
-            } else {
-                dayVotes.add(timeSlot);
-            }
-            newVotes[dateKey] = dayVotes;
-        }
-        return newVotes;
-    });
-  };
-
-  const handleCopyPreviousWeek = () => {
-    const previousWeekStart = startOfWeek(subWeeks(currentDate, 1));
-    const currentWeekStart = startOfWeek(currentDate);
-
-    let copiedVotes = 0;
-    const newUserVotes = { ...userVotes };
-
-    for (let i = 0; i < 7; i++) {
-      const prevDate = addDays(previousWeekStart, i);
-      const prevDateKey = format(prevDate, 'yyyy-MM-dd');
-      
-      const currentDate = addDays(currentWeekStart, i);
-      const currentDateKey = format(currentDate, 'yyyy-MM-dd');
-
-      if (userVotes[prevDateKey]) {
-        newUserVotes[currentDateKey] = new Set(userVotes[prevDateKey]);
-        copiedVotes += userVotes[prevDateKey].size;
-      } else {
-        newUserVotes[currentDateKey] = new Set();
-      }
     }
-    
-    setUserVotes(newUserVotes);
 
-    if (copiedVotes > 0) {
+    try {
+        await batch.commit();
+    } catch (e: any) {
+        console.error(e);
         toast({
-            title: 'Availability Copied',
-            description: `Copied ${copiedVotes} time slots from the previous week.`,
-        });
-    } else {
-        toast({
-            title: 'Nothing to Copy',
-            description: 'You had no availability set for the previous week.',
+            variant: "destructive",
+            title: "Uh oh! Something went wrong.",
+            description: e.message || "Could not save your votes.",
         });
     }
   };
 
 
   const handleAddEvent = (data: { type: 'Training' | 'Tournament'; date: Date; time: string }) => {
-    const newEvent: ScheduleEvent = {
-      id: new Date().toISOString(),
+    const newEvent: Omit<ScheduleEvent, 'id'> = {
       ...data,
+      date: format(data.date, 'yyyy-MM-dd'),
+      creatorId: user.uid
     };
-    setScheduledEvents([...scheduledEvents, newEvent]);
+    addDocumentNonBlocking(eventsRef, newEvent);
     toast({
       title: 'Event Scheduled!',
       description: `${data.type} on ${format(data.date, 'd MMM, yyyy')} at ${data.time} has been added.`,
@@ -239,7 +216,8 @@ export function ScrimSyncDashboard() {
   };
 
   const handleRemoveEvent = (eventId: string) => {
-    setScheduledEvents(prev => prev.filter(event => event.id !== eventId));
+    const eventRef = doc(firestore, 'scheduledEvents', eventId);
+    deleteDocumentNonBlocking(eventRef);
     toast({
       title: 'Event Removed',
       description: 'The scheduled event has been successfully removed.',
@@ -265,8 +243,8 @@ export function ScrimSyncDashboard() {
       const dayKey = format(day, 'yyyy-MM-dd');
       post += `**${format(day, 'EEEE, d MMM')}**\n`;
 
-      const dayEvents = scheduledEvents.filter(event => isSameDay(day, event.date)).sort((a, b) => a.time.localeCompare(b.time));
-      if (dayEvents.length > 0) {
+      const dayEvents = scheduledEvents?.filter(event => isSameDay(new Date(event.date), day)).sort((a, b) => a.time.localeCompare(b.time));
+      if (dayEvents && dayEvents.length > 0) {
         post += '***Scheduled Events:***\n';
         dayEvents.forEach(event => {
           post += `- ${event.type} at ${event.time}\n`;
@@ -328,9 +306,19 @@ export function ScrimSyncDashboard() {
     setCurrentDate(prev => addDays(prev, 7));
   };
   
-  const weekStart = startOfWeek(currentDate);
-  const weekEnd = endOfWeek(currentDate);
+  const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
+  const weekEnd = endOfWeek(currentDate, { weekStartsOn: 1 });
   const weekDates = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+
+  const eventsForWeek = React.useMemo(() => {
+    if (!scheduledEvents) return [];
+    return scheduledEvents.map(e => ({...e, date: new Date(e.date)}));
+  }, [scheduledEvents]);
+
+  const allPlayerNames = React.useMemo(() => {
+      if (!allProfiles) return [];
+      return allProfiles.map(p => p.username);
+  }, [allProfiles]);
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
@@ -338,9 +326,19 @@ export function ScrimSyncDashboard() {
       <main className="flex-1 container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           <div className="lg:col-span-1 space-y-8">
-            <PlayerProfile profile={profile} onProfileChange={setProfile} />
+            <PlayerProfile 
+                profile={profile ?? { username: '', favoriteTank: '', role: '' }} 
+                onProfileChange={handleProfileChange}
+                isSaving={isProfileLoading}
+            />
             <ScheduleForm onAddEvent={handleAddEvent} currentDate={currentDate} />
-            <ScheduledEvents events={scheduledEvents} votes={allVotes} currentDate={currentDate} onRemoveEvent={handleRemoveEvent} />
+            <ScheduledEvents 
+                events={eventsForWeek} 
+                votes={allVotes} 
+                currentDate={currentDate} 
+                onRemoveEvent={handleRemoveEvent}
+                currentUser={user}
+            />
           </div>
           <div className="lg:col-span-3 space-y-6">
             <Tabs defaultValue="individual" className='w-full'>
@@ -360,30 +358,6 @@ export function ScrimSyncDashboard() {
                         <ChevronRight className="h-4 w-4" />
                     </Button>
                 </div>
-                <div className="flex items-center gap-2">
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="outline">
-                        <Copy className="mr-2 h-4 w-4" />
-                        Copy Previous Week
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Copy Previous Week's Availability?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          This will overwrite your current selections for this week with your availability from last week. This action cannot be undone.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleCopyPreviousWeek}>
-                          Copy Availability
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </div>
               </div>
               <TabsContent value="individual">
                 <IndividualVotingGrid 
@@ -392,12 +366,12 @@ export function ScrimSyncDashboard() {
                     onVoteAllDay={handleVoteAllDay}
                     onVoteAllTime={handleVoteAllTime}
                     currentDate={currentDate}
-                    scheduledEvents={scheduledEvents}
+                    scheduledEvents={eventsForWeek}
                 />
               </TabsContent>
               <TabsContent value="heatmap" className="space-y-4">
                 <div className="flex justify-end">
-                    <Dialog open={postDialogOpen} onOpenChange={setPostDialogOpen}>
+                    <Dialog open={postDialogOpen} onOpenChange={(isOpen) => !isOpen && closePostDialog()}>
                         <DialogTrigger asChild>
                         <Button>
                             <Send className="mr-2 h-4 w-4" />
@@ -462,8 +436,9 @@ export function ScrimSyncDashboard() {
                 </div>
                 <HeatmapGrid
                   allVotes={allVotes}
-                  scheduledEvents={scheduledEvents}
+                  scheduledEvents={eventsForWeek}
                   currentDate={currentDate}
+                  allPlayerNames={allPlayerNames}
                 />
               </TabsContent>
             </Tabs>
