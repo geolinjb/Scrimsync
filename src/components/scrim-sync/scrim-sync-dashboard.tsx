@@ -33,7 +33,7 @@ import { Textarea } from '../ui/textarea';
 import { useCollection, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import { addDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Skeleton } from '../ui/skeleton';
-import { Card, CardContent, CardHeader } from '../ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 
 type ScrimSyncDashboardProps = {
     user: User;
@@ -284,7 +284,10 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
       const daySlots = Object.entries(allVotes).filter(([key]) => key.startsWith(dayKey));
       
       const popularSlots = daySlots
-        .map(([key, players]) => ({ slot: key.split('-').slice(3).join('-'), count: players.length, players }))
+        .map(([key, players]) => {
+            const slot = key.substring(dayKey.length + 1);
+            return { slot, count: players.length, players };
+        })
         .filter(item => item.count > 0)
         .sort((a, b) => b.count - a.count);
 
