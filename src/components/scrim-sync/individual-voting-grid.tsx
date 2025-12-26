@@ -45,11 +45,11 @@ export function IndividualVotingGrid({
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="border rounded-lg overflow-auto">
+        <div className="border rounded-lg overflow-auto max-h-[60vh]">
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead className="w-[100px] font-bold">Time</TableHead>
+                        <TableHead className="w-[100px] font-bold sticky left-0 bg-card z-20">Time</TableHead>
                         {daysOfWeek.map(day => (
                             <TableHead key={day} className="text-center font-bold">{day}</TableHead>
                         ))}
@@ -58,7 +58,7 @@ export function IndividualVotingGrid({
                 <TableBody>
                     {timeSlots.map(slot => (
                         <TableRow key={slot}>
-                            <TableCell className="font-medium">{slot}</TableCell>
+                            <TableCell className="font-medium sticky left-0 bg-card z-10">{slot}</TableCell>
                             {daysOfWeek.map(day => {
                                 const isVoted = userVotes[day]?.has(slot);
                                 return (
