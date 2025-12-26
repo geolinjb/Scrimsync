@@ -400,7 +400,7 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
                       <Skeleton className="h-4 w-3/4" />
                     </CardHeader>
                     <CardContent>
-                      <Skeleton className="h-96 w-full" />
+                      <Skeleton className="h-[65vh] w-full" />
                     </CardContent>
                   </Card>
                 ) : (
@@ -485,7 +485,7 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
                       <Skeleton className="h-4 w-3/4" />
                     </CardHeader>
                     <CardContent>
-                      <Skeleton className="h-96 w-full" />
+                      <Skeleton className="h-[65vh] w-full" />
                     </CardContent>
                   </Card>
                 ) : (

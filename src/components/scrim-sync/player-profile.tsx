@@ -115,7 +115,7 @@ export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: P
           <Label htmlFor="role">Favorite Role</Label>
           <Select
             value={profile.role}
-            onValueChange={(value: (typeof gameRoles)[number]) =>
+            onValueChange={(value) =>
               handleInputChange('role', value)
             }
           >
