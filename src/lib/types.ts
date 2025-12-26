@@ -3,7 +3,7 @@ export type ScheduleEvent = {
   type: 'Training' | 'Tournament';
   date: Date | string; // Allow string for Firestore compatibility
   time: string;
-  creatorId?: string;
+  creatorId: string;
 };
 
 export type PlayerProfileData = {
@@ -38,7 +38,3 @@ export type UserVotes = {
 export type AllVotes = {
   [voteKey: string]: string[]; // Key is 'yyyy-MM-dd-HH:mm PM/AM', value is array of player usernames
 }
-
-export const mockPlayers = [
-  'Player1', 'TankMaster', 'SniperSue', 'GeneralGeorge', 'RookieRick', 'MajorMary', 'CaptainCarl', 'LieutenantLana'
-];

@@ -32,11 +32,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Skeleton } from '../ui/skeleton';
 
 type ScheduledEventsProps = {
   events: ScheduleEvent[];
   votes: AllVotes;
-  currentDate: Date;
   onRemoveEvent: (eventId: string) => void;
   currentUser: User | null;
 };
@@ -78,7 +78,7 @@ export function ScheduledEvents({ events, votes, onRemoveEvent, currentUser }: S
               return (
                 <AccordionItem key={event.id} value={event.id}>
                   <AccordionTrigger>
-                    <div className="flex justify-between items-center w-full">
+                    <div className="flex justify-between items-center w-full pr-2">
                         <div className='flex flex-col items-start text-left'>
                             <div className='flex items-center gap-2'>
                                 <Badge variant={event.type === 'Tournament' ? 'default' : 'secondary'}>{event.type}</Badge>

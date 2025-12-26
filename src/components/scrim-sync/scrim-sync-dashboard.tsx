@@ -1,13 +1,13 @@
 'use client';
 
 import * as React from 'react';
-import { format, addDays, startOfWeek, endOfWeek, subWeeks, isSameDay } from 'date-fns';
+import { format, addDays, startOfWeek, endOfWeek, isSameDay } from 'date-fns';
 import { Send, ChevronLeft, ChevronRight, ClipboardCopy } from 'lucide-react';
 import type { User } from 'firebase/auth';
-import { collection, doc, writeBatch, deleteDoc, query, where, getDocs } from 'firebase/firestore';
+import { collection, doc, writeBatch } from 'firebase/firestore';
 
 import type { PlayerProfileData, ScheduleEvent, UserVotes, AllVotes, Vote } from '@/lib/types';
-import { timeSlots, mockPlayers } from '@/lib/types';
+import { timeSlots } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -32,6 +32,7 @@ import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
 import { useCollection, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import { addDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { Skeleton } from '../ui/skeleton';
 
 type ScrimSyncDashboardProps = {
     user: User;
@@ -46,22 +47,47 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
   const [postDialogOpen, setPostDialogOpen] = React.useState(false);
   const [generatedPost, setGeneratedPost] = React.useState<string | null>(null);
   const [selectedDaysForPost, setSelectedDaysForPost] = React.useState<Date[]>([]);
+  const [isSavingProfile, setIsSavingProfile] = React.useState(false);
 
   // Firestore References
   const profileRef = useMemoFirebase(() => doc(firestore, 'users', user.uid), [firestore, user.uid]);
   const allUsersRef = useMemoFirebase(() => collection(firestore, 'users'), [firestore]);
-  const eventsRef = useMemoFirebase(() => collection(firestore, 'scheduledEvents'), [firestore]);
-  const votesRef = useMemoFirebase(() => collection(firestore, 'votes'), [firestore]);
+  
+  const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
+  const weekEnd = endOfWeek(currentDate, { weekStartsOn: 1 });
+
+  const eventsQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return collection(firestore, 'scheduledEvents');
+  }, [firestore]);
+
+  const votesQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return collection(firestore, 'votes');
+  }, [firestore]);
+
 
   // Firestore Hooks
   const { data: profile, isLoading: isProfileLoading } = useDoc<PlayerProfileData>(profileRef);
   const { data: allProfiles, isLoading: areProfilesLoading } = useCollection<PlayerProfileData>(allUsersRef);
-  const { data: scheduledEvents, isLoading: areEventsLoading } = useCollection<ScheduleEvent>(eventsRef);
-  const { data: allVotesData, isLoading: areVotesLoading } = useCollection<Vote>(votesRef);
+  const { data: scheduledEventsData, isLoading: areEventsLoading } = useCollection<ScheduleEvent>(eventsQuery);
+  const { data: allVotesData, isLoading: areVotesLoading } = useCollection<Vote>(votesQuery);
+  
+  const scheduledEvents = React.useMemo(() => {
+    if (!scheduledEventsData) return [];
+    return scheduledEventsData.map(e => ({...e, date: new Date(e.date)}));
+  }, [scheduledEventsData]);
 
-  const handleProfileChange = (newProfile: PlayerProfileData) => {
-    setDocumentNonBlocking(profileRef, { ...newProfile, id: user.uid }, { merge: true });
-  }
+
+  const handleProfileChange = React.useCallback(
+    (newProfile: PlayerProfileData) => {
+      setIsSavingProfile(true);
+      setDocumentNonBlocking(profileRef, { ...newProfile, id: user.uid }, { merge: true });
+      // This is a bit of a trick to give a visual feedback that the data is being saved.
+      setTimeout(() => setIsSavingProfile(false), 500);
+    },
+    [profileRef, user.uid]
+  );
 
   const userVotes: UserVotes = React.useMemo(() => {
     if (!allVotesData) return {};
@@ -160,9 +186,9 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
   };
 
   const handleVoteAllTime = async (timeSlot: string) => {
-    const weekStart = startOfWeek(currentDate);
+    const weekStartVote = startOfWeek(currentDate, { weekStartsOn: 1 });
     const allSelected = Array.from({length: 7}).every((_, i) => {
-        const date = addDays(weekStart, i);
+        const date = addDays(weekStartVote, i);
         const dateKey = format(date, 'yyyy-MM-dd');
         return userVotes[dateKey]?.has(timeSlot);
     });
@@ -170,7 +196,7 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
     const batch = writeBatch(firestore);
 
     for (let i=0; i<7; i++) {
-        const date = addDays(weekStart, i);
+        const date = addDays(weekStartVote, i);
         const dateKey = format(date, 'yyyy-MM-dd');
         const timeslotId = `${dateKey}_${timeSlot}`;
         const voteId = `${user.uid}_${timeslotId}`;
@@ -203,7 +229,9 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
 
 
   const handleAddEvent = (data: { type: 'Training' | 'Tournament'; date: Date; time: string }) => {
-    const newEvent: Omit<ScheduleEvent, 'id'> = {
+    if (!firestore) return;
+    const eventsRef = collection(firestore, 'scheduledEvents');
+    const newEvent = {
       ...data,
       date: format(data.date, 'yyyy-MM-dd'),
       creatorId: user.uid
@@ -216,12 +244,12 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
   };
 
   const handleRemoveEvent = (eventId: string) => {
+    if (!firestore) return;
     const eventRef = doc(firestore, 'scheduledEvents', eventId);
     deleteDocumentNonBlocking(eventRef);
     toast({
       title: 'Event Removed',
       description: 'The scheduled event has been successfully removed.',
-      variant: 'destructive'
     });
   };
 
@@ -306,19 +334,14 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
     setCurrentDate(prev => addDays(prev, 7));
   };
   
-  const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
-  const weekEnd = endOfWeek(currentDate, { weekStartsOn: 1 });
   const weekDates = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
-
-  const eventsForWeek = React.useMemo(() => {
-    if (!scheduledEvents) return [];
-    return scheduledEvents.map(e => ({...e, date: new Date(e.date)}));
-  }, [scheduledEvents]);
 
   const allPlayerNames = React.useMemo(() => {
       if (!allProfiles) return [];
-      return allProfiles.map(p => p.username);
+      return allProfiles.map(p => p.username).filter(Boolean);
   }, [allProfiles]);
+
+  const isLoading = areEventsLoading || areVotesLoading || areProfilesLoading;
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
@@ -327,15 +350,14 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           <div className="lg:col-span-1 space-y-8">
             <PlayerProfile 
-                profile={profile ?? { username: '', favoriteTank: '', role: '' }} 
+                profile={profile ?? { username: user.displayName || '', favoriteTank: '', role: '' }} 
                 onProfileChange={handleProfileChange}
-                isSaving={isProfileLoading}
+                isSaving={isSavingProfile || isProfileLoading}
             />
             <ScheduleForm onAddEvent={handleAddEvent} currentDate={currentDate} />
             <ScheduledEvents 
-                events={eventsForWeek} 
+                events={scheduledEvents} 
                 votes={allVotes} 
-                currentDate={currentDate} 
                 onRemoveEvent={handleRemoveEvent}
                 currentUser={user}
             />
@@ -360,14 +382,26 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
                 </div>
               </div>
               <TabsContent value="individual">
-                <IndividualVotingGrid 
-                    userVotes={userVotes} 
-                    onVote={handleVote}
-                    onVoteAllDay={handleVoteAllDay}
-                    onVoteAllTime={handleVoteAllTime}
-                    currentDate={currentDate}
-                    scheduledEvents={eventsForWeek}
-                />
+                {isLoading ? (
+                  <Card>
+                    <CardHeader>
+                      <Skeleton className="h-8 w-1/2" />
+                      <Skeleton className="h-4 w-3/4" />
+                    </CardHeader>
+                    <CardContent>
+                      <Skeleton className="h-96 w-full" />
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <IndividualVotingGrid 
+                      userVotes={userVotes} 
+                      onVote={handleVote}
+                      onVoteAllDay={handleVoteAllDay}
+                      onVoteAllTime={handleVoteAllTime}
+                      currentDate={currentDate}
+                      scheduledEvents={scheduledEvents}
+                  />
+                )}
               </TabsContent>
               <TabsContent value="heatmap" className="space-y-4">
                 <div className="flex justify-end">
@@ -394,11 +428,10 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
                                     />
                                     <DialogFooter>
                                         <Button variant="outline" onClick={() => setGeneratedPost(null)}>Back</Button>
-                                        <Button onClick={copyToClipboard} variant="secondary">
+                                        <Button onClick={copyToClipboard}>
                                             <ClipboardCopy className="mr-2 h-4 w-4" />
                                             Copy
                                         </Button>
-                                        <Button onClick={closePostDialog}>Done</Button>
                                     </DialogFooter>
                                 </>
                             ) : (
@@ -434,12 +467,24 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
                         </DialogContent>
                     </Dialog>
                 </div>
-                <HeatmapGrid
-                  allVotes={allVotes}
-                  scheduledEvents={eventsForWeek}
-                  currentDate={currentDate}
-                  allPlayerNames={allPlayerNames}
-                />
+                {isLoading ? (
+                  <Card>
+                    <CardHeader>
+                      <Skeleton className="h-8 w-1/2" />
+                      <Skeleton className="h-4 w-3/4" />
+                    </CardHeader>
+                    <CardContent>
+                      <Skeleton className="h-96 w-full" />
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <HeatmapGrid
+                    allVotes={allVotes}
+                    scheduledEvents={scheduledEvents}
+                    currentDate={currentDate}
+                    allPlayerNames={allPlayerNames}
+                  />
+                )}
               </TabsContent>
             </Tabs>
           </div>
