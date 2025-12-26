@@ -287,11 +287,10 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
         post += '\n';
       }
 
-      const daySlots = Object.entries(allVotes).filter(([key]) => key.startsWith(dayKey));
-      
-      const popularSlots = daySlots
-        .map(([key, players]) => {
-            const slot = key.substring(dayKey.length + 1);
+      const popularSlots = timeSlots
+        .map(slot => {
+            const voteKey = `${dayKey}-${slot}`;
+            const players = allVotes[voteKey] || [];
             return { slot, count: players.length, players };
         })
         .filter(item => item.count > 0)
