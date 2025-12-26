@@ -95,55 +95,23 @@
     ]
   },
   "firestore": {
-    "structure": [
-      {
-        "path": "/users/{userId}",
-        "definition": {
-          "entityName": "UserProfile",
-          "schema": {
-            "$ref": "#/backend/entities/UserProfile"
-          },
-          "description": "Stores user profile data. The document ID is the user's UID.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier of the user (UID)."
-            }
-          ]
-        }
+    "/users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/UserProfile"
       },
-      {
-        "path": "/votes/{voteId}",
-        "definition": {
-          "entityName": "Vote",
-          "schema": {
-            "$ref": "#/backend/entities/Vote"
-          },
-          "description": "Stores individual user votes for time slots. Document ID is a composite key for easy upserts.",
-          "params": [
-            {
-              "name": "voteId",
-              "description": "Composite ID: {userId}_{yyyy-MM-dd}_{time}"
-            }
-          ]
-        }
+      "description": "Stores user profile data. The document ID is the user's UID."
+    },
+    "/votes/{voteId}": {
+      "schema": {
+        "$ref": "#/entities/Vote"
       },
-      {
-        "path": "/scheduledEvents/{eventId}",
-        "definition": {
-          "entityName": "ScheduledEvent",
-          "schema": {
-            "$ref": "#/backend/entities/ScheduledEvent"
-          },
-          "description": "Stores information about scheduled events. Rules allow any authenticated user to read, but only the creator to write or delete.",
-          "params": [
-            {
-              "name": "eventId",
-              "description": "The unique identifier of the scheduled event."
-            }
-          ]
-        }
-      }
-    ]
+      "description": "Stores individual user votes for time slots. Document ID is a composite key for easy upserts."
+    },
+    "/scheduledEvents/{eventId}": {
+      "schema": {
+        "$ref": "#/entities/ScheduledEvent"
+      },
+      "description": "Stores information about scheduled events. Rules allow any authenticated user to read, but only the creator to write or delete."
+    }
   }
 }

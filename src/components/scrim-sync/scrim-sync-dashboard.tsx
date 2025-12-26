@@ -1,12 +1,12 @@
 'use client';
 
 import * as React from 'react';
-import { format, addDays, startOfWeek, endOfWeek, isSameDay } from 'date-fns';
+import { format, addDays, startOfWeek, endOfWeek, isSameDay, parseISO } from 'date-fns';
 import { Send, ChevronLeft, ChevronRight, ClipboardCopy } from 'lucide-react';
 import type { User } from 'firebase/auth';
 import { collection, doc, writeBatch } from 'firebase/firestore';
 
-import type { PlayerProfileData, ScheduleEvent, UserVotes, AllVotes, Vote } from '@/lib/types';
+import type { PlayerProfileData, ScheduleEvent, UserVotes, AllVotes, Vote, FirestoreScheduleEvent } from '@/lib/types';
 import { timeSlots } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -33,7 +33,7 @@ import { Textarea } from '../ui/textarea';
 import { useCollection, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import { addDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Skeleton } from '../ui/skeleton';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardHeader, CardContent } from '@/components/ui/card';
 
 type ScrimSyncDashboardProps = {
     user: User;
@@ -71,23 +71,26 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
   // Firestore Hooks
   const { data: profile, isLoading: isProfileLoading } = useDoc<PlayerProfileData>(profileRef);
   const { data: allProfiles, isLoading: areProfilesLoading } = useCollection<PlayerProfileData>(allUsersRef);
-  const { data: scheduledEventsData, isLoading: areEventsLoading } = useCollection<ScheduleEvent>(eventsQuery);
+  const { data: scheduledEventsData, isLoading: areEventsLoading } = useCollection<FirestoreScheduleEvent>(eventsQuery);
   const { data: allVotesData, isLoading: areVotesLoading } = useCollection<Vote>(votesQuery);
   
-  const scheduledEvents = React.useMemo(() => {
+  const scheduledEvents: ScheduleEvent[] = React.useMemo(() => {
     if (!scheduledEventsData) return [];
-    return scheduledEventsData.map(e => ({...e, date: new Date(e.date)}));
+    // Convert date strings from Firestore to Date objects
+    return scheduledEventsData.map(e => ({...e, date: parseISO(e.date)}));
   }, [scheduledEventsData]);
 
 
   const handleProfileChange = React.useCallback(
     (newProfile: PlayerProfileData) => {
+      if (!firestore) return;
       setIsSavingProfile(true);
-      setDocumentNonBlocking(profileRef, { ...newProfile, id: user.uid }, { merge: true });
+      const profileDocRef = doc(firestore, 'users', user.uid);
+      setDocumentNonBlocking(profileDocRef, { ...newProfile, id: user.uid }, { merge: true });
       // This is a bit of a trick to give a visual feedback that the data is being saved.
       setTimeout(() => setIsSavingProfile(false), 500);
     },
-    [profileRef, user.uid]
+    [firestore, user.uid]
   );
 
   const userVotes: UserVotes = React.useMemo(() => {
@@ -123,6 +126,7 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
   }, [allVotesData, allProfiles]);
 
   const handleVote = async (date: Date, timeSlot: string) => {
+    if (!firestore) return;
     const dateKey = format(date, 'yyyy-MM-dd');
     const timeslotId = `${dateKey}_${timeSlot}`;
     const voteId = `${user.uid}_${timeslotId}`;
@@ -144,25 +148,22 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
   };
 
   const handleVoteAllDay = async (date: Date) => {
+    if (!firestore) return;
     const dateKey = format(date, 'yyyy-MM-dd');
     const dayVotes = userVotes[dateKey] || new Set();
     const allSelected = timeSlots.every(slot => dayVotes.has(slot));
     
     const batch = writeBatch(firestore);
 
-    if (allSelected) { // Deselect all
-        timeSlots.forEach(slot => {
-            const timeslotId = `${dateKey}_${slot}`;
-            const voteId = `${user.uid}_${timeslotId}`;
-            const voteRef = doc(firestore, 'votes', voteId);
+    timeSlots.forEach(slot => {
+        const timeslotId = `${dateKey}_${slot}`;
+        const voteId = `${user.uid}_${timeslotId}`;
+        const voteRef = doc(firestore, 'votes', voteId);
+
+        if (allSelected) { // Deselect all
             batch.delete(voteRef);
-        });
-    } else { // Select all
-        timeSlots.forEach(slot => {
+        } else { // Select all not already selected
             if (!dayVotes.has(slot)) {
-                const timeslotId = `${dateKey}_${slot}`;
-                const voteId = `${user.uid}_${timeslotId}`;
-                const voteRef = doc(firestore, 'votes', voteId);
                 const voteData: Vote = {
                     id: voteId,
                     userId: user.uid,
@@ -171,22 +172,23 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
                 };
                 batch.set(voteRef, voteData);
             }
-        });
-    }
+        }
+    });
 
     try {
         await batch.commit();
     } catch (e: any) {
-        console.error(e);
+        console.error("Batch vote failed:", e);
         toast({
             variant: "destructive",
             title: "Uh oh! Something went wrong.",
-            description: e.message || "Could not save your votes.",
+            description: "Could not save all your votes. Please try again.",
         });
     }
   };
 
   const handleVoteAllTime = async (timeSlot: string) => {
+    if (!firestore) return;
     const weekStartVote = startOfWeek(currentDate, { weekStartsOn: 1 });
     const allSelected = Array.from({length: 7}).every((_, i) => {
         const date = addDays(weekStartVote, i);
@@ -219,11 +221,11 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
     try {
         await batch.commit();
     } catch (e: any) {
-        console.error(e);
+        console.error("Batch vote failed:", e);
         toast({
             variant: "destructive",
             title: "Uh oh! Something went wrong.",
-            description: e.message || "Could not save your votes.",
+            description: "Could not save all your votes. Please try again.",
         });
     }
   };
@@ -232,10 +234,11 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
   const handleAddEvent = (data: { type: 'Training' | 'Tournament'; date: Date; time: string }) => {
     if (!firestore) return;
     const eventsRef = collection(firestore, 'scheduledEvents');
-    const newEvent = {
+    const newEvent: FirestoreScheduleEvent = {
       ...data,
       date: format(data.date, 'yyyy-MM-dd'),
-      creatorId: user.uid
+      creatorId: user.uid,
+      id: '', // ID will be auto-generated by Firestore, but needed for type
     };
     addDocumentNonBlocking(eventsRef, newEvent);
     toast({
@@ -272,7 +275,7 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
       const dayKey = format(day, 'yyyy-MM-dd');
       post += `**${format(day, 'EEEE, d MMM')}**\n`;
 
-      const dayEvents = scheduledEvents?.filter(event => isSameDay(new Date(event.date), day)).sort((a, b) => a.time.localeCompare(b.time));
+      const dayEvents = scheduledEvents?.filter(event => isSameDay(event.date, day)).sort((a, b) => a.time.localeCompare(b.time));
       if (dayEvents && dayEvents.length > 0) {
         post += '***Scheduled Events:***\n';
         dayEvents.forEach(event => {
@@ -354,7 +357,7 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           <div className="lg:col-span-1 space-y-8">
             <PlayerProfile 
-                profile={profile ?? { username: user.displayName || '', favoriteTank: '', role: '' }} 
+                profile={profile ?? { id: user.uid, username: user.displayName || '', favoriteTank: '', role: '' }} 
                 onProfileChange={handleProfileChange}
                 isSaving={isSavingProfile || isProfileLoading}
             />

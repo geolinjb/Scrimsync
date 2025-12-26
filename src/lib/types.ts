@@ -1,10 +1,14 @@
 export type ScheduleEvent = {
   id: string;
   type: 'Training' | 'Tournament';
-  date: Date | string; // Allow string for Firestore compatibility
+  date: Date;
   time: string;
   creatorId: string;
 };
+
+export type FirestoreScheduleEvent = Omit<ScheduleEvent, 'date'> & {
+  date: string; // Firestore stores dates as strings or Timestamps
+}
 
 export type PlayerProfileData = {
   id: string;

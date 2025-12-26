@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { format, startOfToday, isSameDay } from 'date-fns';
+import { format, startOfToday } from 'date-fns';
 import { CalendarCheck, Users, Trash2 } from 'lucide-react';
 import type { User } from 'firebase/auth';
 
@@ -32,7 +32,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Skeleton } from '../ui/skeleton';
 
 type ScheduledEventsProps = {
   events: ScheduleEvent[];
@@ -52,8 +51,7 @@ export function ScheduledEvents({ events, votes, onRemoveEvent, currentUser }: S
 
   const getAvailablePlayers = (event: ScheduleEvent): string[] => {
     const dateKey = format(event.date, 'yyyy-MM-dd');
-    const slotKey = event.time;
-    const voteKey = `${dateKey}-${slotKey}`;
+    const voteKey = `${dateKey}-${event.time}`;
     return votes[voteKey] || [];
   };
 

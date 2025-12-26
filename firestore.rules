@@ -12,7 +12,7 @@ service cloud.firestore {
     }
 
     /**
-     * @description Secures a user's profile document. Only the owner can read or write their own profile.
+     * @description Secures a user's profile document.
      * @path /users/{userId}
      */
     match /users/{userId} {
@@ -31,7 +31,7 @@ service cloud.firestore {
         allow read: if isSignedIn();
         // A user can only write/delete a vote if the data's userId matches their own.
         // This is more robust than checking the voteId string.
-        allow write: if isOwner(request.resource.data.userId);
+        allow write: if isSignedIn() && request.resource.data.userId == request.auth.uid;
     }
 
     /**
@@ -41,9 +41,9 @@ service cloud.firestore {
     match /scheduledEvents/{eventId} {
       // Any authenticated user can read events.
       allow read: if isSignedIn();
-      // A user can create an event if they are the creator.
+      // A user can create an event if they are the creator specified in the new document.
       allow create: if isOwner(request.resource.data.creatorId);
-      // Only the creator of an event can update or delete it.
+      // Only the creator of an existing event can update or delete it.
       allow update, delete: if isOwner(resource.data.creatorId);
     }
   }
