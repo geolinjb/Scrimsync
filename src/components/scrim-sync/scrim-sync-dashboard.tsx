@@ -81,16 +81,19 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
   }, [scheduledEventsData]);
 
 
-  const handleProfileChange = React.useCallback(
+  const handleProfileSave = React.useCallback(
     (newProfile: PlayerProfileData) => {
       if (!firestore) return;
       setIsSavingProfile(true);
       const profileDocRef = doc(firestore, 'users', user.uid);
       setDocumentNonBlocking(profileDocRef, { ...newProfile, id: user.uid }, { merge: true });
-      // This is a bit of a trick to give a visual feedback that the data is being saved.
-      setTimeout(() => setIsSavingProfile(false), 500);
+      toast({
+        title: 'Profile Saved!',
+        description: 'Your profile has been successfully updated.',
+      });
+      setTimeout(() => setIsSavingProfile(false), 1000);
     },
-    [firestore, user.uid]
+    [firestore, user.uid, toast]
   );
 
   const userVotes: UserVotes = React.useMemo(() => {
@@ -357,9 +360,10 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           <div className="lg:col-span-1 space-y-8">
             <PlayerProfile 
-                profile={profile ?? { id: user.uid, username: user.displayName || '', favoriteTank: '', role: '' }} 
-                onProfileChange={handleProfileChange}
-                isSaving={isSavingProfile || isProfileLoading}
+                initialProfile={profile ?? { id: user.uid, username: user.displayName || '', favoriteTank: '', role: '' }} 
+                onSave={handleProfileSave}
+                isSaving={isSavingProfile}
+                isLoading={isProfileLoading}
             />
             <ScheduleForm onAddEvent={handleAddEvent} currentDate={currentDate} />
             <ScheduledEvents 

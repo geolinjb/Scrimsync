@@ -1,11 +1,13 @@
 'use client';
 
+import * as React from 'react';
 import { PlayerProfileData } from '@/lib/types';
 import { gameRoles } from '@/lib/types';
 import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
@@ -18,34 +20,72 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { User, Loader } from 'lucide-react';
+import { User, Loader, Save } from 'lucide-react';
 import { Button } from '../ui/button';
-import { cn } from '@/lib/utils';
+import { Skeleton } from '../ui/skeleton';
 
 type PlayerProfileProps = {
-  profile: PlayerProfileData;
-  onProfileChange: (profile: PlayerProfileData) => void;
+  initialProfile: PlayerProfileData;
+  onSave: (profile: PlayerProfileData) => void;
   isSaving: boolean;
+  isLoading: boolean;
 };
 
-export function PlayerProfile({ profile, onProfileChange, isSaving }: PlayerProfileProps) {
+export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: PlayerProfileProps) {
+  const [profile, setProfile] = React.useState<PlayerProfileData>(initialProfile);
+  const [hasChanges, setHasChanges] = React.useState(false);
+
+  React.useEffect(() => {
+    setProfile(initialProfile);
+  }, [initialProfile]);
   
   const handleInputChange = (field: keyof PlayerProfileData, value: string) => {
-    onProfileChange({ ...profile, [field]: value });
+    setProfile({ ...profile, [field]: value });
+    if (!hasChanges) setHasChanges(true);
   };
+
+  const handleSave = () => {
+    onSave(profile);
+    setHasChanges(false);
+  }
+
+  if (isLoading) {
+    return (
+        <Card>
+            <CardHeader>
+                <Skeleton className="h-8 w-3/4" />
+                <Skeleton className="h-4 w-full" />
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div className="space-y-2">
+                    <Skeleton className="h-4 w-1/4" />
+                    <Skeleton className="h-10 w-full" />
+                </div>
+                <div className="space-y-2">
+                    <Skeleton className="h-4 w-1/4" />
+                    <Skeleton className="h-10 w-full" />
+                </div>
+                <div className="space-y-2">
+                    <Skeleton className="h-4 w-1/4" />
+                    <Skeleton className="h-10 w-full" />
+                </div>
+            </CardContent>
+            <CardFooter>
+                <Skeleton className="h-10 w-full" />
+            </CardFooter>
+        </Card>
+    )
+  }
 
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3">
             <User className="w-6 h-6" />
             <CardTitle>Player Profile</CardTitle>
-          </div>
-          <Loader className={cn("w-5 h-5 text-muted-foreground animate-spin", isSaving ? "opacity-100" : "opacity-0")} />
         </div>
         <CardDescription>
-          Set your name, favorite tank, and preferred role. This is saved automatically.
+          Set your name, favorite tank, and preferred role.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -92,6 +132,12 @@ export function PlayerProfile({ profile, onProfileChange, isSaving }: PlayerProf
           </Select>
         </div>
       </CardContent>
+      <CardFooter>
+        <Button onClick={handleSave} disabled={isSaving || !hasChanges} className='w-full'>
+            {isSaving ? <Loader className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+            {isSaving ? 'Saving...' : 'Save Profile'}
+        </Button>
+      </CardFooter>
     </Card>
   );
 }
