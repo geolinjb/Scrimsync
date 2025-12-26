@@ -36,7 +36,6 @@ import {
     DialogDescription,
 } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
-import { Badge } from '../ui/badge';
 
 type HeatmapGridProps = {
   allVotes: AllVotes;
@@ -51,12 +50,12 @@ type SelectedSlot = {
 } | null;
 
 const heatmapColors = [
-    'bg-primary/10',
-    'bg-primary/20',
-    'bg-primary/40',
-    'bg-primary/60',
-    'bg-primary/80',
-    'bg-primary',
+    'bg-green-500/10',
+    'bg-green-500/20',
+    'bg-green-500/40',
+    'bg-green-500/60',
+    'bg-green-500/80',
+    'bg-green-500/100',
 ];
 
 export function HeatmapGrid({
@@ -67,7 +66,7 @@ export function HeatmapGrid({
   const [selectedSlot, setSelectedSlot] = React.useState<SelectedSlot>(null);
 
   const weekDates = React.useMemo(() => {
-    const start = startOfWeek(currentDate);
+    const start = startOfWeek(currentDate, { weekStartsOn: 1 });
     return Array.from({ length: 7 }, (_, i) => addDays(start, i));
   }, [currentDate]);
 
@@ -79,7 +78,7 @@ export function HeatmapGrid({
     if (voteCount === 0) return 'bg-transparent';
     const percentage = voteCount / maxVotes;
     const colorIndex = Math.min(
-        Math.floor(percentage * (heatmapColors.length -1)),
+        Math.floor(percentage * (heatmapColors.length)),
         heatmapColors.length - 1
     );
     return heatmapColors[colorIndex];
@@ -96,7 +95,7 @@ export function HeatmapGrid({
   };
 
   return (
-    <Card className="flex-1">
+    <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -110,15 +109,15 @@ export function HeatmapGrid({
       </CardHeader>
       <CardContent>
         <TooltipProvider>
-            <div className="border rounded-lg overflow-auto max-h-[60vh] relative">
-                <Table>
-                    <TableHeader className="sticky top-0 z-30 bg-card">
+            <div className="border rounded-lg overflow-auto max-h-[65vh] relative">
+                <Table className="w-full border-collapse">
+                    <TableHeader className="sticky top-0 z-30 bg-card/95 backdrop-blur-sm">
                         <TableRow>
-                            <TableHead className="w-[100px] sticky left-0 bg-card z-40">Time</TableHead>
+                            <TableHead className="w-[100px] sticky left-0 bg-card/95 backdrop-blur-sm z-40">Time</TableHead>
                             {weekDates.map(date => (
-                                <TableHead key={date.toISOString()} className="text-center">
+                                <TableHead key={date.toISOString()} className="text-center p-2">
                                   <div className='min-w-[6rem]'>{format(date, 'EEE')}</div>
-                                  <div>{format(date, 'd/M')}</div>
+                                  <div className="font-normal">{format(date, 'd/M')}</div>
                                 </TableHead>
                             ))}
                         </TableRow>
@@ -126,7 +125,7 @@ export function HeatmapGrid({
                     <TableBody>
                         {timeSlots.map(slot => (
                             <TableRow key={slot}>
-                                <TableCell className="font-medium sticky left-0 bg-card z-20">{slot}</TableCell>
+                                <TableCell className="font-medium sticky left-0 bg-card/95 backdrop-blur-sm z-20 p-2">{slot}</TableCell>
                                 {weekDates.map(date => {
                                     const dateKey = format(date, 'yyyy-MM-dd');
                                     const voteKey = `${dateKey}-${slot}`;
@@ -134,28 +133,25 @@ export function HeatmapGrid({
                                     const voteCount = availablePlayers.length;
                                     const event = getEventForSlot(date, slot);
                                     return (
-                                        <TableCell key={date.toISOString()} className="text-center p-0">
+                                        <TableCell key={date.toISOString()} className="text-center p-0 align-middle">
                                             <Tooltip>
                                                 <TooltipTrigger asChild>
                                                     <div
                                                         onClick={() => handleSlotClick(date, slot, availablePlayers)}
                                                         className={cn(
-                                                            'relative h-12 w-full flex flex-col justify-center items-center text-center p-1 transition-all duration-300 cursor-pointer',
+                                                            'relative h-14 w-full flex flex-col justify-center items-center text-center p-1 transition-all duration-300 cursor-pointer border-l border-t',
                                                             getHeatmapColor(voteCount)
                                                         )}
                                                     >
-                                                        <div className="relative z-10 text-xs sm:text-sm font-medium">
-                                                            {voteCount}
-                                                        </div>
-                                                        <div className="relative z-10 text-[10px] sm:text-xs text-muted-foreground">
-                                                            votes
+                                                        <div className="relative z-10 text-sm font-bold text-foreground">
+                                                            {voteCount > 0 ? voteCount : ''}
                                                         </div>
                                                         {event && (
                                                             <div className="absolute top-1 right-1 z-20">
                                                             {event.type === 'Training' ? (
-                                                                <Swords className="w-3 h-3 text-foreground" />
+                                                                <Swords className="w-4 h-4 text-foreground/80" />
                                                             ) : (
-                                                                <Trophy className="w-3 h-3 text-foreground" />
+                                                                <Trophy className="w-4 h-4 text-yellow-500" />
                                                             )}
                                                             </div>
                                                         )}

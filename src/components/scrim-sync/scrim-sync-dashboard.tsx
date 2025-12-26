@@ -4,7 +4,6 @@ import * as React from 'react';
 import { format, addDays, startOfWeek, endOfWeek, subWeeks, isSameDay } from 'date-fns';
 import { Send, ChevronLeft, ChevronRight, Copy, ClipboardCopy } from 'lucide-react';
 
-import { postToDiscordWebhook } from '@/app/actions';
 import type { PlayerProfileData, ScheduleEvent, UserVotes, AllVotes } from '@/lib/types';
 import { timeSlots, mockPlayers } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -40,7 +39,6 @@ import {
 import { Checkbox } from '../ui/checkbox';
 import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
-import { Input } from '../ui/input';
 
 
 export function ScrimSyncDashboard() {
@@ -69,6 +67,38 @@ export function ScrimSyncDashboard() {
     setIsClient(true);
   }, []);
   
+  const generateRandomData = React.useCallback(() => {
+      const initialVotes: AllVotes = {};
+      const weekStart = startOfWeek(currentDate);
+
+      for (let i = 0; i < 7; i++) {
+          const day = addDays(weekStart, i);
+          const dayKey = format(day, 'yyyy-MM-dd');
+          
+          timeSlots.forEach(slot => {
+              const voteKey = `${dayKey}-${slot}`;
+              const availablePlayers = new Set<string>();
+              
+              // Add current user if they voted
+              if (userVotes[dayKey]?.has(slot)) {
+                  availablePlayers.add(profile.username);
+              }
+
+              // Add other random mock players
+              const otherPlayers = mockPlayers.filter(p => p !== profile.username);
+              const voterCount = Math.floor(Math.random() * (otherPlayers.length));
+              
+              const shuffledPlayers = otherPlayers.sort(() => 0.5 - Math.random());
+              for(let j = 0; j < voterCount; j++) {
+                  availablePlayers.add(shuffledPlayers[j]);
+              }
+              
+              initialVotes[voteKey] = Array.from(availablePlayers);
+          });
+      }
+      setAllVotes(initialVotes);
+  }, [currentDate, userVotes, profile.username]);
+
   React.useEffect(() => {
     if (!isClient) return;
 
@@ -82,46 +112,14 @@ export function ScrimSyncDashboard() {
         {
             id: '2',
             type: 'Tournament',
-            date: new Date(),
+            date: addDays(new Date(), 1),
             time: '8:30 PM'
         }
     ]);
-
-    const generateRandomData = () => {
-        const initialVotes: AllVotes = {};
-        const weekStart = startOfWeek(currentDate);
-
-        for (let i = 0; i < 7; i++) {
-            const day = addDays(weekStart, i);
-            const dayKey = format(day, 'yyyy-MM-dd');
-            
-            timeSlots.forEach(slot => {
-                const voteKey = `${dayKey}-${slot}`;
-                const availablePlayers = new Set<string>();
-                
-                // Add current user if they voted
-                if (userVotes[dayKey]?.has(slot)) {
-                    availablePlayers.add(profile.username);
-                }
-
-                // Add other random mock players
-                const otherPlayers = mockPlayers.filter(p => p !== profile.username);
-                const voterCount = Math.floor(Math.random() * (otherPlayers.length + 1));
-                
-                const shuffledPlayers = otherPlayers.sort(() => 0.5 - Math.random());
-                for(let j = 0; j < voterCount; j++) {
-                    availablePlayers.add(shuffledPlayers[j]);
-                }
-                
-                initialVotes[voteKey] = Array.from(availablePlayers);
-            });
-        }
-        setAllVotes(initialVotes);
-    };
     
     generateRandomData();
     
-  }, [currentDate, userVotes, profile.username, isClient]);
+  }, [isClient, generateRandomData]);
 
   if (!isClient) {
     return null;
@@ -245,6 +243,7 @@ export function ScrimSyncDashboard() {
     toast({
       title: 'Event Removed',
       description: 'The scheduled event has been successfully removed.',
+      variant: 'destructive'
     });
   };
 
@@ -266,7 +265,7 @@ export function ScrimSyncDashboard() {
       const dayKey = format(day, 'yyyy-MM-dd');
       post += `**${format(day, 'EEEE, d MMM')}**\n`;
 
-      const dayEvents = scheduledEvents.filter(event => isSameDay(day, event.date));
+      const dayEvents = scheduledEvents.filter(event => isSameDay(day, event.date)).sort((a, b) => a.time.localeCompare(b.time));
       if (dayEvents.length > 0) {
         post += '***Scheduled Events:***\n';
         dayEvents.forEach(event => {
@@ -278,14 +277,14 @@ export function ScrimSyncDashboard() {
       const daySlots = Object.entries(allVotes).filter(([key]) => key.startsWith(dayKey));
       
       const popularSlots = daySlots
-        .map(([key, players]) => ({ slot: key.split('-')[2] + ':' + key.split('-')[3], count: players.length, players }))
+        .map(([key, players]) => ({ slot: key.split('-').slice(3).join('-'), count: players.length, players }))
         .filter(item => item.count > 0)
         .sort((a, b) => b.count - a.count);
 
       if (popularSlots.length > 0) {
         post += '***Availability:***\n';
         popularSlots.forEach(({slot, count, players}) => {
-          post += `- **${slot.replace(':', ' ')}**: ${count} players (${players.join(', ')})\n`;
+          post += `- **${slot}**: ${count} players (${players.join(', ')})\n`;
         });
       } else {
         post += '_No availability submitted for this day._\n';
@@ -337,18 +336,18 @@ export function ScrimSyncDashboard() {
     <div className="flex flex-col min-h-screen bg-background">
       <Header />
       <main className="flex-1 container mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-8">
-          <div className="md:col-span-1 lg:col-span-1 space-y-8">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+          <div className="lg:col-span-1 space-y-8">
             <PlayerProfile profile={profile} onProfileChange={setProfile} />
             <ScheduleForm onAddEvent={handleAddEvent} currentDate={currentDate} />
             <ScheduledEvents events={scheduledEvents} votes={allVotes} currentDate={currentDate} onRemoveEvent={handleRemoveEvent} />
           </div>
-          <div className="md:col-span-2 lg:col-span-3 space-y-6">
-            <Tabs defaultValue="individual">
+          <div className="lg:col-span-3 space-y-6">
+            <Tabs defaultValue="individual" className='w-full'>
               <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
                 <TabsList>
                   <TabsTrigger value="individual">Individual Voting</TabsTrigger>
-                  <TabsTrigger value="heatmap">Heatmap</TabsTrigger>
+                  <TabsTrigger value="heatmap">Team Heatmap</TabsTrigger>
                 </TabsList>
                 <div className='flex items-center gap-2'>
                     <Button variant="outline" size="icon" onClick={goToPreviousWeek}>

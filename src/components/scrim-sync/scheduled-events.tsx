@@ -115,7 +115,7 @@ export function ScheduledEvents({ events, votes, onRemoveEvent }: ScheduledEvent
                         </div>
                         <AlertDialog>
                             <AlertDialogTrigger asChild>
-                                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
+                                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive shrink-0">
                                     <Trash2 className="w-4 h-4" />
                                 </Button>
                             </AlertDialogTrigger>
