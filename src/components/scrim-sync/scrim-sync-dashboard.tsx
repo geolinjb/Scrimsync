@@ -348,3 +348,5 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
     </div>
   );
 }
+
+    
