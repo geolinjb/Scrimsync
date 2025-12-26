@@ -8,7 +8,7 @@ import { postToDiscordAction } from '@/app/actions';
 import type { PlayerProfileData, ScheduleEvent } from '@/lib/types';
 import { gameRoles, timeSlots } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 
 import { AvailabilityGrid } from './availability-grid';
 import { Header } from './header';
