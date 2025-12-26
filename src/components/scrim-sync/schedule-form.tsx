@@ -37,8 +37,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Separator } from '@/components/ui/separator';
+import { timeSlots } from '@/lib/types';
 
 const formSchema = z.object({
   type: z.enum(['Training', 'Tournament']),
@@ -65,7 +65,7 @@ export function ScheduleForm({ onAddEvent, currentDate }: ScheduleFormProps) {
   const selectedDate = useWatch({ control: form.control, name: 'date' });
 
   const weekDates = React.useMemo(() => {
-    const start = startOfWeek(currentDate);
+    const start = startOfWeek(currentDate, { weekStartsOn: 1 });
     return Array.from({ length: 7 }, (_, i) => addDays(start, i));
   }, [currentDate]);
 
@@ -77,14 +77,6 @@ export function ScheduleForm({ onAddEvent, currentDate }: ScheduleFormProps) {
         date: undefined,
     });
   }
-
-  const timeOptions = Array.from({ length: 48 }, (_, i) => {
-    const hours = Math.floor(i / 2);
-    const minutes = i % 2 === 0 ? '00' : '30';
-    const period = hours < 12 ? 'AM' : 'PM';
-    const displayHours = hours % 12 === 0 ? 12 : hours % 12;
-    return `${displayHours}:${minutes} ${period}`;
-  });
 
   return (
     <Card>
@@ -198,7 +190,7 @@ export function ScheduleForm({ onAddEvent, currentDate }: ScheduleFormProps) {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {timeOptions.map((time) => (
+                      {timeSlots.map((time) => (
                         <SelectItem key={time} value={time}>
                           {time}
                         </SelectItem>
