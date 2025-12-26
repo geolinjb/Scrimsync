@@ -271,7 +271,6 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
     }
 
     const sortedDays = selectedDaysForPost.sort((a, b) => a.getTime() - b.getTime());
-
     let post = `**Team Availability for ${format(sortedDays[0], 'd MMM')} - ${format(sortedDays[sortedDays.length - 1], 'd MMM, yyyy')}**\n\n`;
 
     sortedDays.forEach(day => {
