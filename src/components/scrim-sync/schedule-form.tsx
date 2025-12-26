@@ -127,7 +127,7 @@ export function ScheduleForm({ onAddEvent }: ScheduleFormProps) {
                           )}
                         >
                           {field.value ? (
-                            format(field.value, 'PPP')
+                            format(field.value, 'd MMM, yyyy')
                           ) : (
                             <span>Pick a date</span>
                           )}

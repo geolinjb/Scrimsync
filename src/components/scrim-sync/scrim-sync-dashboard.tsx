@@ -58,18 +58,20 @@ export function ScrimSyncDashboard() {
   ]);
   
   React.useEffect(() => {
-    const initialVotes: Record<string, number> = {};
-    const weekStart = startOfWeek(currentDate);
-    for (let i = 0; i < 7; i++) {
+    const generateRandomData = () => {
+      const initialVotes: Record<string, number> = {};
+      const weekStart = startOfWeek(currentDate);
+      for (let i = 0; i < 7; i++) {
         const day = addDays(weekStart, i);
         const dayKey = format(day, 'yyyy-MM-dd');
         timeSlots.forEach(slot => {
-            const key = `${dayKey}-${slot}`;
-            initialVotes[key] = Math.floor(Math.random() * 9) + (userVotes[dayKey]?.has(slot) ? 1 : 0);
+          const key = `${dayKey}-${slot}`;
+          initialVotes[key] = Math.floor(Math.random() * 9) + (userVotes[dayKey]?.has(slot) ? 1 : 0);
         });
-    }
-
-    setVotes(initialVotes);
+      }
+      setVotes(initialVotes);
+    };
+    generateRandomData();
   }, [currentDate, userVotes]);
 
 
@@ -182,7 +184,7 @@ export function ScrimSyncDashboard() {
     setScheduledEvents([...scheduledEvents, newEvent]);
     toast({
       title: 'Event Scheduled!',
-      description: `${data.type} on ${format(data.date, 'PPP')} at ${data.time} has been added.`,
+      description: `${data.type} on ${format(data.date, 'd MMM, yyyy')} at ${data.time} has been added.`,
     });
   };
 
@@ -192,7 +194,7 @@ export function ScrimSyncDashboard() {
       .join('\n');
     
     const availabilityInfoString = scheduledEvents
-      .map(event => `Scheduled ${event.type} at ${event.time} on ${format(event.date, 'PPP')}`)
+      .map(event => `Scheduled ${event.type} at ${event.time} on ${format(event.date, 'd MMM, yyyy')}`)
       .join('\n');
       
     const result = await postToDiscordAction(votingResultsString, availabilityInfoString);
@@ -243,7 +245,7 @@ export function ScrimSyncDashboard() {
                         <ChevronLeft className="h-4 w-4" />
                     </Button>
                     <div className="text-sm font-medium text-center w-40">
-                        {format(weekStart, 'MMM d')} - {format(weekEnd, 'MMM d, yyyy')}
+                        {format(weekStart, 'd MMM')} - {format(weekEnd, 'd MMM, yyyy')}
                     </div>
                     <Button variant="outline" size="icon" onClick={goToNextWeek}>
                         <ChevronRight className="h-4 w-4" />

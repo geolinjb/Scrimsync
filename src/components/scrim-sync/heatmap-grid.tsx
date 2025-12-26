@@ -88,7 +88,7 @@ export function HeatmapGrid({
                             {weekDates.map(date => (
                                 <TableHead key={date.toISOString()} className="text-center">
                                   <div>{format(date, 'EEE')}</div>
-                                  <div>{format(date, 'M/d')}</div>
+                                  <div>{format(date, 'd/M')}</div>
                                 </TableHead>
                             ))}
                         </TableRow>
@@ -135,7 +135,7 @@ export function HeatmapGrid({
                                                     </div>
                                                 </TooltipTrigger>
                                                 <TooltipContent>
-                                                    <p>{format(date, 'EEEE, MMM d')} at {slot}</p>
+                                                    <p>{format(date, 'EEEE, d MMM')} at {slot}</p>
                                                     <p>{voteCount} players available</p>
                                                     {event && (
                                                     <p className="mt-1 font-bold">

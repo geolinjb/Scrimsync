@@ -6,6 +6,7 @@ import { DayPicker } from "react-day-picker"
 
 import { cn } from "@/lib/utils"
 import { buttonVariants } from "@/components/ui/button"
+import { format } from "date-fns"
 
 export type CalendarProps = React.ComponentProps<typeof DayPicker>
 
@@ -60,6 +61,17 @@ function Calendar({
         IconRight: ({ className, ...props }) => (
           <ChevronRight className={cn("h-4 w-4", className)} {...props} />
         ),
+      }}
+      formatters={{
+        formatCaption: (date, options) => {
+          return format(date, 'MMMM yyyy', { locale: options?.locale });
+        },
+        formatDay: (date, options) => {
+          return format(date, 'd', { locale: options?.locale });
+        },
+        formatWeekdayName: (date, options) => {
+          return format(date, 'cccccc', { locale: options?.locale });
+        },
       }}
       {...props}
     />

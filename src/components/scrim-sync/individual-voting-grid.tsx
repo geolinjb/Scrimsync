@@ -73,7 +73,7 @@ export function IndividualVotingGrid({
                                 <TableHead key={date.toISOString()} className="text-center font-bold">
                                   <div className='flex flex-col items-center gap-1'>
                                       <span>{format(date, 'EEE')}</span>
-                                      <span>{format(date, 'M/d')}</span>
+                                      <span>{format(date, 'd/M')}</span>
                                       <Tooltip>
                                         <TooltipTrigger asChild>
                                           <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onVoteAllDay(date)}>
