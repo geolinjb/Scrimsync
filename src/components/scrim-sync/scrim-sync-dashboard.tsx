@@ -224,6 +224,14 @@ export function ScrimSyncDashboard() {
     });
   };
 
+  const handleRemoveEvent = (eventId: string) => {
+    setScheduledEvents(prev => prev.filter(event => event.id !== eventId));
+    toast({
+      title: 'Event Removed',
+      description: 'The scheduled event has been successfully removed.',
+    });
+  };
+
   const handlePostToDiscord = async () => {
     if (selectedDaysForPost.length === 0) {
         toast({
@@ -298,7 +306,7 @@ export function ScrimSyncDashboard() {
           <div className="md:col-span-1 lg:col-span-1 space-y-8">
             <PlayerProfile profile={profile} onProfileChange={setProfile} />
             <ScheduleForm onAddEvent={handleAddEvent} currentDate={currentDate} />
-            <ScheduledEvents events={scheduledEvents} votes={allVotes} currentDate={currentDate} />
+            <ScheduledEvents events={scheduledEvents} votes={allVotes} currentDate={currentDate} onRemoveEvent={handleRemoveEvent} />
           </div>
           <div className="md:col-span-2 lg:col-span-3 space-y-6">
             <Tabs defaultValue="individual">
