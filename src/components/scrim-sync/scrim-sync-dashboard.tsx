@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { format, addDays, startOfWeek, endOfWeek, subWeeks } from 'date-fns';
+import { format, addDays, startOfWeek, endOfWeek, subWeeks, isSameDay } from 'date-fns';
 import { Send, ChevronLeft, ChevronRight, Copy } from 'lucide-react';
 
 import { postToDiscordAction } from '@/app/actions';
@@ -27,6 +27,17 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { 
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+    DialogFooter,
+    DialogTrigger,
+} from '@/components/ui/dialog';
+import { Checkbox } from '../ui/checkbox';
+import { Label } from '../ui/label';
 
 
 export function ScrimSyncDashboard() {
@@ -57,6 +68,10 @@ export function ScrimSyncDashboard() {
     }
   ]);
   
+  const [postDialogOpen, setPostDialogOpen] = React.useState(false);
+  const [selectedDaysForPost, setSelectedDaysForPost] = React.useState<Date[]>([]);
+
+
   React.useEffect(() => {
     const generateRandomData = () => {
         const initialVotes: AllVotes = {};
@@ -79,9 +94,9 @@ export function ScrimSyncDashboard() {
                 const otherPlayers = mockPlayers.filter(p => p !== profile.username);
                 const voterCount = Math.floor(Math.random() * (otherPlayers.length + 1));
                 
+                const shuffledPlayers = otherPlayers.sort(() => 0.5 - Math.random());
                 for(let j = 0; j < voterCount; j++) {
-                    const playerIndex = Math.floor(Math.random() * otherPlayers.length);
-                    availablePlayers.add(otherPlayers[playerIndex]);
+                    availablePlayers.add(shuffledPlayers[j]);
                 }
                 
                 initialVotes[key] = Array.from(availablePlayers);
@@ -89,7 +104,9 @@ export function ScrimSyncDashboard() {
         }
         setAllVotes(initialVotes);
     };
-    generateRandomData();
+    if (typeof window !== 'undefined') {
+        generateRandomData();
+    }
   }, [currentDate, userVotes, profile.username]);
 
 
@@ -207,15 +224,32 @@ export function ScrimSyncDashboard() {
   };
 
   const handlePostToDiscord = async () => {
+    if (selectedDaysForPost.length === 0) {
+        toast({
+            variant: 'destructive',
+            title: 'No days selected',
+            description: 'Please select at least one day to post results.',
+        });
+        return;
+    }
+
+    const selectedDayStrings = selectedDaysForPost.map(d => format(d, 'yyyy-MM-dd'));
+
     const votingResultsString = Object.entries(allVotes)
-      .map(([key, players]) => `${key.replace('-', ' ')}: ${players.length} votes`)
-      .join('\n');
+        .filter(([key]) => selectedDayStrings.some(d => key.startsWith(d)))
+        .map(([key, players]) => `${key.replace(/-/g, ' ')}: ${players.length} votes`)
+        .join('\n');
     
     const availabilityInfoString = scheduledEvents
-      .map(event => `Scheduled ${event.type} at ${event.time} on ${format(event.date, 'd MMM, yyyy')}`)
-      .join('\n');
+        .filter(event => selectedDaysForPost.some(d => isSameDay(d, event.date)))
+        .map(event => `Scheduled ${event.type} at ${event.time} on ${format(event.date, 'd MMM, yyyy')}`)
+        .join('\n');
       
-    const result = await postToDiscordAction(votingResultsString, availabilityInfoString);
+    const result = await postToDiscordAction(
+        votingResultsString, 
+        availabilityInfoString,
+        selectedDaysForPost.map(d => format(d, 'EEEE'))
+    );
 
     if (result.success) {
       toast({
@@ -229,7 +263,19 @@ export function ScrimSyncDashboard() {
         description: result.message,
       });
     }
+    setPostDialogOpen(false);
+    setSelectedDaysForPost([]);
   };
+
+  const handleDaySelectForPost = (day: Date, checked: boolean) => {
+    setSelectedDaysForPost(prev => {
+        if (checked) {
+            return [...prev, day];
+        } else {
+            return prev.filter(d => !isSameDay(d, day));
+        }
+    })
+  }
 
   const goToPreviousWeek = () => {
     setCurrentDate(prev => addDays(prev, -7));
@@ -241,6 +287,7 @@ export function ScrimSyncDashboard() {
   
   const weekStart = startOfWeek(currentDate);
   const weekEnd = endOfWeek(currentDate);
+  const weekDates = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
@@ -293,10 +340,43 @@ export function ScrimSyncDashboard() {
                     </AlertDialogContent>
                   </AlertDialog>
 
-                  <Button onClick={handlePostToDiscord}>
-                    <Send className="mr-2 h-4 w-4" />
-                    Post Results
-                  </Button>
+                  <Dialog open={postDialogOpen} onOpenChange={setPostDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button>
+                        <Send className="mr-2 h-4 w-4" />
+                        Post Results
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Post to Discord</DialogTitle>
+                            <DialogDescription>
+                                Select the days you want to include in the availability report.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className='grid grid-cols-2 gap-4 py-4'>
+                            {weekDates.map(day => (
+                                <div key={day.toISOString()} className='flex items-center space-x-2'>
+                                    <Checkbox
+                                        id={format(day, 'yyyy-MM-dd')}
+                                        onCheckedChange={(checked) => handleDaySelectForPost(day, checked as boolean)}
+                                        checked={selectedDaysForPost.some(d => isSameDay(d, day))}
+                                    />
+                                    <Label htmlFor={format(day, 'yyyy-MM-dd')} className='text-sm font-medium leading-none'>
+                                        {format(day, 'EEEE, d MMM')}
+                                    </Label>
+                                </div>
+                            ))}
+                        </div>
+                        <DialogFooter>
+                          <Button variant="outline" onClick={() => setPostDialogOpen(false)}>Cancel</Button>
+                          <Button onClick={handlePostToDiscord}>
+                              <Send className="mr-2 h-4 w-4" />
+                              Send to Discord
+                          </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
                 </div>
               </div>
               <TabsContent value="individual">

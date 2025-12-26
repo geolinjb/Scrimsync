@@ -11,9 +11,14 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const DiscordPostVotingResultsInputSchema = z.object({
-  votingResults: z.string().describe('The voting results data.'),
-  availabilityInfo: z.string().describe('The availability information.'),
+  votingResults: z
+    .string()
+    .describe('The voting results data for selected days.'),
+  availabilityInfo: z
+    .string()
+    .describe('The availability information for selected days.'),
   discordChannelId: z.string().describe('The Discord channel ID to post to.'),
+  selectedDays: z.array(z.string()).describe('The days selected for the report.')
 });
 export type DiscordPostVotingResultsInput = z.infer<
   typeof DiscordPostVotingResultsInputSchema
@@ -28,16 +33,21 @@ export async function discordPostVotingResults(
 const prompt = ai.definePrompt({
   name: 'discordPostVotingResultsPrompt',
   input: {schema: DiscordPostVotingResultsInputSchema},
-  prompt: `You are a helpful assistant that posts voting results and availability information to a Discord channel.
+  prompt: `You are a helpful assistant that posts a summary of team availability to a Discord channel.
+  
+  You will be given voting results and scheduled events for the following days: {{{selectedDays}}}.
 
-  Voting Results: {{{votingResults}}}
-  Availability Information: {{{availabilityInfo}}}
+  Voting Results (Player availability counts for each time slot):
+  {{{votingResults}}}
 
-  Determine if the provided voting results and availability information require any additional details or clarification before posting to the Discord channel.
-  If so, generate the necessary details or clarification. Then generate the message to post to discord.
-  The message must be concise and easy to understand.
+  Scheduled Events:
+  {{{availabilityInfo}}}
+
+  Generate a clear, concise, and easy-to-understand summary of the team's availability for the selected days.
+  Highlight the most popular time slots and any scheduled events.
+  The message should be formatted nicely for Discord.
   Do not include the channel ID in the post.
-  Return only the message that will be posted to discord.
+  Return only the summary message that will be posted to discord.
   `,
 });
 

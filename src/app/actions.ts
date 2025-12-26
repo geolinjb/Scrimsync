@@ -1,12 +1,12 @@
 'use server';
 
 import { discordPostVotingResults } from '@/ai/flows/discord-post-voting-results';
-import type { ScheduleEvent } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
 
 export async function postToDiscordAction(
   votingResults: string,
-  availabilityInfo: string
+  availabilityInfo: string,
+  selectedDays: string[]
 ) {
   try {
     // In a real app, this would be a configurable value from environment variables or a database.
@@ -16,6 +16,7 @@ export async function postToDiscordAction(
       votingResults,
       availabilityInfo,
       discordChannelId,
+      selectedDays,
     });
 
     revalidatePath('/');
