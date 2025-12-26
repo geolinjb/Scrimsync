@@ -33,6 +33,7 @@ import { Textarea } from '../ui/textarea';
 import { useCollection, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import { addDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Skeleton } from '../ui/skeleton';
+import { Card, CardContent, CardHeader } from '../ui/card';
 
 type ScrimSyncDashboardProps = {
     user: User;
