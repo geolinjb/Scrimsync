@@ -2,16 +2,22 @@
 
 import { ScrimSyncDashboard } from '@/components/scrim-sync/scrim-sync-dashboard';
 import { useAuth, useUser } from '@/firebase';
-import { initiateGoogleSignIn } from '@/firebase/non-blocking-login';
 import { Button } from '@/components/ui/button';
 import { Loader, Chrome } from 'lucide-react';
+import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 
 export default function Home() {
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
 
-  const handleLogin = () => {
-    initiateGoogleSignIn(auth);
+  const handleLogin = async () => {
+    if (!auth) return;
+    const provider = new GoogleAuthProvider();
+    try {
+      await signInWithPopup(auth, provider);
+    } catch (error) {
+      console.error("Error during sign-in:", error);
+    }
   };
 
   if (isUserLoading) {
