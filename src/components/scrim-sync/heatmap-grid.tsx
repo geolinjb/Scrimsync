@@ -110,11 +110,11 @@ export function HeatmapGrid({
       </CardHeader>
       <CardContent>
         <TooltipProvider>
-            <div className="border rounded-lg overflow-auto max-h-[60vh]">
+            <div className="border rounded-lg overflow-auto max-h-[60vh] relative">
                 <Table>
-                    <TableHeader className="sticky top-0 z-20 bg-card">
+                    <TableHeader className="sticky top-0 z-30 bg-card">
                         <TableRow>
-                            <TableHead className="w-[100px] sticky left-0 bg-card z-20">Time</TableHead>
+                            <TableHead className="w-[100px] sticky left-0 bg-card z-40">Time</TableHead>
                             {weekDates.map(date => (
                                 <TableHead key={date.toISOString()} className="text-center">
                                   <div className='min-w-[6rem]'>{format(date, 'EEE')}</div>
@@ -126,7 +126,7 @@ export function HeatmapGrid({
                     <TableBody>
                         {timeSlots.map(slot => (
                             <TableRow key={slot}>
-                                <TableCell className="font-medium sticky left-0 bg-card z-10">{slot}</TableCell>
+                                <TableCell className="font-medium sticky left-0 bg-card z-20">{slot}</TableCell>
                                 {weekDates.map(date => {
                                     const dateKey = format(date, 'yyyy-MM-dd');
                                     const voteKey = `${dateKey}-${slot}`;

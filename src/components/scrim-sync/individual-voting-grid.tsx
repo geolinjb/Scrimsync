@@ -68,11 +68,11 @@ export function IndividualVotingGrid({
       </CardHeader>
       <CardContent>
         <TooltipProvider>
-        <div className="border rounded-lg overflow-auto max-h-[60vh]">
+        <div className="border rounded-lg overflow-auto max-h-[60vh] relative">
             <Table>
-                <TableHeader className="sticky top-0 z-20 bg-card">
+                <TableHeader className="sticky top-0 z-30 bg-card">
                     <TableRow>
-                        <TableHead className="w-[100px] font-bold sticky left-0 bg-card z-20">Time</TableHead>
+                        <TableHead className="w-[100px] font-bold sticky left-0 bg-card z-40">Time</TableHead>
                         {weekDates.map(date => {
                             const dateKey = format(date, 'yyyy-MM-dd');
                             const allDayVoted = timeSlots.every(slot => userVotes[dateKey]?.has(slot));
@@ -107,7 +107,7 @@ export function IndividualVotingGrid({
 
                         return (
                             <TableRow key={slot}>
-                                <TableCell className="font-medium sticky left-0 bg-card z-10 flex items-center justify-between">
+                                <TableCell className="font-medium sticky left-0 bg-card z-20 flex items-center justify-between">
                                     <span>{slot}</span>
                                     <Tooltip>
                                         <TooltipTrigger asChild>
