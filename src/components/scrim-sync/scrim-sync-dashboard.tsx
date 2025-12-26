@@ -167,7 +167,7 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
 
     batch.commit().catch(e => {
         const permissionError = new FirestorePermissionError({
-            path: 'batch-operation',
+            path: `users/${user.uid}/votes`,
             operation: 'write',
         });
         errorEmitter.emit('permission-error', permissionError);
@@ -207,7 +207,7 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
     
     batch.commit().catch(e => {
         const permissionError = new FirestorePermissionError({
-            path: 'batch-operation',
+            path: `users/${user.uid}/votes`,
             operation: 'write',
         });
         errorEmitter.emit('permission-error', permissionError);
@@ -247,10 +247,8 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
             description: "All your votes for this week have been removed.",
         });
     }).catch(e => {
-        // Since this is a batch delete, we don't have a single path.
-        // We can provide a more generic path or context for the error.
         const permissionError = new FirestorePermissionError({
-            path: `users/${user.uid}/votes`, // A representative path
+            path: `users/${user.uid}/votes`,
             operation: 'delete',
         });
         errorEmitter.emit('permission-error', permissionError);
@@ -388,5 +386,3 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
     </div>
   );
 }
-
-    
