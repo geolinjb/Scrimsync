@@ -91,7 +91,7 @@
   },
   "auth": {
     "providers": [
-      "anonymous"
+      "google.com"
     ]
   },
   "firestore": {
