@@ -7,22 +7,18 @@ export async function postToDiscordAction(
   votingResults: string,
   availabilityInfo: string,
   selectedDays: string[]
-) {
+): Promise<{ success: boolean; message: string; }> {
   try {
-    // In a real app, this would be a configurable value from environment variables or a database.
-    const discordChannelId = '123456789012345678';
-    
-    await discordPostVotingResults({
+    const message = await discordPostVotingResults({
       votingResults,
       availabilityInfo,
-      discordChannelId,
       selectedDays,
     });
 
     revalidatePath('/');
-    return { success: true, message: 'Successfully posted results to Discord.' };
+    return { success: true, message };
   } catch (error) {
-    console.error('Failed to post to Discord:', error);
-    return { success: false, message: 'An error occurred while posting to Discord.' };
+    console.error('Failed to generate Discord post:', error);
+    return { success: false, message: 'An error occurred while generating the post.' };
   }
 }

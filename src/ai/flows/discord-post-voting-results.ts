@@ -1,9 +1,9 @@
 'use server';
 
 /**
- * @fileOverview A flow to post voting results and availability information to a Discord channel, using GenAI to determine if additional details or clarification is needed.
+ * @fileOverview A flow to generate a summary of voting results and availability information.
  *
- * - discordPostVotingResults - A function that handles posting voting results to Discord.
+ * - discordPostVotingResults - A function that handles generating the summary.
  * - DiscordPostVotingResultsInput - The input type for the discordPostVotingResults function.
  */
 
@@ -17,7 +17,6 @@ const DiscordPostVotingResultsInputSchema = z.object({
   availabilityInfo: z
     .string()
     .describe('The availability information for selected days.'),
-  discordChannelId: z.string().describe('The Discord channel ID to post to.'),
   selectedDays: z.array(z.string()).describe('The days selected for the report.')
 });
 export type DiscordPostVotingResultsInput = z.infer<
@@ -26,8 +25,8 @@ export type DiscordPostVotingResultsInput = z.infer<
 
 export async function discordPostVotingResults(
   input: DiscordPostVotingResultsInput
-): Promise<void> {
-  await discordPostVotingResultsFlow(input);
+): Promise<string> {
+  return await discordPostVotingResultsFlow(input);
 }
 
 const prompt = ai.definePrompt({
@@ -46,7 +45,6 @@ const prompt = ai.definePrompt({
   Generate a clear, concise, and easy-to-understand summary of the team's availability for the selected days.
   Highlight the most popular time slots and any scheduled events.
   The message should be formatted nicely for Discord.
-  Do not include the channel ID in the post.
   Return only the summary message that will be posted to discord.
   `,
 });
@@ -55,15 +53,10 @@ const discordPostVotingResultsFlow = ai.defineFlow(
   {
     name: 'discordPostVotingResultsFlow',
     inputSchema: DiscordPostVotingResultsInputSchema,
-    outputSchema: z.void(),
+    outputSchema: z.string(),
   },
   async input => {
     const discordPost = await prompt(input);
-
-    // Simulate posting to Discord channel.
-    // In a real application, you would use the Discord API to post the message to the specified channel ID.
-    console.log(
-      `Posting to Discord channel ${input.discordChannelId}: ${discordPost.output}`
-    );
+    return discordPost.output ?? '';
   }
 );

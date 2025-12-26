@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { format, addDays, startOfWeek, endOfWeek, subWeeks, isSameDay } from 'date-fns';
-import { Send, ChevronLeft, ChevronRight, Copy } from 'lucide-react';
+import { Send, ChevronLeft, ChevronRight, Copy, ClipboardCopy } from 'lucide-react';
 
 import { postToDiscordAction } from '@/app/actions';
 import type { PlayerProfileData, ScheduleEvent, UserVotes, AllVotes } from '@/lib/types';
@@ -39,6 +39,7 @@ import {
 } from '@/components/ui/dialog';
 import { Checkbox } from '../ui/checkbox';
 import { Label } from '../ui/label';
+import { Textarea } from '../ui/textarea';
 
 
 export function ScrimSyncDashboard() {
@@ -70,6 +71,8 @@ export function ScrimSyncDashboard() {
   ]);
   
   const [postDialogOpen, setPostDialogOpen] = React.useState(false);
+  const [generatedPost, setGeneratedPost] = React.useState<string | null>(null);
+  const [isGeneratingPost, setIsGeneratingPost] = React.useState(false);
   const [selectedDaysForPost, setSelectedDaysForPost] = React.useState<Date[]>([]);
 
 
@@ -232,7 +235,7 @@ export function ScrimSyncDashboard() {
     });
   };
 
-  const handlePostToDiscord = async () => {
+  const handleGeneratePost = async () => {
     if (selectedDaysForPost.length === 0) {
         toast({
             variant: 'destructive',
@@ -241,6 +244,7 @@ export function ScrimSyncDashboard() {
         });
         return;
     }
+    setIsGeneratingPost(true);
 
     const selectedDayStrings = selectedDaysForPost.map(d => format(d, 'yyyy-MM-dd'));
 
@@ -260,19 +264,17 @@ export function ScrimSyncDashboard() {
         selectedDaysForPost.map(d => format(d, 'EEEE'))
     );
 
+    setIsGeneratingPost(false);
     if (result.success) {
-      toast({
-        title: 'Success!',
-        description: result.message,
-      });
+      setGeneratedPost(result.message);
     } else {
       toast({
         variant: 'destructive',
         title: 'Error',
         description: result.message,
       });
+      setPostDialogOpen(false);
     }
-    setPostDialogOpen(false);
     setSelectedDaysForPost([]);
   };
 
@@ -284,6 +286,21 @@ export function ScrimSyncDashboard() {
             return prev.filter(d => !isSameDay(d, day));
         }
     })
+  }
+
+  const closePostDialog = () => {
+    setPostDialogOpen(false);
+    setGeneratedPost(null);
+    setSelectedDaysForPost([]);
+  }
+
+  const copyToClipboard = () => {
+    if (generatedPost) {
+        navigator.clipboard.writeText(generatedPost);
+        toast({
+            title: 'Copied to clipboard!',
+        });
+    }
   }
 
   const goToPreviousWeek = () => {
@@ -350,41 +367,70 @@ export function ScrimSyncDashboard() {
                     </AlertDialogContent>
                   </AlertDialog>
 
-                  <Dialog open={postDialogOpen} onOpenChange={setPostDialogOpen}>
+                  <Dialog open={postDialogOpen} onOpenChange={closePostDialog}>
                     <DialogTrigger asChild>
-                      <Button>
+                      <Button onClick={() => setPostDialogOpen(true)}>
                         <Send className="mr-2 h-4 w-4" />
                         Post Results
                       </Button>
                     </DialogTrigger>
                     <DialogContent>
-                        <DialogHeader>
-                            <DialogTitle>Post to Discord</DialogTitle>
-                            <DialogDescription>
-                                Select the days you want to include in the availability report.
-                            </DialogDescription>
-                        </DialogHeader>
-                        <div className='grid grid-cols-2 gap-4 py-4'>
-                            {weekDates.map(day => (
-                                <div key={day.toISOString()} className='flex items-center space-x-2'>
-                                    <Checkbox
-                                        id={format(day, 'yyyy-MM-dd')}
-                                        onCheckedChange={(checked) => handleDaySelectForPost(day, checked as boolean)}
-                                        checked={selectedDaysForPost.some(d => isSameDay(d, day))}
-                                    />
-                                    <Label htmlFor={format(day, 'yyyy-MM-dd')} className='text-sm font-medium leading-none'>
-                                        {format(day, 'EEEE, d MMM')}
-                                    </Label>
+                        {generatedPost ? (
+                            <>
+                                <DialogHeader>
+                                    <DialogTitle>Your Generated Post</DialogTitle>
+                                    <DialogDescription>
+                                        Copy the message below and paste it into your Discord channel.
+                                    </DialogDescription>
+                                </DialogHeader>
+                                <Textarea
+                                    readOnly
+                                    value={generatedPost}
+                                    className="min-h-[200px] text-sm"
+                                />
+                                <DialogFooter>
+                                    <Button variant="outline" onClick={closePostDialog}>Close</Button>
+                                    <Button onClick={copyToClipboard}>
+                                        <ClipboardCopy className="mr-2 h-4 w-4" />
+                                        Copy to Clipboard
+                                    </Button>
+                                </DialogFooter>
+                            </>
+                        ) : (
+                            <>
+                                <DialogHeader>
+                                    <DialogTitle>Post to Discord</DialogTitle>
+                                    <DialogDescription>
+                                        Select the days you want to include in the availability report.
+                                    </DialogDescription>
+                                </DialogHeader>
+                                <div className='grid grid-cols-2 gap-4 py-4'>
+                                    {weekDates.map(day => (
+                                        <div key={day.toISOString()} className='flex items-center space-x-2'>
+                                            <Checkbox
+                                                id={format(day, 'yyyy-MM-dd')}
+                                                onCheckedChange={(checked) => handleDaySelectForPost(day, checked as boolean)}
+                                                checked={selectedDaysForPost.some(d => isSameDay(d, day))}
+                                            />
+                                            <Label htmlFor={format(day, 'yyyy-MM-dd')} className='text-sm font-medium leading-none'>
+                                                {format(day, 'EEEE, d MMM')}
+                                            </Label>
+                                        </div>
+                                    ))}
                                 </div>
-                            ))}
-                        </div>
-                        <DialogFooter>
-                          <Button variant="outline" onClick={() => setPostDialogOpen(false)}>Cancel</Button>
-                          <Button onClick={handlePostToDiscord}>
-                              <Send className="mr-2 h-4 w-4" />
-                              Send to Discord
-                          </Button>
-                        </DialogFooter>
+                                <DialogFooter>
+                                  <Button variant="outline" onClick={closePostDialog} disabled={isGeneratingPost}>Cancel</Button>
+                                  <Button onClick={handleGeneratePost} disabled={isGeneratingPost}>
+                                      {isGeneratingPost ? 'Generating...' : (
+                                          <>
+                                            <Send className="mr-2 h-4 w-4" />
+                                            Generate Post
+                                          </>
+                                      )}
+                                  </Button>
+                                </DialogFooter>
+                            </>
+                        )}
                     </DialogContent>
                   </Dialog>
                 </div>

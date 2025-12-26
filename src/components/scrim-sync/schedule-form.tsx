@@ -128,7 +128,7 @@ export function ScheduleForm({ onAddEvent, currentDate }: ScheduleFormProps) {
               control={form.control}
               name="date"
               render={({ field }) => (
-                <FormItem className="flex flex-col">
+                <FormItem className="flex flex-col gap-2">
                   <FormLabel>Date</FormLabel>
                   <div className="grid grid-cols-4 gap-2">
                     {weekDates.map((date) => (
@@ -139,10 +139,10 @@ export function ScheduleForm({ onAddEvent, currentDate }: ScheduleFormProps) {
                             e.preventDefault();
                             form.setValue('date', date, { shouldValidate: true });
                         }}
-                        className='flex-col h-auto'
+                        className='flex-col h-auto p-2'
                       >
-                        <span>{format(date, 'EEE')}</span>
-                        <span className='text-xs'>{format(date, 'd/M')}</span>
+                        <span className="text-xs">{format(date, 'EEE')}</span>
+                        <span className='text-sm font-bold'>{format(date, 'd/M')}</span>
                       </Button>
                     ))}
                   </div>
