@@ -5,8 +5,8 @@ import { format, addDays, startOfWeek, endOfWeek, subWeeks } from 'date-fns';
 import { Send, ChevronLeft, ChevronRight, Copy } from 'lucide-react';
 
 import { postToDiscordAction } from '@/app/actions';
-import type { PlayerProfileData, ScheduleEvent, UserVotes } from '@/lib/types';
-import { timeSlots } from '@/lib/types';
+import type { PlayerProfileData, ScheduleEvent, UserVotes, AllVotes } from '@/lib/types';
+import { timeSlots, mockPlayers } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -39,7 +39,7 @@ export function ScrimSyncDashboard() {
     role: 'Medium Tank',
   });
 
-  const [votes, setVotes] = React.useState<Record<string, number>>({});
+  const [allVotes, setAllVotes] = React.useState<AllVotes>({});
   const [userVotes, setUserVotes] = React.useState<UserVotes>({});
 
   const [scheduledEvents, setScheduledEvents] = React.useState<ScheduleEvent[]>([
@@ -59,20 +59,38 @@ export function ScrimSyncDashboard() {
   
   React.useEffect(() => {
     const generateRandomData = () => {
-      const initialVotes: Record<string, number> = {};
-      const weekStart = startOfWeek(currentDate);
-      for (let i = 0; i < 7; i++) {
-        const day = addDays(weekStart, i);
-        const dayKey = format(day, 'yyyy-MM-dd');
-        timeSlots.forEach(slot => {
-          const key = `${dayKey}-${slot}`;
-          initialVotes[key] = Math.floor(Math.random() * 9) + (userVotes[dayKey]?.has(slot) ? 1 : 0);
-        });
-      }
-      setVotes(initialVotes);
+        const initialVotes: AllVotes = {};
+        const weekStart = startOfWeek(currentDate);
+
+        for (let i = 0; i < 7; i++) {
+            const day = addDays(weekStart, i);
+            const dayKey = format(day, 'yyyy-MM-dd');
+            
+            timeSlots.forEach(slot => {
+                const key = `${dayKey}-${slot}`;
+                const availablePlayers = new Set<string>();
+                
+                // Add current user if they voted
+                if (userVotes[dayKey]?.has(slot)) {
+                    availablePlayers.add(profile.username);
+                }
+
+                // Add other random mock players
+                const otherPlayers = mockPlayers.filter(p => p !== profile.username);
+                const voterCount = Math.floor(Math.random() * (otherPlayers.length + 1));
+                
+                for(let j = 0; j < voterCount; j++) {
+                    const playerIndex = Math.floor(Math.random() * otherPlayers.length);
+                    availablePlayers.add(otherPlayers[playerIndex]);
+                }
+                
+                initialVotes[key] = Array.from(availablePlayers);
+            });
+        }
+        setAllVotes(initialVotes);
     };
     generateRandomData();
-  }, [currentDate, userVotes]);
+  }, [currentDate, userVotes, profile.username]);
 
 
   const handleVote = (date: Date, timeSlot: string) => {
@@ -189,8 +207,8 @@ export function ScrimSyncDashboard() {
   };
 
   const handlePostToDiscord = async () => {
-    const votingResultsString = Object.entries(votes)
-      .map(([key, count]) => `${key.replace('-', ' ')}: ${count} votes`)
+    const votingResultsString = Object.entries(allVotes)
+      .map(([key, players]) => `${key.replace('-', ' ')}: ${players.length} votes`)
       .join('\n');
     
     const availabilityInfoString = scheduledEvents
@@ -292,7 +310,7 @@ export function ScrimSyncDashboard() {
               </TabsContent>
               <TabsContent value="heatmap">
                 <HeatmapGrid
-                  votes={votes}
+                  allVotes={allVotes}
                   scheduledEvents={scheduledEvents}
                   currentDate={currentDate}
                 />

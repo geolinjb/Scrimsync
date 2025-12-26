@@ -1,12 +1,11 @@
 'use client';
 
 import * as React from 'react';
-import { motion } from 'framer-motion';
-import { Swords, Trophy, Vote } from 'lucide-react';
+import { Swords, Trophy, Vote, Users } from 'lucide-react';
 import { format, startOfWeek, addDays, isSameDay } from 'date-fns';
 
-import type { ScheduleEvent } from '@/lib/types';
-import { timeSlots, daysOfWeek } from '@/lib/types';
+import type { ScheduleEvent, AllVotes } from '@/lib/types';
+import { timeSlots, mockPlayers } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import {
   Card,
@@ -29,40 +28,71 @@ import {
     TableHeader,
     TableRow,
   } from "@/components/ui/table";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+} from '@/components/ui/dialog';
+import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
+import { Badge } from '../ui/badge';
 
 type HeatmapGridProps = {
-  votes: Record<string, number>;
+  allVotes: AllVotes;
   scheduledEvents: ScheduleEvent[];
   currentDate: Date;
 };
 
+type SelectedSlot = {
+    date: Date;
+    slot: string;
+    players: string[];
+} | null;
+
+const heatmapColors = [
+    'bg-primary/10',
+    'bg-primary/20',
+    'bg-primary/40',
+    'bg-primary/60',
+    'bg-primary/80',
+    'bg-primary',
+];
+
 export function HeatmapGrid({
-  votes,
+  allVotes,
   scheduledEvents,
   currentDate,
 }: HeatmapGridProps) {
+  const [selectedSlot, setSelectedSlot] = React.useState<SelectedSlot>(null);
+
   const weekDates = React.useMemo(() => {
     const start = startOfWeek(currentDate);
     return Array.from({ length: 7 }, (_, i) => addDays(start, i));
   }, [currentDate]);
 
   const maxVotes = React.useMemo(() => {
-    const voteCounts = weekDates.flatMap(date => {
-        const dateKey = format(date, 'yyyy-MM-dd');
-        return timeSlots.map(slot => votes[`${dateKey}-${slot}`] || 0)
-    });
-    return Math.max(...voteCounts, 1);
-  }, [votes, weekDates]);
+    return mockPlayers.length;
+  }, []);
 
-  const getHeatmapOpacity = (voteCount: number) => {
-    if (voteCount === 0) return 0;
-    return Math.max(0.1, voteCount / maxVotes);
+  const getHeatmapColor = (voteCount: number) => {
+    if (voteCount === 0) return 'bg-transparent';
+    const percentage = voteCount / maxVotes;
+    const colorIndex = Math.min(
+        Math.floor(percentage * (heatmapColors.length -1)),
+        heatmapColors.length - 1
+    );
+    return heatmapColors[colorIndex];
   };
   
   const getEventForSlot = (day: Date, slot: string) => {
     return scheduledEvents.find(event => {
       return isSameDay(event.date, day) && event.time === slot;
     });
+  };
+
+  const handleSlotClick = (date: Date, slot: string, players: string[]) => {
+    setSelectedSlot({date, slot, players});
   };
 
   return (
@@ -75,7 +105,7 @@ export function HeatmapGrid({
             </div>
         </div>
         <CardDescription>
-          Darker slots indicate higher player availability across the week.
+          Darker slots indicate higher player availability. Click a slot to see who is available.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -100,23 +130,20 @@ export function HeatmapGrid({
                                 {weekDates.map(date => {
                                     const dateKey = format(date, 'yyyy-MM-dd');
                                     const voteKey = `${dateKey}-${slot}`;
-                                    const voteCount = votes[voteKey] || 0;
+                                    const availablePlayers = allVotes[voteKey] || [];
+                                    const voteCount = availablePlayers.length;
                                     const event = getEventForSlot(date, slot);
                                     return (
                                         <TableCell key={date.toISOString()} className="text-center p-0">
                                             <Tooltip>
                                                 <TooltipTrigger asChild>
                                                     <div
+                                                        onClick={() => handleSlotClick(date, slot, availablePlayers)}
                                                         className={cn(
-                                                            'relative h-12 w-full flex flex-col justify-center items-center text-center p-1 transition-all duration-300'
+                                                            'relative h-12 w-full flex flex-col justify-center items-center text-center p-1 transition-all duration-300 cursor-pointer',
+                                                            getHeatmapColor(voteCount)
                                                         )}
                                                     >
-                                                        <div
-                                                            className="absolute inset-0 bg-primary transition-opacity duration-300"
-                                                            style={{
-                                                            opacity: getHeatmapOpacity(voteCount),
-                                                            }}
-                                                        />
                                                         <div className="relative z-10 text-xs sm:text-sm font-medium">
                                                             {voteCount}
                                                         </div>
@@ -153,6 +180,39 @@ export function HeatmapGrid({
                 </Table>
             </div>
         </TooltipProvider>
+
+        <Dialog open={!!selectedSlot} onOpenChange={(isOpen) => !isOpen && setSelectedSlot(null)}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Available Players</DialogTitle>
+                    {selectedSlot && (
+                        <DialogDescription>
+                            {format(selectedSlot.date, 'EEEE, d MMM')} at {selectedSlot.slot}
+                        </DialogDescription>
+                    )}
+                </DialogHeader>
+                <div className='max-h-[60vh] overflow-y-auto'>
+                    {selectedSlot?.players && selectedSlot.players.length > 0 ? (
+                        <ul className='space-y-3 py-2'>
+                           {selectedSlot.players.map(player => (
+                               <li key={player} className='flex items-center gap-3'>
+                                   <Avatar>
+                                       <AvatarImage src={`https://api.dicebear.com/8.x/pixel-art/svg?seed=${player}`} />
+                                       <AvatarFallback>{player.charAt(0).toUpperCase()}</AvatarFallback>
+                                   </Avatar>
+                                   <span className='font-medium'>{player}</span>
+                               </li>
+                           ))}
+                        </ul>
+                    ): (
+                        <div className='flex flex-col items-center justify-center text-center py-12'>
+                            <Users className='w-12 h-12 text-muted-foreground' />
+                            <p className='mt-4 text-muted-foreground'>No players available for this time slot.</p>
+                        </div>
+                    )}
+                </div>
+            </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );

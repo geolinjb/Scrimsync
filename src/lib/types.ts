@@ -25,3 +25,11 @@ export const daysOfWeek = [
 export type UserVotes = {
   [dateKey: string]: Set<string>; // Key is 'yyyy-MM-dd'
 };
+
+export type AllVotes = {
+  [voteKey: string]: string[]; // Key is 'yyyy-MM-dd-HH:mm', value is array of player names
+}
+
+export const mockPlayers = [
+  'Player1', 'TankMaster', 'SniperSue', 'GeneralGeorge', 'RookieRick', 'MajorMary', 'CaptainCarl', 'LieutenantLana'
+];
