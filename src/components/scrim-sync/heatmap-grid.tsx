@@ -50,12 +50,11 @@ export function HeatmapGrid({
   };
   
   const getEventForSlot = (slot: string) => {
+    // This logic needs to be aware of the selected day of the week
     return scheduledEvents.find(event => {
       const eventDate = new Date(event.date);
-      const today = new Date();
-      // This logic might need refinement for a weekly view
-      if (eventDate.toDateString() !== today.toDateString()) return false;
-      return event.time === slot;
+      const dayName = daysOfWeek[eventDate.getDay()];
+      return dayName === selectedDay && event.time === slot;
     });
   };
 
@@ -127,7 +126,7 @@ export function HeatmapGrid({
                   </TooltipTrigger>
                   <TooltipContent>
                     <p>{slot}</p>
-                    <p>{voteCount} players available</p>
+                    <p>{voteCount} players available on {selectedDay}</p>
                     {event && (
                       <p className="mt-1 font-bold">
                         {event.type} scheduled
