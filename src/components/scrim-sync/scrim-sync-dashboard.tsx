@@ -1,12 +1,12 @@
 'use client';
 
 import * as React from 'react';
-import { format, addDays, startOfWeek, endOfWeek } from 'date-fns';
-import { Send, ChevronLeft, ChevronRight } from 'lucide-react';
+import { format, addDays, startOfWeek, endOfWeek, subWeeks } from 'date-fns';
+import { Send, ChevronLeft, ChevronRight, Copy } from 'lucide-react';
 
 import { postToDiscordAction } from '@/app/actions';
 import type { PlayerProfileData, ScheduleEvent, UserVotes } from '@/lib/types';
-import { daysOfWeek, timeSlots } from '@/lib/types';
+import { timeSlots } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -16,6 +16,18 @@ import { Header } from './header';
 import { PlayerProfile } from './player-profile';
 import { ScheduleForm } from './schedule-form';
 import { IndividualVotingGrid } from './individual-voting-grid';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+
 
 export function ScrimSyncDashboard() {
   const { toast } = useToast();
@@ -53,48 +65,114 @@ export function ScrimSyncDashboard() {
         const dayKey = format(day, 'yyyy-MM-dd');
         timeSlots.forEach(slot => {
             const key = `${dayKey}-${slot}`;
-            initialVotes[key] = Math.floor(Math.random() * 10);
+            initialVotes[key] = Math.floor(Math.random() * 9) + (userVotes[dayKey]?.has(slot) ? 1 : 0);
         });
     }
 
-    Object.keys(userVotes).forEach(dateKey => {
-        if(userVotes[dateKey]) {
-            userVotes[dateKey].forEach(slot => {
-                const key = `${dateKey}-${slot}`;
-                if (initialVotes[key] !== undefined) {
-                  initialVotes[key]++;
-                }
-            });
-        }
-    });
-
     setVotes(initialVotes);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentDate, userVotes]);
 
 
   const handleVote = (date: Date, timeSlot: string) => {
     const dateKey = format(date, 'yyyy-MM-dd');
-    const newUserVotes: UserVotes = { ...userVotes };
-    if (!newUserVotes[dateKey]) {
-      newUserVotes[dateKey] = new Set();
-    }
-
-    const dayVotes = newUserVotes[dateKey];
-    const voteKey = `${dateKey}-${timeSlot}`;
-    const newAggregateVotes = { ...votes };
-
-    if (dayVotes.has(timeSlot)) {
-      dayVotes.delete(timeSlot);
-      newAggregateVotes[voteKey] = (newAggregateVotes[voteKey] || 1) - 1;
-    } else {
-      dayVotes.add(timeSlot);
-      newAggregateVotes[voteKey] = (newAggregateVotes[voteKey] || 0) + 1;
-    }
-
-    setUserVotes(newUserVotes);
-    setVotes(newAggregateVotes);
+    setUserVotes(prev => {
+        const newVotes = { ...prev };
+        if (!newVotes[dateKey]) {
+            newVotes[dateKey] = new Set();
+        }
+        
+        const dayVotes = new Set(newVotes[dateKey]);
+        if (dayVotes.has(timeSlot)) {
+            dayVotes.delete(timeSlot);
+        } else {
+            dayVotes.add(timeSlot);
+        }
+        newVotes[dateKey] = dayVotes;
+        return newVotes;
+    });
   };
+
+  const handleVoteAllDay = (date: Date) => {
+    const dateKey = format(date, 'yyyy-MM-dd');
+    setUserVotes(prev => {
+        const newVotes = { ...prev };
+        const dayVotes = new Set(newVotes[dateKey]);
+        const allSelected = timeSlots.every(slot => dayVotes.has(slot));
+
+        if (allSelected) {
+            newVotes[dateKey] = new Set();
+        } else {
+            newVotes[dateKey] = new Set(timeSlots);
+        }
+        return newVotes;
+    });
+  };
+
+  const handleVoteAllTime = (timeSlot: string) => {
+    const weekStart = startOfWeek(currentDate);
+    setUserVotes(prev => {
+        const newVotes = { ...prev };
+        const allSelected = Array.from({length: 7}).every((_, i) => {
+            const date = addDays(weekStart, i);
+            const dateKey = format(date, 'yyyy-MM-dd');
+            return newVotes[dateKey]?.has(timeSlot);
+        });
+
+        for (let i=0; i<7; i++) {
+            const date = addDays(weekStart, i);
+            const dateKey = format(date, 'yyyy-MM-dd');
+            if (!newVotes[dateKey]) {
+                newVotes[dateKey] = new Set();
+            }
+            const dayVotes = new Set(newVotes[dateKey]);
+            if (allSelected) {
+                dayVotes.delete(timeSlot);
+            } else {
+                dayVotes.add(timeSlot);
+            }
+            newVotes[dateKey] = dayVotes;
+        }
+        return newVotes;
+    });
+  };
+
+  const handleCopyPreviousWeek = () => {
+    const previousWeekStart = startOfWeek(subWeeks(currentDate, 1));
+    const currentWeekStart = startOfWeek(currentDate);
+
+    let copiedVotes = 0;
+    const newUserVotes = { ...userVotes };
+
+    for (let i = 0; i < 7; i++) {
+      const prevDate = addDays(previousWeekStart, i);
+      const prevDateKey = format(prevDate, 'yyyy-MM-dd');
+      
+      const currentDate = addDays(currentWeekStart, i);
+      const currentDateKey = format(currentDate, 'yyyy-MM-dd');
+
+      if (userVotes[prevDateKey]) {
+        newUserVotes[currentDateKey] = new Set(userVotes[prevDateKey]);
+        copiedVotes += userVotes[prevDateKey].size;
+      } else {
+        newUserVotes[currentDateKey] = new Set();
+      }
+    }
+    
+    setUserVotes(newUserVotes);
+
+    if (copiedVotes > 0) {
+        toast({
+            title: 'Availability Copied',
+            description: `Copied ${copiedVotes} time slots from the previous week.`,
+        });
+    } else {
+        toast({
+            title: 'Nothing to Copy',
+            description: 'You had no availability set for the previous week.',
+        });
+    }
+  };
+
 
   const handleAddEvent = (data: { type: 'Training' | 'Tournament'; date: Date; time: string }) => {
     const newEvent: ScheduleEvent = {
@@ -164,22 +242,49 @@ export function ScrimSyncDashboard() {
                     <Button variant="outline" size="icon" onClick={goToPreviousWeek}>
                         <ChevronLeft className="h-4 w-4" />
                     </Button>
-                    <div className="text-sm font-medium text-center">
+                    <div className="text-sm font-medium text-center w-40">
                         {format(weekStart, 'MMM d')} - {format(weekEnd, 'MMM d, yyyy')}
                     </div>
                     <Button variant="outline" size="icon" onClick={goToNextWeek}>
                         <ChevronRight className="h-4 w-4" />
                     </Button>
                 </div>
-                <Button onClick={handlePostToDiscord}>
-                  <Send className="mr-2 h-4 w-4" />
-                  Post Results to Discord
-                </Button>
+                <div className="flex items-center gap-2">
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="outline">
+                        <Copy className="mr-2 h-4 w-4" />
+                        Copy Previous Week
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Copy Previous Week's Availability?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will overwrite your current selections for this week with your availability from last week. This action cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleCopyPreviousWeek}>
+                          Copy Availability
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+
+                  <Button onClick={handlePostToDiscord}>
+                    <Send className="mr-2 h-4 w-4" />
+                    Post Results
+                  </Button>
+                </div>
               </div>
               <TabsContent value="individual">
                 <IndividualVotingGrid 
                     userVotes={userVotes} 
-                    onVote={handleVote} 
+                    onVote={handleVote}
+                    onVoteAllDay={handleVoteAllDay}
+                    onVoteAllTime={handleVoteAllTime}
                     currentDate={currentDate}
                 />
               </TabsContent>
