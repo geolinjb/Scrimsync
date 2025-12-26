@@ -269,15 +269,16 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
       });
       return;
     }
-
-    const sortedDays = selectedDaysForPost.sort((a, b) => a.getTime() - b.getTime());
-    let post = `**Team Availability for ${format(sortedDays[0], 'd MMM')} - ${format(sortedDays[sortedDays.length - 1], 'd MMM, yyyy')}**\n\n`;
-
-    sortedDays.forEach(day => {
+  
+    let post = `**Team Availability Report**\n\n`;
+  
+    selectedDaysForPost.forEach(day => {
       const dayKey = format(day, 'yyyy-MM-dd');
       post += `**${format(day, 'EEEE, d MMM')}**\n`;
-
-      const dayEvents = scheduledEvents?.filter(event => isSameDay(event.date, day)).sort((a, b) => a.time.localeCompare(b.time));
+  
+      const dayEvents = scheduledEvents?.filter(event => isSameDay(event.date, day))
+                                     .sort((a, b) => a.time.localeCompare(b.time));
+  
       if (dayEvents && dayEvents.length > 0) {
         post += '***Scheduled Events:***\n';
         dayEvents.forEach(event => {
@@ -285,28 +286,28 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
         });
         post += '\n';
       }
-
+  
       const popularSlots = timeSlots
         .map(slot => {
-            const voteKey = `${dayKey}-${slot}`;
-            const players = allVotes[voteKey] || [];
-            return { slot, count: players.length, players };
+          const voteKey = `${dayKey}-${slot}`;
+          const players = allVotes[voteKey] || [];
+          return { slot, count: players.length, players };
         })
         .filter(item => item.count > 0)
         .sort((a, b) => b.count - a.count);
-
+  
       if (popularSlots.length > 0) {
         post += '***Availability:***\n';
-        popularSlots.forEach(({slot, count, players}) => {
+        popularSlots.forEach(({ slot, count, players }) => {
           post += `- **${slot}**: ${count} players (${players.join(', ')})\n`;
         });
       } else {
         post += '_No availability submitted for this day._\n';
       }
-
+  
       post += '\n';
     });
-
+  
     setGeneratedPost(post);
   };
   
