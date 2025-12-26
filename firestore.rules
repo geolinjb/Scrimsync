@@ -29,9 +29,10 @@ service cloud.firestore {
     match /votes/{voteId} {
         // Any authenticated user can read all votes to build the heatmap.
         allow read: if isSignedIn();
-        // A user can only write/delete a vote if the data's userId matches their own.
-        // This is more robust than checking the voteId string.
-        allow write: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+        // A user can only create, update, or delete a vote if the data's userId matches their own.
+        allow create, update: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+        // A user can delete their own vote. We check the existing document's data.
+        allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
 
     /**
