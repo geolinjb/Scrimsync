@@ -69,7 +69,11 @@ export function ScrimSyncDashboard() {
 
   React.useEffect(() => {
     setIsClient(true);
-    
+  }, []);
+  
+  React.useEffect(() => {
+    if (!isClient) return;
+
     setScheduledEvents([
         {
           id: '1',
@@ -119,7 +123,7 @@ export function ScrimSyncDashboard() {
     
     generateRandomData();
     
-  }, [currentDate, userVotes, profile.username]);
+  }, [currentDate, userVotes, profile.username, isClient]);
 
   if (!isClient) {
     return null;
@@ -326,8 +330,10 @@ export function ScrimSyncDashboard() {
 
   const closePostDialog = () => {
     setPostDialogOpen(false);
-    setGeneratedPost(null);
-    setSelectedDaysForPost([]);
+    setTimeout(() => {
+        setGeneratedPost(null);
+        setSelectedDaysForPost([]);
+    }, 300);
   }
 
   const copyToClipboard = () => {
@@ -402,85 +408,6 @@ export function ScrimSyncDashboard() {
                       </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>
-
-                  <Dialog open={postDialogOpen} onOpenChange={closePostDialog}>
-                    <DialogTrigger asChild>
-                      <Button onClick={() => setPostDialogOpen(true)}>
-                        <Send className="mr-2 h-4 w-4" />
-                        Post Results
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-[600px]">
-                        {generatedPost ? (
-                            <>
-                                <DialogHeader>
-                                    <DialogTitle>Post to Discord</DialogTitle>
-                                    <DialogDescription>
-                                        Copy the message below or enter your webhook URL to post directly to Discord.
-                                    </DialogDescription>
-                                </DialogHeader>
-                                <Textarea
-                                    readOnly
-                                    value={generatedPost}
-                                    className="min-h-[250px] text-sm bg-muted/50"
-                                />
-                                <div className="space-y-2">
-                                  <Label htmlFor="webhook-url">Discord Webhook URL</Label>
-                                  <Input 
-                                    id="webhook-url"
-                                    placeholder="https://discord.com/api/webhooks/..."
-                                    value={webhookUrl}
-                                    onChange={(e) => setWebhookUrl(e.target.value)}
-                                  />
-                                </div>
-                                <DialogFooter>
-                                    <Button variant="outline" onClick={() => setGeneratedPost(null)}>Back</Button>
-                                    <Button onClick={copyToClipboard} variant="secondary">
-                                        <ClipboardCopy className="mr-2 h-4 w-4" />
-                                        Copy
-                                    </Button>
-                                    <Button onClick={handleSendPost} disabled={isGeneratingPost || !webhookUrl}>
-                                      {isGeneratingPost ? 'Sending...' : (
-                                        <>
-                                          <Send className="mr-2 h-4 w-4" />
-                                          Send to Discord
-                                        </>
-                                      )}
-                                  </Button>
-                                </DialogFooter>
-                            </>
-                        ) : (
-                            <>
-                                <DialogHeader>
-                                    <DialogTitle>Create Discord Post</DialogTitle>
-                                    <DialogDescription>
-                                        Select the days you want to include in the availability report.
-                                    </DialogDescription>
-                                </DialogHeader>
-                                <div className='grid grid-cols-2 lg:grid-cols-3 gap-4 py-4'>
-                                    {weekDates.map(day => (
-                                        <div key={day.toISOString()} className='flex items-center space-x-2'>
-                                            <Checkbox
-                                                id={format(day, 'yyyy-MM-dd')}
-                                                onCheckedChange={(checked) => handleDaySelectForPost(day, checked as boolean)}
-                                                checked={selectedDaysForPost.some(d => isSameDay(d, day))}
-                                            />
-                                            <Label htmlFor={format(day, 'yyyy-MM-dd')} className='text-sm font-medium leading-none cursor-pointer'>
-                                                {format(day, 'EEEE, d MMM')}
-                                            </Label>
-                                        </div>
-                                    ))}
-                                </div>
-                                <DialogFooter>
-                                  <Button variant="outline" onClick={closePostDialog}>Cancel</Button>
-                                  <Button onClick={handleGeneratePost} disabled={selectedDaysForPost.length === 0}>
-                                    Generate Post
-                                  </Button>
-                                </DialogFooter>
-                            </>
-                        )}
-                    </DialogContent>
-                  </Dialog>
                 </div>
               </div>
               <TabsContent value="individual">
@@ -493,7 +420,87 @@ export function ScrimSyncDashboard() {
                     scheduledEvents={scheduledEvents}
                 />
               </TabsContent>
-              <TabsContent value="heatmap">
+              <TabsContent value="heatmap" className="space-y-4">
+                <div className="flex justify-end">
+                    <Dialog open={postDialogOpen} onOpenChange={closePostDialog}>
+                        <DialogTrigger asChild>
+                        <Button onClick={() => setPostDialogOpen(true)}>
+                            <Send className="mr-2 h-4 w-4" />
+                            Send to Discord
+                        </Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-[600px]">
+                            {generatedPost ? (
+                                <>
+                                    <DialogHeader>
+                                        <DialogTitle>Post to Discord</DialogTitle>
+                                        <DialogDescription>
+                                            Copy the message below or enter your webhook URL to post directly to Discord.
+                                        </DialogDescription>
+                                    </DialogHeader>
+                                    <Textarea
+                                        readOnly
+                                        value={generatedPost}
+                                        className="min-h-[250px] text-sm bg-muted/50"
+                                    />
+                                    <div className="space-y-2">
+                                    <Label htmlFor="webhook-url">Discord Webhook URL</Label>
+                                    <Input 
+                                        id="webhook-url"
+                                        placeholder="https://discord.com/api/webhooks/..."
+                                        value={webhookUrl}
+                                        onChange={(e) => setWebhookUrl(e.target.value)}
+                                    />
+                                    </div>
+                                    <DialogFooter>
+                                        <Button variant="outline" onClick={() => setGeneratedPost(null)}>Back</Button>
+                                        <Button onClick={copyToClipboard} variant="secondary">
+                                            <ClipboardCopy className="mr-2 h-4 w-4" />
+                                            Copy
+                                        </Button>
+                                        <Button onClick={handleSendPost} disabled={isGeneratingPost || !webhookUrl}>
+                                        {isGeneratingPost ? 'Sending...' : (
+                                            <>
+                                            <Send className="mr-2 h-4 w-4" />
+                                            Send to Discord
+                                            </>
+                                        )}
+                                    </Button>
+                                    </DialogFooter>
+                                </>
+                            ) : (
+                                <>
+                                    <DialogHeader>
+                                        <DialogTitle>Create Discord Post</DialogTitle>
+                                        <DialogDescription>
+                                            Select the days you want to include in the availability report.
+                                        </DialogDescription>
+                                    </DialogHeader>
+                                    <div className='grid grid-cols-2 lg:grid-cols-3 gap-4 py-4'>
+                                        {weekDates.map(day => (
+                                            <div key={day.toISOString()} className='flex items-center space-x-2'>
+                                                <Checkbox
+                                                    id={format(day, 'yyyy-MM-dd')}
+                                                    onCheckedChange={(checked) => handleDaySelectForPost(day, checked as boolean)}
+                                                    checked={selectedDaysForPost.some(d => isSameDay(d, day))}
+                                                />
+                                                <Label htmlFor={format(day, 'yyyy-MM-dd')} className='text-sm font-medium leading-none cursor-pointer'>
+                                                    {format(day, 'EEEE, d MMM')}
+                                                </Label>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <DialogFooter>
+                                    <Button variant="outline" onClick={closePostDialog}>Cancel</Button>
+                                    <Button onClick={handleGeneratePost} disabled={selectedDaysForPost.length === 0}>
+                                        Generate Post
+                                    </Button>
+                                    </DialogFooter>
+                                </>
+                            )}
+                        </DialogContent>
+                    </Dialog>
+                </div>
                 <HeatmapGrid
                   allVotes={allVotes}
                   scheduledEvents={scheduledEvents}
