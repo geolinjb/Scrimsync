@@ -61,7 +61,7 @@ export function UserDataPanel({ allProfiles, isLoading }: UserDataPanelProps) {
   const [isSavingWebhook, setIsSavingWebhook] = React.useState(false);
   const [isTestingWebhook, setIsTestingWebhook] = React.useState(false);
 
-  const functions = React.useMemo(() => firestore ? getFunctions(undefined, 'us-central1') : null, [firestore]);
+  const functions = React.useMemo(() => firestore ? getFunctions(firestore.app, 'us-central1') : null, [firestore]);
 
   const votesCollectionRef = useMemoFirebase(
     () => (firestore ? collection(firestore, 'votes') : null),
@@ -223,19 +223,22 @@ export function UserDataPanel({ allProfiles, isLoading }: UserDataPanelProps) {
     }
     setIsSavingWebhook(true);
     try {
-      const setWebhookUrl = httpsCallable(functions, 'setWebhookUrl');
-      await setWebhookUrl({ url: webhookUrl });
+      const setWebhookUrlFn = httpsCallable(functions, 'setWebhookUrl');
+      const result = await setWebhookUrlFn({ url: webhookUrl });
+      
+      const data = result.data as { success: boolean, message: string };
 
       toast({
-        title: 'This is a manual step!',
-        description: "The webhook URL needs to be set in your function's environment configuration. See the terminal for the command.",
+        title: 'Action Required',
+        description: data.message,
+        duration: 15000,
       });
 
     } catch (error: any) {
       console.error("Error saving webhook URL:", error);
        toast({
         variant: 'destructive',
-        title: 'Action Required',
+        title: 'Error Saving Webhook',
         description: error.message || 'An unknown error occurred.',
         duration: 9000,
       });
@@ -445,7 +448,7 @@ export function UserDataPanel({ allProfiles, isLoading }: UserDataPanelProps) {
                 <CardTitle>Discord Integration</CardTitle>
                 </div>
                 <CardDescription>
-                Configure automated reminders to a Discord channel. After saving, you must deploy the functions for changes to take effect.
+                Set your Discord webhook URL. This is stored securely as a secret and is not publicly accessible.
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -459,7 +462,7 @@ export function UserDataPanel({ allProfiles, isLoading }: UserDataPanelProps) {
                         onChange={(e) => setWebhookUrl(e.target.value)}
                     />
                      <p className='text-xs text-muted-foreground pt-1'>
-                        This is stored as an environment variable in your Cloud Functions, not in the database.
+                        After saving, you must redeploy your functions for the changes to take effect.
                     </p>
                 </div>
             </CardContent>
