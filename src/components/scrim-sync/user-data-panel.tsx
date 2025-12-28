@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { ShieldCheck, User, Users, Trash2, Loader, ChevronLeft, ChevronRight, Copy } from 'lucide-react';
+import { ShieldCheck, User, Users, Trash2, Loader, ChevronLeft, ChevronRight, Copy, ClipboardList } from 'lucide-react';
 import { collection, doc, writeBatch } from 'firebase/firestore';
 import { format, startOfWeek, endOfWeek, addDays, parseISO } from 'date-fns';
 
@@ -181,6 +181,34 @@ export function UserDataPanel({ allProfiles, isLoading }: UserDataPanelProps) {
     });
   };
 
+  const handleCopyAllPlayers = () => {
+    if (!allProfiles || allProfiles.length === 0) {
+      toast({ description: 'No players to copy.' });
+      return;
+    }
+    const header = 'All Registered Players:';
+    const playerList = allProfiles
+      .map(p => `- ${p.username || '(No username)'}: Favorite Tank - ${p.favoriteTank || '(Not set)'}`)
+      .join('\n');
+    
+    const fullText = [header, '', playerList].join('\n');
+
+    navigator.clipboard.writeText(fullText).then(() => {
+      toast({
+        title: 'Copied All Players',
+        description: 'A list of all registered players has been copied.',
+      });
+    }, (err) => {
+      console.error('Could not copy text: ', err);
+      toast({
+        variant: 'destructive',
+        title: 'Copy Failed',
+        description: 'Could not copy the player list to your clipboard.',
+      });
+    });
+  };
+
+
   React.useEffect(() => {
       setSelectedRosterDate('');
       setSelectedRosterTime('');
@@ -284,6 +312,19 @@ export function UserDataPanel({ allProfiles, isLoading }: UserDataPanelProps) {
 
         <Separator />
         
+        <div className="w-full space-y-2">
+            <h4 className='text-sm font-medium'>Copy All Player Data</h4>
+            <div className='flex items-center justify-between gap-2 p-2 border rounded-lg'>
+                <p className='text-sm text-muted-foreground'>Copy all players and their favorite tanks.</p>
+                <Button onClick={handleCopyAllPlayers} disabled={!allProfiles || allProfiles.length === 0}>
+                    <ClipboardList className='w-4 h-4 mr-2' />
+                    Copy Players
+                </Button>
+            </div>
+        </div>
+
+        <Separator />
+
         <div className="w-full space-y-2">
             <h4 className='text-sm font-medium'>Delete Weekly Votes</h4>
             <div className='flex items-center justify-between gap-2 p-2 border rounded-lg'>
