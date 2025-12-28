@@ -305,6 +305,10 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
   const goToNextWeek = () => {
     setCurrentDate(prev => addDays(prev, 7));
   };
+
+  const goToToday = () => {
+    setCurrentDate(new Date());
+  };
   
   const allPlayerNames = React.useMemo(() => {
       if (!allProfiles) return [];
@@ -345,13 +349,14 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
                     <Button variant="outline" size="icon" onClick={goToPreviousWeek}>
                         <ChevronLeft className="h-4 w-4" />
                     </Button>
-                    <div className="text-sm font-medium text-center w-40">
-                        {format(weekStart, 'd MMM')} - {format(weekEnd, 'd MMM, yyyy')}
-                    </div>
+                    <Button variant="outline" onClick={goToToday}>Today</Button>
                     <Button variant="outline" size="icon" onClick={goToNextWeek}>
                         <ChevronRight className="h-4 w-4" />
                     </Button>
                 </div>
+              </div>
+              <div className="text-center text-sm font-medium text-foreground mb-4">
+                  {format(weekStart, 'd MMM')} - {format(weekEnd, 'd MMM, yyyy')}
               </div>
               <TabsContent value="individual">
                 {isLoading ? (
