@@ -10,16 +10,23 @@ service cloud.firestore {
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
+    
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.admin == true;
+    }
 
     /**
      * @description Secures a user's profile document.
      * @path /users/{userId}
      */
     match /users/{userId} {
-      // Anyone can read user profiles to get usernames for the UI.
-      allow read: if isSignedIn();
-      // Only the owner can create or update their profile.
-      allow write: if isOwner(userId);
+      // Admins can read all profiles. Otherwise, any signed-in user can.
+      allow read: if isAdmin() || isSignedIn();
+      // Only the owner can create or update their profile. Admins can update any profile.
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) || isAdmin();
+      // Admins can delete users.
+      allow delete: if isAdmin();
     }
     
     /**
@@ -27,12 +34,14 @@ service cloud.firestore {
      * @path /votes/{voteId}
      */
     match /votes/{voteId} {
-        // Any authenticated user can read all votes to build the heatmap.
-        allow read: if isSignedIn();
-        // A user can only create or update a vote if the data's userId matches their own.
-        allow create, update: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-        // A user can delete their own vote. We check the existing document's data.
-        allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+        // Any authenticated user can read all votes to build the heatmap. Admins too.
+        allow read: if isSignedIn() || isAdmin();
+        // A user can create a vote if the data's userId matches their own.
+        allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+        // A user can update their own vote.
+        allow update: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+        // A user can delete their own vote, or an admin can delete any vote.
+        allow delete: if (isSignedIn() && resource.data.userId == request.auth.uid) || isAdmin();
     }
 
     /**
@@ -45,7 +54,21 @@ service cloud.firestore {
       // A user can create an event if they are the creator specified in the new document.
       allow create: if isOwner(request.resource.data.creatorId);
       // Only the creator of an existing event can update or delete it.
-      allow update, delete: if isOwner(resource.data.creatorId);
+      allow update, delete: if isOwner(resource.data.creatorId) || isAdmin();
+    }
+    
+    /**
+     * @description Secures the admin request mailbox.
+     * @path /adminRequests/{userId}
+     */
+    match /adminRequests/{userId} {
+      // A user can only create a request document for their own UID.
+      // This prevents a user from trying to make someone else an admin.
+      allow create: if isOwner(userId);
+      
+      // No one can read, update, or delete these requests through client SDKs.
+      // They are handled exclusively by the backend Cloud Function.
+      allow read, update, delete: if false;
     }
   }
 }

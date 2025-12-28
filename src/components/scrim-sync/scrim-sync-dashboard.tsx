@@ -2,9 +2,9 @@
 
 import * as React from 'react';
 import { format, addDays, startOfWeek, endOfWeek, isSameDay, parseISO } from 'date-fns';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ShieldCheck } from 'lucide-react';
 import type { User } from 'firebase/auth';
-import { collection, doc, writeBatch } from 'firebase/firestore';
+import { collection, doc, writeBatch, query, where, getDocs } from 'firebase/firestore';
 
 import type { PlayerProfileData, ScheduleEvent, UserVotes, AllVotes, Vote, FirestoreScheduleEvent } from '@/lib/types';
 import { timeSlots } from '@/lib/types';
@@ -18,12 +18,14 @@ import { PlayerProfile } from './player-profile';
 import { ScheduleForm } from './schedule-form';
 import { IndividualVotingGrid } from './individual-voting-grid';
 import { ScheduledEvents } from './scheduled-events';
-import { useCollection, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
+import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { addDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Skeleton } from '../ui/skeleton';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { errorEmitter } from '@/firebase/error-emitter';
+import { AdminPanel } from './admin-panel';
+
 
 type ScrimSyncDashboardProps = {
     user: User;
@@ -32,6 +34,7 @@ type ScrimSyncDashboardProps = {
 export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
   const { toast } = useToast();
   const firestore = useFirestore();
+  const { claims } = useUser();
 
   const [currentDate, setCurrentDate] = React.useState(() => new Date());
   
@@ -167,7 +170,7 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
 
     batch.commit().catch(e => {
         const permissionError = new FirestorePermissionError({
-            path: `votes`,
+            path: 'votes',
             operation: 'write',
         });
         errorEmitter.emit('permission-error', permissionError);
@@ -207,7 +210,7 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
     
     batch.commit().catch(e => {
         const permissionError = new FirestorePermissionError({
-            path: `votes`,
+            path: 'votes',
             operation: 'write',
         });
         errorEmitter.emit('permission-error', permissionError);
@@ -248,7 +251,7 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
         });
     }).catch(e => {
         const permissionError = new FirestorePermissionError({
-            path: `votes`,
+            path: 'votes',
             operation: 'delete',
         });
         errorEmitter.emit('permission-error', permissionError);
@@ -281,6 +284,53 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
       description: 'The scheduled event has been successfully removed.',
     });
   };
+
+  const handleAdminResetVotes = async (targetUserId: string) => {
+    if (!firestore || !claims?.admin) return;
+
+    toast({
+        title: 'Resetting Votes...',
+        description: `Clearing all votes for user ${targetUserId}.`
+    });
+
+    const votesCollectionRef = collection(firestore, 'votes');
+    const userVotesQuery = query(votesCollectionRef, where('userId', '==', targetUserId));
+
+    const batch = writeBatch(firestore);
+
+    try {
+        const querySnapshot = await getDocs(userVotesQuery);
+        if (querySnapshot.empty) {
+            toast({
+                title: 'No Votes Found',
+                description: 'This user has no votes to clear.',
+            });
+            return;
+        }
+        querySnapshot.forEach(doc => {
+            batch.delete(doc.ref);
+        });
+
+        await batch.commit();
+
+        toast({
+            title: 'Success!',
+            description: `All votes for user have been reset.`,
+        });
+
+    } catch(e) {
+        const permissionError = new FirestorePermissionError({
+            path: `votes`,
+            operation: 'delete',
+        });
+        errorEmitter.emit('permission-error', permissionError);
+        toast({
+            variant: 'destructive',
+            title: 'Permission Denied',
+            description: `You do not have permission to reset votes.`,
+        });
+    }
+  }
 
   const goToPreviousWeek = () => {
     setCurrentDate(prev => addDays(prev, -7));
@@ -323,6 +373,7 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
                 <TabsList>
                   <TabsTrigger value="individual">Individual Voting</TabsTrigger>
                   <TabsTrigger value="heatmap">Team Heatmap</TabsTrigger>
+                  {claims?.admin && <TabsTrigger value="admin" className='flex items-center gap-2'><ShieldCheck className='w-4 h-4' /> Admin</TabsTrigger>}
                 </TabsList>
                 <div className='flex items-center gap-2'>
                     <Button variant="outline" size="icon" onClick={goToPreviousWeek}>
@@ -379,6 +430,27 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
                   />
                 )}
               </TabsContent>
+              {claims?.admin && (
+                <TabsContent value="admin" className="space-y-4">
+                     {isLoading ? (
+                      <Card>
+                        <CardHeader>
+                          <Skeleton className="h-8 w-1/2" />
+                          <Skeleton className="h-4 w-3/4" />
+                        </CardHeader>
+                        <CardContent>
+                          <Skeleton className="h-[65vh] w-full" />
+                        </CardContent>
+                      </Card>
+                     ) : (
+                        <AdminPanel
+                            allUsers={allProfiles ?? []}
+                            allVotes={allVotesData ?? []}
+                            onResetUserVotes={handleAdminResetVotes}
+                        />
+                     )}
+                </TabsContent>
+              )}
             </Tabs>
           </div>
         </div>
