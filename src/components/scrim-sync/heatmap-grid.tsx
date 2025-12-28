@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { Swords, Trophy, Vote, Users, Copy } from 'lucide-react';
-import { format, startOfWeek, addDays, isSameDay } from 'date-fns';
+import { format, startOfWeek, addDays, isSameDay, isToday } from 'date-fns';
 
 import type { ScheduleEvent, AllVotes } from '@/lib/types';
 import { timeSlots, MINIMUM_PLAYERS } from '@/lib/types';
@@ -165,12 +165,12 @@ export function HeatmapGrid({
         <TooltipProvider>
             <div className="border rounded-lg overflow-auto max-h-[65vh] relative">
                 <Table className="w-full border-collapse">
-                    <TableHeader className="sticky top-0 z-30 bg-card/95 backdrop-blur-sm">
-                        <TableRow>
-                            <TableHead className="w-[100px] sticky left-0 bg-card/95 backdrop-blur-sm z-40">Time</TableHead>
+                    <TableHeader className="sticky top-0 z-30 bg-muted/50 backdrop-blur-sm">
+                        <TableRow className="border-b-2 border-border">
+                            <TableHead className="w-[100px] sticky left-0 bg-muted/50 backdrop-blur-sm z-40">Time</TableHead>
                             {weekDates.map(date => (
-                                <TableHead key={date.toISOString()} className="text-center p-2">
-                                  <div className='min-w-[6rem]'>{format(date, 'EEE')}</div>
+                                <TableHead key={date.toISOString()} className={cn("text-center p-2", isToday(date) && "bg-primary/10")}>
+                                  <div className='min-w-[6rem] font-semibold'>{format(date, 'EEE')}</div>
                                   <div className="font-normal">{format(date, 'd/M')}</div>
                                 </TableHead>
                             ))}
@@ -194,7 +194,8 @@ export function HeatmapGrid({
                                                         onClick={() => handleSlotClick(date, slot, availablePlayers)}
                                                         className={cn(
                                                             'relative h-14 w-full flex flex-col justify-center items-center text-center p-1 transition-all duration-300 cursor-pointer border-l border-t',
-                                                            getHeatmapColor(voteCount)
+                                                            getHeatmapColor(voteCount),
+                                                            isToday(date) && 'bg-primary/5'
                                                         )}
                                                     >
                                                         <div className="relative z-10 text-sm font-bold text-foreground">

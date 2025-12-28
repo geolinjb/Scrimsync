@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { motion } from 'framer-motion';
 import { Check, Vote, CheckCircle, Circle, Swords, Trophy, Trash2, ClipboardCopy } from 'lucide-react';
-import { format, startOfWeek, addDays, isSameDay } from 'date-fns';
+import { format, startOfWeek, addDays, isSameDay, isToday } from 'date-fns';
 
 import type { UserVotes, ScheduleEvent } from '@/lib/types';
 import { timeSlots } from '@/lib/types';
@@ -109,17 +109,17 @@ export function IndividualVotingGrid({
         <CardContent>
           <div className="border rounded-lg overflow-auto max-h-[65vh] relative">
               <Table className="w-full border-collapse">
-                  <TableHeader className="sticky top-0 z-30 bg-card/95 backdrop-blur-sm">
-                      <TableRow>
-                          <TableHead className="w-[120px] font-bold sticky left-0 bg-card/95 backdrop-blur-sm z-40">Time</TableHead>
+                  <TableHeader className="sticky top-0 z-30 bg-muted/50 backdrop-blur-sm">
+                      <TableRow className="border-b-2 border-border">
+                          <TableHead className="w-[120px] font-bold sticky left-0 bg-muted/50 backdrop-blur-sm z-40">Time</TableHead>
                           {weekDates.map(date => {
                               const dateKey = format(date, 'yyyy-MM-dd');
                               const allDayVoted = timeSlots.every(slot => userVotes[dateKey]?.has(slot));
 
                               return (
-                                  <TableHead key={date.toISOString()} className="text-center font-bold p-2">
+                                  <TableHead key={date.toISOString()} className={cn("text-center p-2", isToday(date) && "bg-primary/10")}>
                                     <div className='flex flex-col items-center gap-1 min-w-[6rem]'>
-                                        <span>{format(date, 'EEE')}</span>
+                                        <span className='font-semibold'>{format(date, 'EEE')}</span>
                                         <span className="font-normal">{format(date, 'd/M')}</span>
                                         <Tooltip>
                                           <TooltipTrigger asChild>
@@ -169,7 +169,8 @@ export function IndividualVotingGrid({
                                                   onClick={() => onVote(date, slot)}
                                                   className={cn(
                                                       'h-14 w-full cursor-pointer flex justify-center items-center transition-colors border-l border-t relative',
-                                                      isVoted ? 'bg-primary/20 hover:bg-primary/30' : 'hover:bg-accent'
+                                                      isVoted ? 'bg-primary/20 hover:bg-primary/30' : 'hover:bg-accent',
+                                                      isToday(date) && 'bg-primary/5'
                                                   )}
                                                   whileTap={{ scale: 0.95 }}
                                               >
