@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { ShieldCheck, User, Users, Trash2, Loader, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ShieldCheck, User, Users, Trash2, Loader, ChevronLeft, ChevronRight, Copy } from 'lucide-react';
 import { collection, doc, writeBatch } from 'firebase/firestore';
 import { format, startOfWeek, endOfWeek, addDays, parseISO } from 'date-fns';
 
@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/table";
 import { Skeleton } from '../ui/skeleton';
 import type { PlayerProfileData, Vote } from '@/lib/types';
+import { timeSlots, MINIMUM_PLAYERS } from '@/lib/types';
 import { Button } from '../ui/button';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -39,6 +40,8 @@ import {
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { errorEmitter } from '@/firebase/error-emitter';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { Separator } from '../ui/separator';
 
 type UserDataPanelProps = {
   allProfiles: PlayerProfileData[] | null;
@@ -50,6 +53,9 @@ export function UserDataPanel({ allProfiles, isLoading }: UserDataPanelProps) {
   const firestore = useFirestore();
   const [isDeleting, setIsDeleting] = React.useState(false);
   const [selectedDate, setSelectedDate] = React.useState(() => new Date());
+  const [selectedRosterDate, setSelectedRosterDate] = React.useState<string>('');
+  const [selectedRosterTime, setSelectedRosterTime] = React.useState<string>('');
+
 
   const votesCollectionRef = useMemoFirebase(
     () => (firestore ? collection(firestore, 'votes') : null),
@@ -61,6 +67,10 @@ export function UserDataPanel({ allProfiles, isLoading }: UserDataPanelProps) {
   const weekStart = React.useMemo(() => startOfWeek(selectedDate, { weekStartsOn: 1 }), [selectedDate]);
   const weekEnd = React.useMemo(() => endOfWeek(selectedDate, { weekStartsOn: 1 }), [selectedDate]);
 
+  const weekDates = React.useMemo(() => {
+    return Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  }, [weekStart]);
+
   const votesInSelectedWeek = React.useMemo(() => {
     if (!allVotes) return [];
     return allVotes.filter(vote => {
@@ -68,6 +78,11 @@ export function UserDataPanel({ allProfiles, isLoading }: UserDataPanelProps) {
       return voteDate >= weekStart && voteDate <= weekEnd;
     });
   }, [allVotes, weekStart, weekEnd]);
+
+  const allPlayerNames = React.useMemo(() => {
+      if (!allProfiles) return [];
+      return allProfiles.map(p => p.username).filter(Boolean);
+  }, [allProfiles]);
 
   const handleDeleteWeeksVotes = async () => {
     if (!firestore || votesInSelectedWeek.length === 0) {
@@ -116,6 +131,60 @@ export function UserDataPanel({ allProfiles, isLoading }: UserDataPanelProps) {
   const goToNextWeek = () => {
     setSelectedDate(prev => addDays(prev, 7));
   };
+
+  const handleCopyRoster = () => {
+    if (!selectedRosterDate || !selectedRosterTime || !allVotes || !allProfiles) return;
+
+    const profileMap = new Map(allProfiles.map(p => [p.id, p.username]));
+    const voteKey = `${selectedRosterDate}_${selectedRosterTime}`;
+    const availableUserIds = allVotes
+        .filter(v => v.timeslot === voteKey)
+        .map(v => v.userId);
+
+    const availablePlayers = availableUserIds
+        .map(id => profileMap.get(id))
+        .filter((name): name is string => !!name);
+
+    const unavailablePlayers = allPlayerNames.filter(p => !availablePlayers.includes(p));
+    const neededPlayers = Math.max(0, MINIMUM_PLAYERS - availablePlayers.length);
+    
+    const parsedDate = parseISO(selectedRosterDate);
+    const header = `Roster for ${format(parsedDate, 'EEEE, d MMM')} at ${selectedRosterTime}:`;
+    
+    const availableHeader = `✅ Available Players (${availablePlayers.length}):`;
+    const availableList = availablePlayers.length > 0 ? availablePlayers.map(p => `- ${p}`).join('\n') : '- None';
+    
+    const neededText = `🔥 Players Needed: ${neededPlayers}`;
+    
+    const unavailableHeader = `❌ Unavailable Players (${unavailablePlayers.length}):`;
+    const unavailableList = unavailablePlayers.length > 0 ? unavailablePlayers.map(p => `- ${p}`).join('\n') : '- None';
+
+    const fullText = [
+        header, '',
+        availableHeader, availableList, '',
+        neededText, '',
+        unavailableHeader, unavailableList
+    ].join('\n');
+    
+    navigator.clipboard.writeText(fullText).then(() => {
+        toast({
+            title: 'Copied to Clipboard',
+            description: 'The roster summary has been copied.',
+        });
+    }, (err) => {
+        console.error('Could not copy text: ', err);
+        toast({
+            variant: 'destructive',
+            title: 'Copy Failed',
+            description: 'Could not copy the list to your clipboard.',
+        });
+    });
+  };
+
+  React.useEffect(() => {
+      setSelectedRosterDate('');
+      setSelectedRosterTime('');
+  }, [selectedDate]);
 
   const isPanelLoading = isLoading || areVotesLoading;
 
@@ -180,9 +249,43 @@ export function UserDataPanel({ allProfiles, isLoading }: UserDataPanelProps) {
           </div>
         )}
       </CardContent>
-      <CardFooter className="flex-col items-start gap-4">
-        <div className="w-full">
-            <h4 className='text-sm font-medium mb-2'>Delete Weekly Votes</h4>
+      <CardFooter className="flex-col items-start gap-6">
+        <div className='w-full space-y-2'>
+            <h4 className='text-sm font-medium'>Generate Roster Summary</h4>
+            <div className='flex flex-col sm:flex-row items-center gap-2 p-2 border rounded-lg'>
+                <div className='grid grid-cols-2 gap-2 w-full'>
+                    <Select value={selectedRosterDate} onValueChange={setSelectedRosterDate}>
+                        <SelectTrigger><SelectValue placeholder="Select Date" /></SelectTrigger>
+                        <SelectContent>
+                            {weekDates.map(date => (
+                                <SelectItem key={date.toISOString()} value={format(date, 'yyyy-MM-dd')}>
+                                    {format(date, 'EEE, d MMM')}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                    <Select value={selectedRosterTime} onValueChange={setSelectedRosterTime}>
+                        <SelectTrigger><SelectValue placeholder="Select Time" /></SelectTrigger>
+                        <SelectContent>
+                            {timeSlots.map(time => (
+                                <SelectItem key={time} value={time}>
+                                    {time}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+                <Button onClick={handleCopyRoster} disabled={!selectedRosterDate || !selectedRosterTime} className='w-full sm:w-auto shrink-0'>
+                    <Copy className='w-4 h-4 mr-2' />
+                    Copy Roster
+                </Button>
+            </div>
+        </div>
+
+        <Separator />
+        
+        <div className="w-full space-y-2">
+            <h4 className='text-sm font-medium'>Delete Weekly Votes</h4>
             <div className='flex items-center justify-between gap-2 p-2 border rounded-lg'>
                 <div className='flex items-center gap-1'>
                     <Button variant="outline" size="icon" onClick={goToPreviousWeek} className="h-8 w-8">
@@ -206,7 +309,7 @@ export function UserDataPanel({ allProfiles, isLoading }: UserDataPanelProps) {
                         <AlertDialogHeader>
                         <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                         <AlertDialogDescription>
-                            This will delete all {votesInSelectedWeek.length} votes for the week of {format(weekStart, 'd MMM')} - {format(weekEnd, 'd MMM')}. This action cannot be undone.
+                            This will delete all {votesInSelectedWeek.length} vote(s) for the week of {format(weekStart, 'd MMM')} - {format(weekEnd, 'd MMM')}. This action cannot be undone.
                         </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
