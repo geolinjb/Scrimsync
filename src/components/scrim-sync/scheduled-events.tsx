@@ -69,11 +69,44 @@ export function ScheduledEvents({ events, votes, allPlayerNames, onRemoveEvent, 
         return votes[voteKey] || [];
     };
 
+    const formatTimeRemaining = (eventDate: Date, eventTime: string) => {
+        const [time, modifier] = eventTime.split(' ');
+        let [hours, minutes] = time.split(':').map(Number);
+    
+        if (modifier === 'PM' && hours !== 12) {
+          hours += 12;
+        }
+        if (modifier === 'AM' && hours === 12) {
+          hours = 0;
+        }
+    
+        const eventDateTime = new Date(eventDate);
+        eventDateTime.setHours(hours, minutes, 0, 0);
+
+        const totalMinutes = differenceInMinutes(eventDateTime, now);
+
+        if (totalMinutes <= 0) {
+            return 'Started';
+        }
+
+        const daysLeft = Math.floor(totalMinutes / (60 * 24));
+        const hoursLeft = Math.floor((totalMinutes % (60*24)) / 60);
+        const minutesLeft = totalMinutes % 60;
+        
+        let result = 'in';
+        if (daysLeft > 0) result += ` ${daysLeft}d`;
+        if (hoursLeft > 0) result += ` ${hoursLeft}h`;
+        if (minutesLeft > 0) result += ` ${minutesLeft}m`;
+        
+        return result;
+    };
+    
     const handleCopyList = (event: ScheduleEvent, availablePlayers: string[]) => {
         const unavailablePlayers = allPlayerNames.filter(p => !availablePlayers.includes(p));
         const neededPlayers = Math.max(0, MINIMUM_PLAYERS - availablePlayers.length);
 
-        const header = `Roster for ${event.type} on ${format(event.date, 'EEEE, d MMM')} at ${event.time}:`;
+        const timeRemaining = formatTimeRemaining(event.date, event.time);
+        const header = `Roster for ${event.type} on ${format(event.date, 'EEEE, d MMM')} at ${event.time} (${timeRemaining}):`;
         
         const availableHeader = `✅ Available Players (${availablePlayers.length}):`;
         const availableList = availablePlayers.length > 0 ? availablePlayers.map(p => `- ${p}`).join('\n') : '- None';
@@ -108,35 +141,6 @@ export function ScheduledEvents({ events, votes, allPlayerNames, onRemoveEvent, 
                 description: 'Could not copy the list to your clipboard.',
             });
         });
-    };
-
-    const formatTimeRemaining = (eventDate: Date, eventTime: string) => {
-        const [time, modifier] = eventTime.split(' ');
-        let [hours, minutes] = time.split(':').map(Number);
-    
-        if (modifier === 'PM' && hours !== 12) {
-          hours += 12;
-        }
-        if (modifier === 'AM' && hours === 12) {
-          hours = 0;
-        }
-    
-        const eventDateTime = new Date(eventDate);
-        eventDateTime.setHours(hours, minutes, 0, 0);
-
-        const totalMinutes = differenceInMinutes(eventDateTime, now);
-
-        if (totalMinutes <= 0) {
-            return 'Started';
-        }
-
-        const hoursLeft = Math.floor(totalMinutes / 60);
-        const minutesLeft = totalMinutes % 60;
-
-        if (hoursLeft > 0) {
-            return `in ${hoursLeft}h ${minutesLeft}m`;
-        }
-        return `in ${minutesLeft}m`;
     };
 
     return (
