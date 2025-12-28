@@ -45,14 +45,6 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
   // Firestore References
   const profileRef = useMemoFirebase(() => doc(firestore, 'users', user.uid), [firestore, user.uid]);
   
-  // Conditionally fetch all users only if the current user is an admin
-  const allUsersRef = useMemoFirebase(() => {
-    if (isAdmin && firestore) {
-      return collection(firestore, 'users');
-    }
-    return null; // Don't fetch if not an admin
-  }, [firestore, isAdmin]);
-  
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(currentDate, { weekStartsOn: 1 });
 
@@ -346,10 +338,10 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
                   {isAdmin && <TabsTrigger value="admin">User Data</TabsTrigger>}
                 </TabsList>
                 <div className='flex items-center gap-2'>
+                    <Button variant="outline" onClick={goToToday}>Today</Button>
                     <Button variant="outline" size="icon" onClick={goToPreviousWeek}>
                         <ChevronLeft className="h-4 w-4" />
                     </Button>
-                    <Button variant="outline" onClick={goToToday}>Today</Button>
                     <Button variant="outline" size="icon" onClick={goToNextWeek}>
                         <ChevronRight className="h-4 w-4" />
                     </Button>
