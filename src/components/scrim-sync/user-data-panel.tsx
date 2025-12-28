@@ -1,8 +1,9 @@
 'use client';
 
 import * as React from 'react';
-import { ShieldCheck, User, Users, Trash2, Loader } from 'lucide-react';
+import { ShieldCheck, User, Users, Trash2, Loader, ChevronLeft, ChevronRight } from 'lucide-react';
 import { collection, doc, writeBatch } from 'firebase/firestore';
+import { format, startOfWeek, endOfWeek, addDays, parseISO } from 'date-fns';
 
 import {
   Card,
@@ -47,8 +48,9 @@ type UserDataPanelProps = {
 export function UserDataPanel({ allProfiles, isLoading }: UserDataPanelProps) {
   const { toast } = useToast();
   const firestore = useFirestore();
-  const [isResetting, setIsResetting] = React.useState(false);
-  
+  const [isDeleting, setIsDeleting] = React.useState(false);
+  const [selectedDate, setSelectedDate] = React.useState(() => new Date());
+
   const votesCollectionRef = useMemoFirebase(
     () => (firestore ? collection(firestore, 'votes') : null),
     [firestore]
@@ -56,32 +58,32 @@ export function UserDataPanel({ allProfiles, isLoading }: UserDataPanelProps) {
 
   const { data: allVotes, isLoading: areVotesLoading } = useCollection<Vote>(votesCollectionRef);
 
-  const handleResetAllVotes = async () => {
-    if (!firestore || !allVotes) {
-        toast({
-            variant: 'destructive',
-            title: 'Error',
-            description: 'Could not connect to the database.'
-        });
-        return;
+  const weekStart = React.useMemo(() => startOfWeek(selectedDate, { weekStartsOn: 1 }), [selectedDate]);
+  const weekEnd = React.useMemo(() => endOfWeek(selectedDate, { weekStartsOn: 1 }), [selectedDate]);
+
+  const votesInSelectedWeek = React.useMemo(() => {
+    if (!allVotes) return [];
+    return allVotes.filter(vote => {
+      const voteDate = parseISO(vote.timeslot.split('_')[0]);
+      return voteDate >= weekStart && voteDate <= weekEnd;
+    });
+  }, [allVotes, weekStart, weekEnd]);
+
+  const handleDeleteWeeksVotes = async () => {
+    if (!firestore || votesInSelectedWeek.length === 0) {
+      toast({
+          description: 'There are no votes to delete for the selected week.'
+      });
+      return;
     }
 
-    if (allVotes.length === 0) {
-        toast({
-            description: 'There are no votes to reset.'
-        });
-        return;
-    }
-
-    setIsResetting(true);
+    setIsDeleting(true);
 
     try {
-        // Firestore allows a maximum of 500 operations in a single batch.
-        // We will process the deletions in chunks of 500.
         const BATCH_SIZE = 500;
-        for (let i = 0; i < allVotes.length; i += BATCH_SIZE) {
+        for (let i = 0; i < votesInSelectedWeek.length; i += BATCH_SIZE) {
             const batch = writeBatch(firestore);
-            const chunk = allVotes.slice(i, i + BATCH_SIZE);
+            const chunk = votesInSelectedWeek.slice(i, i + BATCH_SIZE);
             
             chunk.forEach(vote => {
                 const voteRef = doc(firestore, 'votes', vote.id);
@@ -93,18 +95,26 @@ export function UserDataPanel({ allProfiles, isLoading }: UserDataPanelProps) {
 
         toast({
             title: 'Success!',
-            description: `${allVotes.length} vote(s) have been successfully reset.`,
+            description: `${votesInSelectedWeek.length} vote(s) for the selected week have been deleted.`,
         });
     } catch (error) {
-        console.error(error);
+        console.error("Error deleting votes for week:", error);
         const permissionError = new FirestorePermissionError({
             path: '/votes',
             operation: 'delete',
         });
         errorEmitter.emit('permission-error', permissionError);
     } finally {
-        setIsResetting(false);
+        setIsDeleting(false);
     }
+  };
+
+  const goToPreviousWeek = () => {
+    setSelectedDate(prev => addDays(prev, -7));
+  };
+
+  const goToNextWeek = () => {
+    setSelectedDate(prev => addDays(prev, 7));
   };
 
   const isPanelLoading = isLoading || areVotesLoading;
@@ -170,29 +180,45 @@ export function UserDataPanel({ allProfiles, isLoading }: UserDataPanelProps) {
           </div>
         )}
       </CardContent>
-      <CardFooter>
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button variant="destructive" disabled={isResetting || !allVotes || allVotes.length === 0}>
-              {isResetting ? <Loader className="w-4 h-4 mr-2 animate-spin" /> : <Trash2 className="w-4 h-4 mr-2" />}
-              {isResetting ? 'Resetting Votes...' : 'Reset All Individual Votes'}
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-              <AlertDialogDescription>
-                This action cannot be undone. This will permanently delete all individual votes for all users. It will not affect scheduled events.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={handleResetAllVotes} className="bg-destructive hover:bg-destructive/90">
-                Yes, Reset All Votes
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+      <CardFooter className="flex-col items-start gap-4">
+        <div className="w-full">
+            <h4 className='text-sm font-medium mb-2'>Delete Weekly Votes</h4>
+            <div className='flex items-center justify-between gap-2 p-2 border rounded-lg'>
+                <div className='flex items-center gap-1'>
+                    <Button variant="outline" size="icon" onClick={goToPreviousWeek} className="h-8 w-8">
+                        <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <Button variant="outline" size="icon" onClick={goToNextWeek} className="h-8 w-8">
+                        <ChevronRight className="h-4 w-4" />
+                    </Button>
+                </div>
+                <div className="text-center text-sm font-medium text-foreground">
+                    {format(weekStart, 'd MMM')} - {format(weekEnd, 'd MMM, yyyy')}
+                </div>
+                <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                        <Button variant="destructive" size="sm" disabled={isDeleting || votesInSelectedWeek.length === 0}>
+                        {isDeleting ? <Loader className="w-4 h-4 mr-2 animate-spin" /> : <Trash2 className="w-4 h-4 mr-2" />}
+                        Delete
+                        </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This will delete all {votesInSelectedWeek.length} votes for the week of {format(weekStart, 'd MMM')} - {format(weekEnd, 'd MMM')}. This action cannot be undone.
+                        </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDeleteWeeksVotes} className="bg-destructive hover:bg-destructive/90">
+                            Yes, Delete Votes
+                        </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+            </div>
+        </div>
       </CardFooter>
     </Card>
   );
