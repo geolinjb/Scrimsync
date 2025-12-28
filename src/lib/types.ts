@@ -4,6 +4,7 @@ export type ScheduleEvent = {
   date: Date;
   time: string;
   creatorId: string;
+  isRecurring?: boolean;
 };
 
 export type FirestoreScheduleEvent = Omit<ScheduleEvent, 'date'> & {

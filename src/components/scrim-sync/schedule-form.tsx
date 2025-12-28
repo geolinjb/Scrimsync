@@ -39,6 +39,7 @@ import {
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { timeSlots } from '@/lib/types';
+import { Checkbox } from '../ui/checkbox';
 
 const formSchema = z.object({
   type: z.enum(['Training', 'Tournament']),
@@ -46,6 +47,7 @@ const formSchema = z.object({
     required_error: 'A date is required.',
   }),
   time: z.string().min(1, 'A time is required.'),
+  repeatWeekly: z.boolean().optional(),
 });
 
 type ScheduleFormProps = {
@@ -59,6 +61,7 @@ export function ScheduleForm({ onAddEvent, currentDate }: ScheduleFormProps) {
     defaultValues: {
       type: 'Training',
       time: '',
+      repeatWeekly: false,
     },
   });
 
@@ -75,6 +78,7 @@ export function ScheduleForm({ onAddEvent, currentDate }: ScheduleFormProps) {
         type: 'Training',
         time: '',
         date: undefined,
+        repeatWeekly: false,
     });
   }
 
@@ -198,6 +202,28 @@ export function ScheduleForm({ onAddEvent, currentDate }: ScheduleFormProps) {
                     </SelectContent>
                   </Select>
                   <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="repeatWeekly"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                  <div className="space-y-1 leading-none">
+                    <FormLabel>
+                      Repeat Weekly
+                    </FormLabel>
+                    <FormDescription>
+                      Schedule this event for the next 4 weeks.
+                    </FormDescription>
+                  </div>
                 </FormItem>
               )}
             />

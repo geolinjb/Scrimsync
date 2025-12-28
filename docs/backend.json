@@ -79,6 +79,10 @@
         "time": {
           "type": "string",
           "description": "The time of the event (e.g., '6:30 PM')."
+        },
+        "isRecurring": {
+            "type": "boolean",
+            "description": "Indicates if the event is part of a weekly recurring series."
         }
       },
       "required": [
