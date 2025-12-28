@@ -5,7 +5,6 @@ import { format, addDays, startOfWeek, endOfWeek, isSameDay, parseISO } from 'da
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import type { User } from 'firebase/auth';
 import { collection, doc, writeBatch, query, where, getDocs } from 'firebase/firestore';
-import { getFunctions, httpsCallable } from 'firebase/functions';
 
 import type { PlayerProfileData, ScheduleEvent, UserVotes, AllVotes, Vote, FirestoreScheduleEvent } from '@/lib/types';
 import { timeSlots } from '@/lib/types';
@@ -25,7 +24,7 @@ import { Skeleton } from '../ui/skeleton';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { errorEmitter } from '@/firebase/error-emitter';
-import { ADMIN_EMAIL } from '@/lib/config';
+import { ADMIN_UID } from '@/lib/config';
 import { UserDataPanel } from './user-data-panel';
 
 
@@ -41,11 +40,18 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
   
   const [isSavingProfile, setIsSavingProfile] = React.useState(false);
 
-  const isAdmin = user.email === ADMIN_EMAIL;
+  const isAdmin = user.uid === ADMIN_UID;
 
   // Firestore References
   const profileRef = useMemoFirebase(() => doc(firestore, 'users', user.uid), [firestore, user.uid]);
-  const allUsersRef = useMemoFirebase(() => collection(firestore, 'users'), [firestore]);
+  
+  // Conditionally fetch all users only if the current user is an admin
+  const allUsersRef = useMemoFirebase(() => {
+    if (isAdmin && firestore) {
+      return collection(firestore, 'users');
+    }
+    return null; // Don't fetch if not an admin
+  }, [firestore, isAdmin]);
   
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(currentDate, { weekStartsOn: 1 });
@@ -63,7 +69,11 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
 
   // Firestore Hooks
   const { data: profile, isLoading: isProfileLoading } = useDoc<PlayerProfileData>(profileRef);
-  const { data: allProfiles, isLoading: areProfilesLoading } = useCollection<PlayerProfileData>(allUsersRef);
+  
+  // We need all profiles for the heatmap (to map userId to username), so we'll fetch them for everyone
+  const allProfilesForHeatmapRef = useMemoFirebase(() => collection(firestore, 'users'), [firestore]);
+  const { data: allProfiles, isLoading: areProfilesLoading } = useCollection<PlayerProfileData>(allProfilesForHeatmapRef);
+
   const { data: scheduledEventsData, isLoading: areEventsLoading } = useCollection<FirestoreScheduleEvent>(eventsQuery);
   const { data: allVotesData, isLoading: areVotesLoading } = useCollection<Vote>(votesQuery);
   

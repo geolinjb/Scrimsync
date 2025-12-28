@@ -99,12 +99,6 @@ export function UserDataPanel({ allProfiles, isLoading }: UserDataPanelProps) {
             operation: 'delete',
         });
         errorEmitter.emit('permission-error', permissionError);
-
-        toast({
-            variant: 'destructive',
-            title: 'Permission Denied',
-            description: 'You are not authorized to perform this action. Check Firestore rules.',
-        });
     } finally {
         setIsResetting(false);
     }

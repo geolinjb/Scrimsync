@@ -1,5 +1,5 @@
 // This file contains global configuration constants for the application.
 
-// The email address of the user who is designated as the administrator.
-// This email is used for both frontend visibility checks and backend security rule verification.
-export const ADMIN_EMAIL = 'geolinjb@gmail.com';
+// The UID of the user who is designated as the administrator.
+// This is used for frontend visibility checks. The backend security rules also use this UID.
+export const ADMIN_UID = 'BpA8qniZ03YttlnTR25nc6RrWrZ2';
