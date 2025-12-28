@@ -168,7 +168,7 @@ export function IndividualVotingGrid({
                                               <motion.div
                                                   onClick={() => onVote(date, slot)}
                                                   className={cn(
-                                                      'h-14 w-full cursor-pointer flex justify-center items-center transition-all duration-200 border-l border-t relative group',
+                                                      'h-14 w-full cursor-pointer flex justify-center items-center transition-all duration-200 border-l border-t border-white/5 relative group',
                                                       'hover:bg-accent',
                                                       isToday(date) && 'bg-primary/5',
                                                   )}

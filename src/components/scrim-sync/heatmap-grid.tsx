@@ -193,7 +193,7 @@ export function HeatmapGrid({
                                                     <div
                                                         onClick={() => handleSlotClick(date, slot, availablePlayers)}
                                                         className={cn(
-                                                            'relative h-14 w-full flex flex-col justify-center items-center text-center p-1 transition-all duration-300 cursor-pointer border-l border-t glow-on-hover',
+                                                            'relative h-14 w-full flex flex-col justify-center items-center text-center p-1 transition-all duration-300 cursor-pointer border-l border-t border-white/5 glow-on-hover',
                                                             getHeatmapColor(voteCount),
                                                             isToday(date) && 'bg-primary/5'
                                                         )}
