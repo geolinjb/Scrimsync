@@ -13,10 +13,12 @@ import {
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
+import { useToast } from '@/hooks/use-toast';
 
 export function Header() {
   const auth = useAuth();
   const { user } = useUser();
+  const { toast } = useToast();
 
   const handleSignOut = async () => {
     if (!auth) return;
@@ -26,6 +28,19 @@ export function Header() {
       console.error('Error signing out:', error);
     }
   };
+
+  const copyToClipboard = () => {
+    if (user?.uid) {
+      navigator.clipboard.writeText(user.uid).then(() => {
+        toast({
+          title: "UID Copied",
+          description: "Your User ID has been copied to the clipboard.",
+        });
+      }, (err) => {
+        console.error('Could not copy text: ', err);
+      });
+    }
+  }
 
   return (
     <header className="border-b">
@@ -53,6 +68,19 @@ export function Header() {
                   <p className="text-sm font-medium leading-none">{user.displayName}</p>
                   <p className="text-xs leading-none text-muted-foreground">
                     {user.email}
+                  </p>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="font-normal">
+                <div 
+                  className="flex flex-col space-y-2 cursor-pointer"
+                  onClick={copyToClipboard}
+                  title="Click to copy your UID"
+                >
+                  <p className="text-xs font-semibold uppercase text-muted-foreground">Your Admin UID</p>
+                  <p className="text-xs leading-none text-foreground break-all">
+                    {user.uid}
                   </p>
                 </div>
               </DropdownMenuLabel>
