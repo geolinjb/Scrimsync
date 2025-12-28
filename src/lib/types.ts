@@ -42,8 +42,3 @@ export type UserVotes = {
 export type AllVotes = {
   [voteKey: string]: string[]; // Key is 'yyyy-MM-dd-HH:mm PM/AM', value is array of player usernames
 }
-
-export interface DecodedIdToken {
-  admin?: boolean;
-  // Other claims can be added here
-}

@@ -3,13 +3,11 @@
 import React, { DependencyList, createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
 import { FirebaseApp } from 'firebase/app';
 import { Firestore } from 'firebase/firestore';
-import { Auth, User, onAuthStateChanged, getIdTokenResult } from 'firebase/auth';
+import { Auth, User, onAuthStateChanged } from 'firebase/auth';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener'
-import type { DecodedIdToken } from '@/lib/types';
 
 interface UserAuthState {
   user: User | null;
-  claims: DecodedIdToken | null;
   isUserLoading: boolean;
   userError: Error | null;
 }
@@ -22,7 +20,6 @@ export interface FirebaseContextState {
   auth: Auth | null; 
   // User authentication state
   user: User | null;
-  claims: DecodedIdToken | null;
   isUserLoading: boolean;
   userError: Error | null;
 }
@@ -33,7 +30,6 @@ export interface FirebaseServicesAndUser {
   firestore: Firestore;
   auth: Auth;
   user: User | null;
-  claims: DecodedIdToken | null;
   isUserLoading: boolean;
   userError: Error | null;
 }
@@ -41,9 +37,15 @@ export interface FirebaseServicesAndUser {
 // Return type for useUser() - specific to user auth state
 export interface UserHookResult { 
   user: User | null;
-  claims: DecodedIdToken | null;
   isUserLoading: boolean;
   userError: Error | null;
+}
+
+interface FirebaseProviderProps {
+  children: ReactNode;
+  firebaseApp: FirebaseApp;
+  firestore: Firestore;
+  auth: Auth;
 }
 
 // React Context
@@ -57,14 +59,13 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
 }) => {
   const [userAuthState, setUserAuthState] = useState<UserAuthState>({
     user: auth.currentUser, 
-    claims: null,
     isUserLoading: true, 
     userError: null,
   });
 
   useEffect(() => {
     if (!auth) { 
-      setUserAuthState({ user: null, claims: null, isUserLoading: false, userError: new Error("Auth service not provided.") });
+      setUserAuthState({ user: null, isUserLoading: false, userError: new Error("Auth service not provided.") });
       return;
     }
 
@@ -72,15 +73,14 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       auth,
       async (firebaseUser) => { 
         if (firebaseUser) {
-          const idTokenResult = await getIdTokenResult(firebaseUser);
-          setUserAuthState({ user: firebaseUser, claims: idTokenResult.claims as DecodedIdToken, isUserLoading: false, userError: null });
+          setUserAuthState({ user: firebaseUser, isUserLoading: false, userError: null });
         } else {
-          setUserAuthState({ user: null, claims: null, isUserLoading: false, userError: null });
+          setUserAuthState({ user: null, isUserLoading: false, userError: null });
         }
       },
       (error) => { 
         console.error("FirebaseProvider: onAuthStateChanged error:", error);
-        setUserAuthState({ user: null, claims: null, isUserLoading: false, userError: error });
+        setUserAuthState({ user: null, isUserLoading: false, userError: error });
       }
     );
     return () => unsubscribe(); 
@@ -94,7 +94,6 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       firestore: servicesAvailable ? firestore : null,
       auth: servicesAvailable ? auth : null,
       user: userAuthState.user,
-      claims: userAuthState.claims,
       isUserLoading: userAuthState.isUserLoading,
       userError: userAuthState.userError,
     };
@@ -124,7 +123,6 @@ export const useFirebase = (): FirebaseServicesAndUser => {
     firestore: context.firestore,
     auth: context.auth,
     user: context.user,
-    claims: context.claims,
     isUserLoading: context.isUserLoading,
     userError: context.userError,
   };
@@ -157,6 +155,6 @@ export function useMemoFirebase<T>(factory: () => T, deps: DependencyList): T | 
 }
 
 export const useUser = (): UserHookResult => { 
-  const { user, claims, isUserLoading, userError } = useFirebase(); 
-  return { user, claims, isUserLoading, userError };
+  const { user, isUserLoading, userError } = useFirebase(); 
+  return { user, isUserLoading, userError };
 };
