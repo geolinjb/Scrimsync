@@ -16,7 +16,7 @@ service cloud.firestore {
      * @path /users/{userId}
      */
     match /users/{userId} {
-      allow read: if isSignedIn();
+      allow read, list: if isSignedIn();
       // Only the owner can create or update their profile.
       allow create, update: if isOwner(userId);
       // No one can delete user profiles from the client.

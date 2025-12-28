@@ -5,6 +5,7 @@ import { format, addDays, startOfWeek, endOfWeek, isSameDay, parseISO } from 'da
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import type { User } from 'firebase/auth';
 import { collection, doc, writeBatch, query, where, getDocs } from 'firebase/firestore';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 
 import type { PlayerProfileData, ScheduleEvent, UserVotes, AllVotes, Vote, FirestoreScheduleEvent } from '@/lib/types';
 import { timeSlots } from '@/lib/types';
@@ -24,6 +25,8 @@ import { Skeleton } from '../ui/skeleton';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { errorEmitter } from '@/firebase/error-emitter';
+import { ADMIN_EMAIL } from '@/lib/config';
+import { UserDataPanel } from './user-data-panel';
 
 
 type ScrimSyncDashboardProps = {
@@ -37,6 +40,8 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
   const [currentDate, setCurrentDate] = React.useState(() => new Date());
   
   const [isSavingProfile, setIsSavingProfile] = React.useState(false);
+
+  const isAdmin = user.email === ADMIN_EMAIL;
 
   // Firestore References
   const profileRef = useMemoFirebase(() => doc(firestore, 'users', user.uid), [firestore, user.uid]);
@@ -324,6 +329,7 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
                 <TabsList>
                   <TabsTrigger value="individual">Individual Voting</TabsTrigger>
                   <TabsTrigger value="heatmap">Team Heatmap</TabsTrigger>
+                  {isAdmin && <TabsTrigger value="admin">User Data</TabsTrigger>}
                 </TabsList>
                 <div className='flex items-center gap-2'>
                     <Button variant="outline" size="icon" onClick={goToPreviousWeek}>
@@ -380,6 +386,11 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
                   />
                 )}
               </TabsContent>
+              {isAdmin && (
+                <TabsContent value="admin">
+                  <UserDataPanel allProfiles={allProfiles} isLoading={areProfilesLoading} />
+                </TabsContent>
+              )}
             </Tabs>
           </div>
         </div>
