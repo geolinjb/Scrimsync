@@ -5,7 +5,7 @@ import { Swords, Trophy, Vote, Users, Copy } from 'lucide-react';
 import { format, startOfWeek, addDays, isSameDay } from 'date-fns';
 
 import type { ScheduleEvent, AllVotes } from '@/lib/types';
-import { timeSlots } from '@/lib/types';
+import { timeSlots, MINIMUM_PLAYERS } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import {
   Card,
@@ -39,6 +39,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Button } from '../ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { Separator } from '../ui/separator';
 
 type HeatmapGridProps = {
   allVotes: AllVotes;
@@ -103,15 +104,37 @@ export function HeatmapGrid({
   const handleCopyList = () => {
     if (!selectedSlot) return;
 
-    const { date, slot, players } = selectedSlot;
-    const header = `Available for ${format(date, 'EEEE, d MMM')} at ${slot}:`;
-    const playerList = players.map(p => `- ${p}`).join('\n');
-    const fullText = `${header}\n${players.length > 0 ? playerList : 'No players available.'}`;
+    const { date, slot, players: availablePlayers } = selectedSlot;
+    
+    const unavailablePlayers = allPlayerNames.filter(p => !availablePlayers.includes(p));
+    const neededPlayers = Math.max(0, MINIMUM_PLAYERS - availablePlayers.length);
+
+    const header = `Roster for ${format(date, 'EEEE, d MMM')} at ${slot}:`;
+    
+    const availableHeader = `✅ Available Players (${availablePlayers.length}):`;
+    const availableList = availablePlayers.length > 0 ? availablePlayers.map(p => `- ${p}`).join('\n') : '- None';
+    
+    const neededText = `🔥 Players Needed: ${neededPlayers}`;
+    
+    const unavailableHeader = `❌ Unavailable Players (${unavailablePlayers.length}):`;
+    const unavailableList = unavailablePlayers.length > 0 ? unavailablePlayers.map(p => `- ${p}`).join('\n') : '- None';
+
+    const fullText = [
+        header,
+        '',
+        availableHeader,
+        availableList,
+        '',
+        neededText,
+        '',
+        unavailableHeader,
+        unavailableList
+    ].join('\n');
     
     navigator.clipboard.writeText(fullText).then(() => {
         toast({
             title: 'Copied to Clipboard',
-            description: 'The list of available players has been copied.',
+            description: 'The roster summary has been copied.',
         });
     }, (err) => {
         console.error('Could not copy text: ', err);
@@ -122,6 +145,8 @@ export function HeatmapGrid({
         });
     });
   };
+
+  const unavailablePlayers = selectedSlot ? allPlayerNames.filter(p => !selectedSlot.players.includes(p)) : [];
 
   return (
     <Card>
@@ -207,39 +232,73 @@ export function HeatmapGrid({
         </TooltipProvider>
 
         <Dialog open={!!selectedSlot} onOpenChange={(isOpen) => !isOpen && setSelectedSlot(null)}>
-            <DialogContent>
+            <DialogContent className='max-w-md'>
                 <DialogHeader>
-                    <DialogTitle>Available Players</DialogTitle>
+                    <DialogTitle>Roster Details</DialogTitle>
                     {selectedSlot && (
                         <DialogDescription>
                             {format(selectedSlot.date, 'EEEE, d MMM')} at {selectedSlot.slot}
                         </DialogDescription>
                     )}
                 </DialogHeader>
-                <div className='max-h-[60vh] overflow-y-auto'>
-                    {selectedSlot?.players && selectedSlot.players.length > 0 ? (
-                        <ul className='space-y-3 py-2'>
-                           {selectedSlot.players.map(player => (
-                               <li key={player} className='flex items-center gap-3'>
-                                   <Avatar>
-                                       <AvatarImage src={`https://api.dicebear.com/8.x/pixel-art/svg?seed=${player}`} />
-                                       <AvatarFallback>{player.charAt(0).toUpperCase()}</AvatarFallback>
-                                   </Avatar>
-                                   <span className='font-medium'>{player}</span>
-                               </li>
-                           ))}
-                        </ul>
-                    ): (
+                <div className='max-h-[60vh] overflow-y-auto space-y-4'>
+                    {selectedSlot && (
+                        <>
+                            <div>
+                                <h4 className='font-semibold mb-2 text-sm'>✅ Available ({selectedSlot.players.length})</h4>
+                                {selectedSlot.players.length > 0 ? (
+                                    <ul className='space-y-2'>
+                                    {selectedSlot.players.map(player => (
+                                        <li key={player} className='flex items-center gap-3 text-sm'>
+                                            <Avatar className='h-6 w-6'>
+                                                <AvatarImage src={`https://api.dicebear.com/8.x/pixel-art/svg?seed=${player}`} />
+                                                <AvatarFallback>{player.charAt(0).toUpperCase()}</AvatarFallback>
+                                            </Avatar>
+                                            <span className='font-medium'>{player}</span>
+                                        </li>
+                                    ))}
+                                    </ul>
+                                ) : (
+                                    <p className='text-sm text-muted-foreground italic'>No players available.</p>
+                                )}
+                            </div>
+                            <Separator />
+                             <div>
+                                <h4 className='font-semibold mb-2 text-sm'>❌ Unavailable ({unavailablePlayers.length})</h4>
+                                {unavailablePlayers.length > 0 ? (
+                                    <ul className='space-y-2'>
+                                    {unavailablePlayers.map(player => (
+                                        <li key={player} className='flex items-center gap-3 text-sm text-muted-foreground'>
+                                            <Avatar className='h-6 w-6'>
+                                                <AvatarImage src={`https://api.dicebear.com/8.x/pixel-art/svg?seed=${player}`} />
+                                                <AvatarFallback>{player.charAt(0).toUpperCase()}</AvatarFallback>
+                                            </Avatar>
+                                            <span>{player}</span>
+                                        </li>
+                                    ))}
+                                    </ul>
+                                ) : (
+                                    <p className='text-sm text-muted-foreground italic'>All players are available.</p>
+                                )}
+                            </div>
+                        </>
+                    )}
+                    {!selectedSlot && (
                         <div className='flex flex-col items-center justify-center text-center py-12'>
                             <Users className='w-12 h-12 text-muted-foreground' />
-                            <p className='mt-4 text-muted-foreground'>No players available for this time slot.</p>
+                            <p className='mt-4 text-muted-foreground'>No slot selected.</p>
                         </div>
                     )}
                 </div>
-                <DialogFooter>
-                    <Button onClick={handleCopyList} disabled={!selectedSlot || selectedSlot.players.length === 0}>
+                <DialogFooter className='sm:justify-between items-center gap-2 pt-4'>
+                    {selectedSlot && (
+                         <div className='text-sm text-center sm:text-left'>
+                            <span className='font-bold'>{Math.max(0, MINIMUM_PLAYERS - selectedSlot.players.length)}</span> players needed for a roster of {MINIMUM_PLAYERS}.
+                        </div>
+                    )}
+                    <Button onClick={handleCopyList} disabled={!selectedSlot}>
                         <Copy className='w-4 h-4 mr-2' />
-                        Copy List
+                        Copy Roster
                     </Button>
                 </DialogFooter>
             </DialogContent>

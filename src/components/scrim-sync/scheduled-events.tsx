@@ -6,6 +6,7 @@ import { CalendarCheck, Users, Trash2, Copy } from 'lucide-react';
 import type { User } from 'firebase/auth';
 
 import type { AllVotes, ScheduleEvent } from '@/lib/types';
+import { MINIMUM_PLAYERS } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import {
   Card,
@@ -38,11 +39,12 @@ import {
 type ScheduledEventsProps = {
   events: ScheduleEvent[];
   votes: AllVotes;
+  allPlayerNames: string[];
   onRemoveEvent: (eventId: string) => void;
   currentUser: User | null;
 };
 
-export function ScheduledEvents({ events, votes, onRemoveEvent, currentUser }: ScheduledEventsProps) {
+export function ScheduledEvents({ events, votes, allPlayerNames, onRemoveEvent, currentUser }: ScheduledEventsProps) {
     const { toast } = useToast();
     const upcomingEvents = React.useMemo(() => {
         if (!events) return [];
@@ -58,17 +60,36 @@ export function ScheduledEvents({ events, votes, onRemoveEvent, currentUser }: S
     return votes[voteKey] || [];
   };
 
-  const handleCopyList = (event: ScheduleEvent, players: string[]) => {
-    const header = `${event.type} on ${format(event.date, 'EEEE, d MMM')} at ${event.time}:`;
-    const playerList = players.length > 0
-      ? players.map(p => `- ${p}`).join('\n')
-      : 'No players available.';
-    const fullText = `${header}\n${playerList}`;
+  const handleCopyList = (event: ScheduleEvent, availablePlayers: string[]) => {
+    const unavailablePlayers = allPlayerNames.filter(p => !availablePlayers.includes(p));
+    const neededPlayers = Math.max(0, MINIMUM_PLAYERS - availablePlayers.length);
+
+    const header = `Roster for ${event.type} on ${format(event.date, 'EEEE, d MMM')} at ${event.time}:`;
+    
+    const availableHeader = `✅ Available Players (${availablePlayers.length}):`;
+    const availableList = availablePlayers.length > 0 ? availablePlayers.map(p => `- ${p}`).join('\n') : '- None';
+    
+    const neededText = `🔥 Players Needed: ${neededPlayers}`;
+    
+    const unavailableHeader = `❌ Unavailable Players (${unavailablePlayers.length}):`;
+    const unavailableList = unavailablePlayers.length > 0 ? unavailablePlayers.map(p => `- ${p}`).join('\n') : '- None';
+
+    const fullText = [
+        header,
+        '',
+        availableHeader,
+        availableList,
+        '',
+        neededText,
+        '',
+        unavailableHeader,
+        unavailableList
+    ].join('\n');
     
     navigator.clipboard.writeText(fullText).then(() => {
         toast({
             title: 'Copied to Clipboard',
-            description: 'The list of available players has been copied.',
+            description: 'The roster summary has been copied.',
         });
     }, (err) => {
         console.error('Could not copy text: ', err);
@@ -114,9 +135,9 @@ export function ScheduledEvents({ events, votes, onRemoveEvent, currentUser }: S
                   <AccordionContent>
                     <div className='flex justify-between items-start gap-4'>
                         <div className='flex-grow'>
-                            <h4 className="font-semibold mb-3">
-                            {availablePlayers.length} Available Players:
-                            </h4>
+                            <div className='mb-2'>
+                                <span className='font-semibold'>{availablePlayers.length}</span> players available. <span className='text-muted-foreground'>{Math.max(0, MINIMUM_PLAYERS - availablePlayers.length)} more needed.</span>
+                            </div>
                             {availablePlayers.length > 0 ? (
                             <ul className="space-y-3">
                                 {availablePlayers.map((player) => (
@@ -171,7 +192,6 @@ export function ScheduledEvents({ events, votes, onRemoveEvent, currentUser }: S
                                 size="icon"
                                 className="h-8 w-8"
                                 onClick={() => handleCopyList(event, availablePlayers)}
-                                disabled={availablePlayers.length === 0}
                             >
                                 <Copy className="w-4 h-4" />
                             </Button>

@@ -42,3 +42,5 @@ export type UserVotes = {
 export type AllVotes = {
   [voteKey: string]: string[]; // Key is 'yyyy-MM-dd-HH:mm PM/AM', value is array of player usernames
 }
+
+export const MINIMUM_PLAYERS = 7;

@@ -324,7 +324,8 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
             <ScheduleForm onAddEvent={handleAddEvent} currentDate={currentDate} />
             <ScheduledEvents 
                 events={scheduledEvents} 
-                votes={allVotes} 
+                votes={allVotes}
+                allPlayerNames={allPlayerNames}
                 onRemoveEvent={handleRemoveEvent}
                 currentUser={user}
             />
@@ -339,12 +340,14 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
                 </TabsList>
                 <div className='flex items-center gap-2'>
                     <Button variant="outline" onClick={goToToday}>Today</Button>
-                    <Button variant="outline" size="icon" onClick={goToPreviousWeek}>
-                        <ChevronLeft className="h-4 w-4" />
-                    </Button>
-                    <Button variant="outline" size="icon" onClick={goToNextWeek}>
-                        <ChevronRight className="h-4 w-4" />
-                    </Button>
+                    <div className='flex items-center'>
+                      <Button variant="outline" size="icon" onClick={goToPreviousWeek} className="rounded-r-none">
+                          <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <Button variant="outline" size="icon" onClick={goToNextWeek} className="rounded-l-none border-l-0">
+                          <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
                 </div>
               </div>
               <div className="text-center text-sm font-medium text-foreground mb-4">
