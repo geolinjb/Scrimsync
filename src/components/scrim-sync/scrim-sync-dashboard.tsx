@@ -197,7 +197,7 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
         const date = addDays(weekStartVote, i);
         const dateKey = format(date, 'yyyy-MM-dd');
         const timeslotId = `${dateKey}_${timeSlot}`;
-        const voteId = `${user.uid}_${timeSlot}`;
+        const voteId = `${user.uid}_${timeslotId}`;
         const voteRef = doc(firestore, 'votes', voteId);
 
         if (allSelected) {

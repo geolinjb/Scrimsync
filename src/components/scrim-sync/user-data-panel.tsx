@@ -136,9 +136,10 @@ export function UserDataPanel({ allProfiles, isLoading }: UserDataPanelProps) {
     if (!selectedRosterDate || !selectedRosterTime || !allVotes || !allProfiles) return;
 
     const profileMap = new Map(allProfiles.map(p => [p.id, p.username]));
-    const voteKey = `${selectedRosterDate}_${selectedRosterTime}`;
+    const timeslotId = `${selectedRosterDate}_${selectedRosterTime}`;
+    
     const availableUserIds = allVotes
-        .filter(v => v.timeslot === voteKey)
+        .filter(v => v.timeslot === timeslotId)
         .map(v => v.userId);
 
     const availablePlayers = availableUserIds
