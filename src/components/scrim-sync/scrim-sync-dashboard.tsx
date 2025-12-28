@@ -263,6 +263,85 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
     });
 };
 
+const handleCopyLastWeeksVotes = React.useCallback(async () => {
+    if (!firestore || !allVotesData) return;
+
+    const lastWeekStartDate = addDays(startOfWeek(currentDate, { weekStartsOn: 1 }), -7);
+    const currentWeekStartDate = startOfWeek(currentDate, { weekStartsOn: 1 });
+
+    const lastWeekVotes = allVotesData.filter(vote => {
+        if (vote.userId !== user.uid) return false;
+        const voteDate = parseISO(vote.timeslot.split('_')[0]);
+        const lastWeekEndDate = addDays(lastWeekStartDate, 6);
+        return voteDate >= lastWeekStartDate && voteDate <= lastWeekEndDate;
+    });
+
+    if (lastWeekVotes.length === 0) {
+        toast({ description: "No votes found from last week to copy." });
+        return;
+    }
+
+    const batch = writeBatch(firestore);
+    let newVotesCount = 0;
+
+    lastWeekVotes.forEach(vote => {
+        const [dateKey, slot] = vote.timeslot.split('_');
+        const prevDate = parseISO(dateKey);
+        const dayOfWeek = prevDate.getDay(); // Sunday is 0, Monday is 1, etc.
+        
+        // Adjust because our week starts on Monday
+        const adjustedDayOfWeek = (dayOfWeek === 0) ? 6 : dayOfWeek - 1;
+
+        const newDate = addDays(currentWeekStartDate, adjustedDayOfWeek);
+        const newDateKey = format(newDate, 'yyyy-MM-dd');
+        const newTimeslotId = `${newDateKey}_${slot}`;
+        const newVoteId = `${user.uid}_${newTimeslotId}`;
+
+        // Avoid overwriting existing votes in the current week
+        if (!userVotes[newDateKey] || !userVotes[newDateKey].has(slot)) {
+            const voteRef = doc(firestore, 'votes', newVoteId);
+            const voteData: Vote = {
+                id: newVoteId,
+                userId: user.uid,
+                timeslot: newTimeslotId,
+                voteValue: true,
+            };
+            batch.set(voteRef, voteData);
+            newVotesCount++;
+        }
+    });
+
+    if (newVotesCount === 0) {
+        toast({ description: "Last week's votes are already present this week." });
+        return;
+    }
+
+    try {
+        await batch.commit();
+        toast({
+            title: "Votes Copied!",
+            description: `Successfully copied ${newVotesCount} vote(s) from last week.`,
+        });
+    } catch (error) {
+        const permissionError = new FirestorePermissionError({
+            path: 'votes',
+            operation: 'write',
+        });
+        errorEmitter.emit('permission-error', permissionError);
+    }
+}, [firestore, allVotesData, currentDate, user.uid, userVotes, toast]);
+
+const hasLastWeekVotes = React.useMemo(() => {
+    if (!allVotesData) return false;
+    const lastWeekStartDate = addDays(startOfWeek(currentDate, { weekStartsOn: 1 }), -7);
+    const lastWeekEndDate = addDays(lastWeekStartDate, 6);
+
+    return allVotesData.some(vote => {
+        if (vote.userId !== user.uid) return false;
+        const voteDate = parseISO(vote.timeslot.split('_')[0]);
+        return voteDate >= lastWeekStartDate && voteDate <= lastWeekEndDate;
+    });
+}, [allVotesData, user.uid, currentDate]);
 
   const handleAddEvent = (data: { type: 'Training' | 'Tournament'; date: Date; time: string, repeatWeekly?: boolean; }) => {
     if (!firestore) return;
@@ -405,6 +484,8 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
                       onVoteAllDay={handleVoteAllDay}
                       onVoteAllTime={handleVoteAllTime}
                       onClearAllVotes={handleClearAllVotes}
+                      onCopyLastWeeksVotes={handleCopyLastWeeksVotes}
+                      hasLastWeekVotes={hasLastWeekVotes}
                       currentDate={currentDate}
                       scheduledEvents={scheduledEvents}
                   />

@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { motion } from 'framer-motion';
-import { Check, Vote, CheckCircle, Circle, Swords, Trophy, Trash2 } from 'lucide-react';
+import { Check, Vote, CheckCircle, Circle, Swords, Trophy, Trash2, ClipboardCopy } from 'lucide-react';
 import { format, startOfWeek, addDays, isSameDay } from 'date-fns';
 
 import type { UserVotes, ScheduleEvent } from '@/lib/types';
@@ -33,6 +33,8 @@ type IndividualVotingGridProps = {
   onVoteAllDay: (date: Date) => void;
   onVoteAllTime: (timeSlot: string) => void;
   onClearAllVotes: () => void;
+  onCopyLastWeeksVotes: () => void;
+  hasLastWeekVotes: boolean;
   currentDate: Date;
   scheduledEvents: ScheduleEvent[];
 };
@@ -43,6 +45,8 @@ export function IndividualVotingGrid({
   onVoteAllDay,
   onVoteAllTime,
   onClearAllVotes,
+  onCopyLastWeeksVotes,
+  hasLastWeekVotes,
   currentDate,
   scheduledEvents,
 }: IndividualVotingGridProps) {
@@ -73,17 +77,30 @@ export function IndividualVotingGrid({
               <Vote className="w-6 h-6" />
               <CardTitle>Set Your Weekly Availability</CardTitle>
               </div>
-              <Tooltip>
-                  <TooltipTrigger asChild>
-                      <Button variant="ghost" size="icon" onClick={onClearAllVotes} disabled={!hasAnyVotes}>
-                          <Trash2 className="w-5 h-5" />
-                          <span className="sr-only">Clear all votes for this week</span>
-                      </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                      <p>Clear all your votes for this week</p>
-                  </TooltipContent>
-              </Tooltip>
+              <div className="flex items-center gap-1">
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Button variant="ghost" size="icon" onClick={onCopyLastWeeksVotes} disabled={!hasLastWeekVotes}>
+                            <ClipboardCopy className="w-5 h-5" />
+                            <span className="sr-only">Copy last week's votes</span>
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                        <p>Copy last week's votes</p>
+                    </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Button variant="ghost" size="icon" onClick={onClearAllVotes} disabled={!hasAnyVotes}>
+                            <Trash2 className="w-5 h-5" />
+                            <span className="sr-only">Clear all votes for this week</span>
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                        <p>Clear all your votes for this week</p>
+                    </TooltipContent>
+                </Tooltip>
+              </div>
           </div>
           <CardDescription>
             Click on a time slot to mark yourself as available. Use the header buttons to select entire days or time blocks.
