@@ -1,9 +1,9 @@
 'use client';
 
 import * as React from 'react';
-import { ShieldCheck, User, Users, Trash2, Loader, ChevronLeft, ChevronRight, Copy, ClipboardList, Settings, Send, Save } from 'lucide-react';
+import { ShieldCheck, User, Users, Trash2, Loader, ChevronLeft, ChevronRight, Copy, ClipboardList } from 'lucide-react';
 import { collection, doc, writeBatch } from 'firebase/firestore';
-import { getFunctions, httpsCallable } from 'firebase/functions';
+
 import { format, startOfWeek, endOfWeek, addDays, parseISO } from 'date-fns';
 
 import {
@@ -43,7 +43,6 @@ import { FirestorePermissionError } from '@/firebase/errors';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Separator } from '../ui/separator';
-import { Input } from '../ui/input';
 
 type UserDataPanelProps = {
   allProfiles: PlayerProfileData[] | null;
@@ -57,12 +56,7 @@ export function UserDataPanel({ allProfiles, isLoading }: UserDataPanelProps) {
   const [selectedDate, setSelectedDate] = React.useState(() => new Date());
   const [selectedRosterDate, setSelectedRosterDate] = React.useState<string>('');
   const [selectedRosterTime, setSelectedRosterTime] = React.useState<string>('');
-  const [webhookUrl, setWebhookUrl] = React.useState('');
-  const [isSavingWebhook, setIsSavingWebhook] = React.useState(false);
-  const [isTestingWebhook, setIsTestingWebhook] = React.useState(false);
-
-  const functions = React.useMemo(() => firestore ? getFunctions(firestore.app, 'us-central1') : null, [firestore]);
-
+  
   const votesCollectionRef = useMemoFirebase(
     () => (firestore ? collection(firestore, 'votes') : null),
     [firestore]
@@ -142,10 +136,10 @@ export function UserDataPanel({ allProfiles, isLoading }: UserDataPanelProps) {
     if (!selectedRosterDate || !selectedRosterTime || !allVotes || !allProfiles) return;
 
     const profileMap = new Map(allProfiles.map(p => [p.id, p.username]));
-    const timeslotId = `${selectedRosterDate}_${selectedRosterTime}`;
+    const voteKey = `${selectedRosterDate}-${selectedRosterTime}`;
     
     const availableUserIds = allVotes
-        .filter(v => v.timeslot === timeslotId)
+        .filter(v => v.timeslot === `${selectedRosterDate}_${selectedRosterTime}`)
         .map(v => v.userId);
 
     const availablePlayers = availableUserIds
@@ -214,63 +208,6 @@ export function UserDataPanel({ allProfiles, isLoading }: UserDataPanelProps) {
       });
     });
   };
-
-  const handleSaveWebhook = async () => {
-    if (!functions) return;
-    if (!webhookUrl) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Webhook URL cannot be empty.' });
-      return;
-    }
-    setIsSavingWebhook(true);
-    try {
-      const setWebhookUrlFn = httpsCallable(functions, 'setWebhookUrl');
-      const result = await setWebhookUrlFn({ url: webhookUrl });
-      
-      const data = result.data as { success?: boolean; message?: string };
-
-      if (data.success) {
-        toast({
-            title: 'Action Required',
-            description: data.message,
-            duration: 15000,
-        });
-      }
-
-    } catch (error: any) {
-      console.error("Error saving webhook URL:", error);
-       toast({
-        variant: 'destructive',
-        title: 'Error Saving Webhook',
-        description: error.message || 'An unknown error occurred.',
-        duration: 9000,
-      });
-    } finally {
-      setIsSavingWebhook(false);
-    }
-  };
-
-  const handleTestWebhook = async () => {
-    if (!functions) return;
-    setIsTestingWebhook(true);
-    try {
-      const testWebhook = httpsCallable(functions, 'testDiscordWebhook');
-      const result = await testWebhook();
-      toast({
-        title: 'Success!',
-        description: (result.data as any).message,
-      });
-    } catch (error: any) {
-      console.error("Error testing webhook:", error);
-      toast({
-        variant: 'destructive',
-        title: 'Test Failed',
-        description: error.message || 'An unknown error occurred.',
-      });
-    } finally {
-      setIsTestingWebhook(false);
-    }
-  };
-
 
   React.useEffect(() => {
       setSelectedRosterDate('');
@@ -440,50 +377,6 @@ export function UserDataPanel({ allProfiles, isLoading }: UserDataPanelProps) {
                         </AlertDialog>
                     </div>
                 </div>
-            </CardFooter>
-        </Card>
-
-        <Card>
-            <CardHeader>
-                <div className="flex items-center gap-3">
-                <Settings className="w-6 h-6 text-primary" />
-                <CardTitle>Discord Integration</CardTitle>
-                </div>
-                <CardDescription>
-                Set your Discord webhook URL. This is stored securely as a secret.
-                </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                <div className="space-y-2">
-                    <label htmlFor="webhook-url" className="text-sm font-medium">Discord Webhook URL</label>
-                    <Input 
-                        id="webhook-url" 
-                        type="password" 
-                        placeholder="Paste your webhook URL here"
-                        value={webhookUrl}
-                        onChange={(e) => setWebhookUrl(e.target.value)}
-                    />
-                     <p className='text-xs text-muted-foreground pt-1'>
-                        After saving, you must follow the CLI instructions for the changes to take effect.
-                    </p>
-                </div>
-            </CardContent>
-            <CardFooter className="flex justify-between">
-                 <Button 
-                    onClick={handleTestWebhook} 
-                    variant="outline"
-                    disabled={isTestingWebhook}
-                >
-                    {isTestingWebhook ? <Loader className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
-                    Test
-                </Button>
-                <Button 
-                    onClick={handleSaveWebhook}
-                    disabled={isSavingWebhook || !webhookUrl}
-                >
-                    {isSavingWebhook ? <Loader className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-                    Save URL
-                </Button>
             </CardFooter>
         </Card>
     </div>
