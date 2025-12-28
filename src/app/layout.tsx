@@ -4,8 +4,8 @@ import { Toaster } from "@/components/ui/toaster"
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 
 export const metadata: Metadata = {
-  title: 'ScrimSync',
-  description: 'Coordinate your team\'s scrims and training sessions effortlessly.',
+  title: 'TeamSync',
+  description: 'Coordinate your team\'s schedules and availability effortlessly.',
 };
 
 export default function RootLayout({

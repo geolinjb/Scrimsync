@@ -29,11 +29,11 @@ import { UserDataPanel } from './user-data-panel';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../ui/accordion';
 
 
-type ScrimSyncDashboardProps = {
+type TeamSyncDashboardProps = {
     user: AuthUser;
 };
 
-export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
+export function TeamSyncDashboard({ user }: TeamSyncDashboardProps) {
   const { toast } = useToast();
   const firestore = useFirestore();
 
@@ -75,7 +75,7 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
   }, [scheduledEventsData]);
 
 
-  const handleProfileSave = React. useCallback(
+  const handleProfileSave = React.useCallback(
     (newProfile: PlayerProfileData) => {
       if (!firestore) return;
       setIsSavingProfile(true);

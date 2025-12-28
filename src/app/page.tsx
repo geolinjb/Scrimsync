@@ -1,17 +1,23 @@
 'use client';
 
 import * as React from 'react';
-import { ScrimSyncDashboard } from '@/components/scrim-sync/scrim-sync-dashboard';
+import { TeamSyncDashboard } from '@/components/scrim-sync/scrim-sync-dashboard';
 import { useAuth, useUser } from '@/firebase';
 import { Button } from '@/components/ui/button';
-import { Loader, Chrome } from 'lucide-react';
+import { Loader, Chrome, Info } from 'lucide-react';
 import { GoogleAuthProvider, signInWithPopup, type FirebaseError } from 'firebase/auth';
 import { AnimatePresence, motion } from 'framer-motion';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible"
 
 export default function Home() {
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
   const [isLoggingIn, setIsLoggingIn] = React.useState(false);
+  const [isInfoOpen, setIsInfoOpen] = React.useState(false);
 
   const handleLogin = async () => {
     if (!auth || isLoggingIn) return;
@@ -70,7 +76,7 @@ export default function Home() {
             />
             <AnimatePresence>
                 <motion.div
-                    className="flex flex-col items-center justify-center"
+                    className="flex flex-col items-center justify-center z-10"
                     initial="hidden"
                     animate="show"
                     variants={{
@@ -85,7 +91,7 @@ export default function Home() {
                         className="text-5xl font-bold tracking-tight text-foreground font-headline mb-4"
                         variants={FADE_IN_VARIANTS}
                     >
-                        Welcome to ScrimSync
+                        Welcome to TeamSync
                     </motion.h1>
                     <motion.p 
                         className="text-xl text-muted-foreground mb-8 max-w-2xl"
@@ -105,9 +111,43 @@ export default function Home() {
                     </motion.div>
                 </motion.div>
             </AnimatePresence>
+
+            <Collapsible open={isInfoOpen} onOpenChange={setIsInfoOpen} className="absolute bottom-0 left-0 right-0 p-4 z-20">
+                <div className="flex justify-center">
+                    <CollapsibleTrigger asChild>
+                        <Button variant="link" className="text-muted-foreground hover:text-foreground">
+                            <Info className="mr-2 h-4 w-4" />
+                            {isInfoOpen ? 'Hide Information' : 'Important Information'}
+                        </Button>
+                    </CollapsibleTrigger>
+                </div>
+                <CollapsibleContent className="mt-4 max-w-3xl mx-auto p-6 bg-card/80 backdrop-blur-sm rounded-lg border text-left text-sm text-card-foreground animate-in fade-in-0 slide-in-from-bottom-4">
+                    <h3 className="font-bold text-base mb-2">Welcome to TeamSync!</h3>
+                    <p className="text-muted-foreground mb-4">
+                        TeamSync is a scheduling tool used by Tamilanda (TAMZH) to coordinate team practices, scrims, and tournaments.
+                    </p>
+                    <h4 className="font-semibold mb-2">How it works:</h4>
+                    <ul className="list-disc list-inside space-y-1 text-muted-foreground mb-4">
+                        <li>Add your basic information so we can include you in the team roster.</li>
+                        <li>Mark your weekly availability on the grid.</li>
+                        <li>Team availability is combined to identify the best practice times.</li>
+                        <li>Admins schedule events based on player availability.</li>
+                    </ul>
+                    <h4 className="font-semibold mb-2">Important notes:</h4>
+                    <ul className="list-disc list-inside space-y-1 text-muted-foreground mb-4">
+                        <li>Your information is used only for team coordination and roster management.</li>
+                        <li>You can update your availability at any time.</li>
+                        <li>Players who do not submit availability may not be included in practice or scrim scheduling.</li>
+                        <li>Only admins can create or manage scheduled events.</li>
+                    </ul>
+                    <p className="text-xs text-center text-muted-foreground/80 mt-4">
+                        By continuing, you agree to use TeamSync only for official team coordination purposes.
+                    </p>
+                </CollapsibleContent>
+            </Collapsible>
         </div>
     )
   }
 
-  return <ScrimSyncDashboard user={user} />;
+  return <TeamSyncDashboard user={user} />;
 }
