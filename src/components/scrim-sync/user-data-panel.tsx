@@ -35,7 +35,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { useCollection, useFirestore } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { errorEmitter } from '@/firebase/error-emitter';
 
@@ -49,9 +49,12 @@ export function UserDataPanel({ allProfiles, isLoading }: UserDataPanelProps) {
   const firestore = useFirestore();
   const [isResetting, setIsResetting] = React.useState(false);
   
-  const { data: allVotes, isLoading: areVotesLoading } = useCollection<Vote>(
-    firestore ? collection(firestore, 'votes') : null
+  const votesCollectionRef = useMemoFirebase(
+    () => (firestore ? collection(firestore, 'votes') : null),
+    [firestore]
   );
+
+  const { data: allVotes, isLoading: areVotesLoading } = useCollection<Vote>(votesCollectionRef);
 
   const handleResetAllVotes = async () => {
     if (!firestore || !allVotes) {
