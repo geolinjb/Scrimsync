@@ -50,7 +50,7 @@ export default function Home() {
                 animate={{ scale: 1, transition: { delay: 0.2 } }}
               >
                 <svg
-                  className="w-8 h-8 text-yellow-500"
+                  className="w-8 h-8 text-primary"
                   fill="currentColor"
                   viewBox="0 0 24 24"
                 >
