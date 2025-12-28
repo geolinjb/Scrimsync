@@ -29,10 +29,9 @@ interface Vote {
     timeslot: string; // format: 'YYYY-MM-DD_HH:mm AM/PM'
 }
 
-// Function to set environment variables for the project
-const setWebhookUrlCallable = functions.runWith({
-    secrets: ["DISCORD_WEBHOOK_URL"],
-}).https.onCall(async (data, context) => {
+// This function now provides instructions on how to set the secret.
+// It does not set the secret itself.
+const setWebhookUrlCallable = functions.https.onCall(async (data, context) => {
     // Make sure the user is an admin
     if (context.auth?.uid !== "BpA8qniZ03YttlnTR25nc6RrWrZ2") {
         throw new functions.https.HttpsError("permission-denied", "You must be an administrator to perform this action.");
@@ -42,16 +41,13 @@ const setWebhookUrlCallable = functions.runWith({
     if (typeof webhookUrl !== "string" || !webhookUrl.startsWith("https://discord.com/api/webhooks/")) {
         throw new functions.https.HttpsError("invalid-argument", "A valid Discord webhook URL is required.");
     }
-    
-    // The function now returns instructions instead of throwing an error.
+
     const command = `firebase functions:secrets:set DISCORD_WEBHOOK_URL`;
-    const followUp = `Then, in the input, paste the following value: ${webhookUrl}`;
-    
     console.log(`Admin ${context.auth.uid} requested to set webhook. Instructing to run: ${command}`);
-    
+
     return {
       success: true,
-      message: `Run the command \`${command}\` in your terminal and paste the URL when prompted. Then, redeploy your functions.`,
+      message: `Run the command \`${command}\` in your terminal. When prompted for the secret value, paste your webhook URL. Finally, redeploy your functions with \`firebase deploy --only functions\` to apply the change.`,
     };
 });
 
@@ -65,7 +61,7 @@ const testDiscordWebhookCallable = functions.runWith({
 
     const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
     if (!webhookUrl) {
-        throw new functions.https.HttpsError("failed-precondition", "Discord webhook URL is not configured. Please save it first and redeploy functions.");
+        throw new functions.https.HttpsError("failed-precondition", "Discord webhook URL is not configured. Please save it using the instructions and redeploy the functions.");
     }
 
     const testMessage = {
@@ -86,14 +82,16 @@ const testDiscordWebhookCallable = functions.runWith({
     });
 
     if (!response.ok) {
-        throw new functions.https.HttpsError("internal", `Discord API returned status ${response.status}.`);
+        const responseBody = await response.text();
+        console.error(`Discord API Error: ${response.status}`, responseBody);
+        throw new functions.https.HttpsError("internal", `Discord API returned status ${response.status}. Check function logs for details.`);
     }
 
     return { success: true, message: "Test message sent successfully!" };
 });
 
 
-const sendDiscordReminders = functions.pubsub.schedule("every 15 minutes").run(async (context) => {
+const sendDiscordReminders = functions.runWith({ secrets: ["DISCORD_WEBHOOK_URL"] }).pubsub.schedule("every 15 minutes").onRun(async (context) => {
     const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
     if (!webhookUrl) {
         console.log("Discord webhook URL not set. Skipping reminders.");

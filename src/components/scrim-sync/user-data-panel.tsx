@@ -226,13 +226,15 @@ export function UserDataPanel({ allProfiles, isLoading }: UserDataPanelProps) {
       const setWebhookUrlFn = httpsCallable(functions, 'setWebhookUrl');
       const result = await setWebhookUrlFn({ url: webhookUrl });
       
-      const data = result.data as { success: boolean, message: string };
+      const data = result.data as { success?: boolean; message?: string };
 
-      toast({
-        title: 'Action Required',
-        description: data.message,
-        duration: 15000,
-      });
+      if (data.success) {
+        toast({
+            title: 'Action Required',
+            description: data.message,
+            duration: 15000,
+        });
+      }
 
     } catch (error: any) {
       console.error("Error saving webhook URL:", error);
@@ -448,7 +450,7 @@ export function UserDataPanel({ allProfiles, isLoading }: UserDataPanelProps) {
                 <CardTitle>Discord Integration</CardTitle>
                 </div>
                 <CardDescription>
-                Set your Discord webhook URL. This is stored securely as a secret and is not publicly accessible.
+                Set your Discord webhook URL. This is stored securely as a secret.
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -462,7 +464,7 @@ export function UserDataPanel({ allProfiles, isLoading }: UserDataPanelProps) {
                         onChange={(e) => setWebhookUrl(e.target.value)}
                     />
                      <p className='text-xs text-muted-foreground pt-1'>
-                        After saving, you must redeploy your functions for the changes to take effect.
+                        After saving, you must follow the CLI instructions for the changes to take effect.
                     </p>
                 </div>
             </CardContent>
