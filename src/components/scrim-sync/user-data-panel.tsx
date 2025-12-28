@@ -2,7 +2,8 @@
 
 import * as React from 'react';
 import { ShieldCheck, User, Users, Trash2, Loader, ChevronLeft, ChevronRight, Copy, ClipboardList, Settings, Send } from 'lucide-react';
-import { collection, doc, writeBatch, getFunctions, httpsCallable } from 'firebase/firestore';
+import { collection, doc, writeBatch } from 'firebase/firestore';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { format, startOfWeek, endOfWeek, addDays, parseISO } from 'date-fns';
 
 import {
@@ -60,7 +61,7 @@ export function UserDataPanel({ allProfiles, isLoading }: UserDataPanelProps) {
   const [isSavingWebhook, setIsSavingWebhook] = React.useState(false);
   const [isTestingWebhook, setIsTestingWebhook] = React.useState(false);
 
-  const functions = getFunctions();
+  const functions = React.useMemo(() => firestore ? getFunctions(undefined, 'us-central1') : null, [firestore]);
 
   const votesCollectionRef = useMemoFirebase(
     () => (firestore ? collection(firestore, 'votes') : null),
@@ -215,6 +216,7 @@ export function UserDataPanel({ allProfiles, isLoading }: UserDataPanelProps) {
   };
 
   const handleSaveWebhook = async () => {
+    if (!functions) return;
     if (!webhookUrl) {
       toast({ variant: 'destructive', title: 'Error', description: 'Webhook URL cannot be empty.' });
       return;
@@ -243,6 +245,7 @@ export function UserDataPanel({ allProfiles, isLoading }: UserDataPanelProps) {
   };
 
   const handleTestWebhook = async () => {
+    if (!functions) return;
     setIsTestingWebhook(true);
     try {
       const testWebhook = httpsCallable(functions, 'testDiscordWebhook');
