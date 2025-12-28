@@ -10,6 +10,12 @@ service cloud.firestore {
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
+    
+    // IMPORTANT: Replace this placeholder with your actual Admin User ID (UID)
+    // You can find your UID in the Firebase Console under Authentication -> Users.
+    function isAdmin() {
+      return request.auth.uid == "YOUR_ADMIN_UID_HERE";
+    }
 
     /**
      * @description Secures a user's profile document.
@@ -32,8 +38,8 @@ service cloud.firestore {
         allow read: if isSignedIn();
         // A user can create/update a vote if the data's userId matches their own.
         allow create, update: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-        // A user can delete their own vote.
-        allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+        // A user can delete their own vote, OR an admin can delete any vote.
+        allow delete: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
     }
 
     /**

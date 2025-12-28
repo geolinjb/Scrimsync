@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { ShieldCheck, User, Users, Trash2, Loader } from 'lucide-react';
-import { getFunctions, httpsCallable } from 'firebase/functions';
+import { collection, doc, writeBatch } from 'firebase/firestore';
 
 import {
   Card,
@@ -21,7 +21,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from '../ui/skeleton';
-import type { PlayerProfileData } from '@/lib/types';
+import type { PlayerProfileData, Vote } from '@/lib/types';
 import { Button } from '../ui/button';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -35,6 +35,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { useCollection, useFirestore } from '@/firebase';
+import { FirestorePermissionError } from '@/firebase/errors';
+import { errorEmitter } from '@/firebase/error-emitter';
 
 type UserDataPanelProps = {
   allProfiles: PlayerProfileData[] | null;
@@ -43,31 +46,73 @@ type UserDataPanelProps = {
 
 export function UserDataPanel({ allProfiles, isLoading }: UserDataPanelProps) {
   const { toast } = useToast();
+  const firestore = useFirestore();
   const [isResetting, setIsResetting] = React.useState(false);
+  
+  const { data: allVotes, isLoading: areVotesLoading } = useCollection<Vote>(
+    firestore ? collection(firestore, 'votes') : null
+  );
 
   const handleResetAllVotes = async () => {
+    if (!firestore || !allVotes) {
+        toast({
+            variant: 'destructive',
+            title: 'Error',
+            description: 'Could not connect to the database.'
+        });
+        return;
+    }
+
+    if (allVotes.length === 0) {
+        toast({
+            description: 'There are no votes to reset.'
+        });
+        return;
+    }
+
     setIsResetting(true);
+
     try {
-      const functions = getFunctions();
-      const resetAllVotes = httpsCallable(functions, 'resetAllVotes');
-      const result = await resetAllVotes();
-      toast({
-        title: 'Success!',
-        description: (result.data as any).message || 'All user votes have been reset.',
-      });
-    } catch (error: any) {
-      console.error(error);
-      toast({
-        variant: 'destructive',
-        title: 'Permission Denied',
-        description: error.message || 'You are not authorized to perform this action.',
-      });
+        // Firestore allows a maximum of 500 operations in a single batch.
+        // We will process the deletions in chunks of 500.
+        const BATCH_SIZE = 500;
+        for (let i = 0; i < allVotes.length; i += BATCH_SIZE) {
+            const batch = writeBatch(firestore);
+            const chunk = allVotes.slice(i, i + BATCH_SIZE);
+            
+            chunk.forEach(vote => {
+                const voteRef = doc(firestore, 'votes', vote.id);
+                batch.delete(voteRef);
+            });
+
+            await batch.commit();
+        }
+
+        toast({
+            title: 'Success!',
+            description: `${allVotes.length} vote(s) have been successfully reset.`,
+        });
+    } catch (error) {
+        console.error(error);
+        const permissionError = new FirestorePermissionError({
+            path: '/votes',
+            operation: 'delete',
+        });
+        errorEmitter.emit('permission-error', permissionError);
+
+        toast({
+            variant: 'destructive',
+            title: 'Permission Denied',
+            description: 'You are not authorized to perform this action. Check Firestore rules.',
+        });
     } finally {
-      setIsResetting(false);
+        setIsResetting(false);
     }
   };
 
-  if (isLoading) {
+  const isPanelLoading = isLoading || areVotesLoading;
+
+  if (isPanelLoading) {
     return (
         <Card>
             <CardHeader>
@@ -131,7 +176,7 @@ export function UserDataPanel({ allProfiles, isLoading }: UserDataPanelProps) {
       <CardFooter>
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <Button variant="destructive" disabled={isResetting}>
+            <Button variant="destructive" disabled={isResetting || !allVotes || allVotes.length === 0}>
               {isResetting ? <Loader className="w-4 h-4 mr-2 animate-spin" /> : <Trash2 className="w-4 h-4 mr-2" />}
               {isResetting ? 'Resetting Votes...' : 'Reset All Individual Votes'}
             </Button>
