@@ -111,7 +111,7 @@ export function IndividualVotingGrid({
               <Table className="w-full border-collapse">
                   <TableHeader className="sticky top-0 z-30 bg-muted/50 backdrop-blur-sm">
                       <TableRow className="border-b-2 border-border">
-                          <TableHead className="w-[120px] font-bold sticky left-0 bg-muted/50 backdrop-blur-sm z-40">Time</TableHead>
+                          <TableHead className="w-[120px] font-bold sticky left-0 bg-muted/50 backdrop-blur-sm z-40 p-2 text-center">Time</TableHead>
                           {weekDates.map(date => {
                               const dateKey = format(date, 'yyyy-MM-dd');
                               const allDayVoted = timeSlots.every(slot => userVotes[dateKey]?.has(slot));
@@ -120,7 +120,7 @@ export function IndividualVotingGrid({
                                   <TableHead key={date.toISOString()} className={cn("text-center p-2", isToday(date) && "bg-primary/10")}>
                                     <div className='flex flex-col items-center gap-1 min-w-[6rem]'>
                                         <span className='font-semibold'>{format(date, 'EEE')}</span>
-                                        <span className="font-normal">{format(date, 'd/M')}</span>
+                                        <span className="font-normal text-muted-foreground">{format(date, 'd/M')}</span>
                                         <Tooltip>
                                           <TooltipTrigger asChild>
                                             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onVoteAllDay(date)}>
@@ -168,13 +168,18 @@ export function IndividualVotingGrid({
                                               <motion.div
                                                   onClick={() => onVote(date, slot)}
                                                   className={cn(
-                                                      'h-14 w-full cursor-pointer flex justify-center items-center transition-colors border-l border-t relative',
-                                                      isVoted ? 'bg-primary/20 hover:bg-primary/30' : 'hover:bg-accent',
-                                                      isToday(date) && 'bg-primary/5'
+                                                      'h-14 w-full cursor-pointer flex justify-center items-center transition-all duration-200 border-l border-t relative group',
+                                                      'hover:bg-accent',
+                                                      isToday(date) && 'bg-primary/5',
                                                   )}
                                                   whileTap={{ scale: 0.95 }}
                                               >
-                                                  {isVoted && <Check className="w-5 h-5 text-primary" />}
+                                                <div className={cn(
+                                                    'absolute inset-0 transition-all duration-200',
+                                                    isVoted ? 'bg-primary/20' : 'bg-transparent',
+                                                    'group-hover:bg-primary/30'
+                                                )} />
+                                                  {isVoted && <Check className="relative z-10 w-5 h-5 text-primary" />}
                                                   {event && (
                                                       <Tooltip>
                                                           <TooltipTrigger asChild>
@@ -182,7 +187,7 @@ export function IndividualVotingGrid({
                                                               {event.type === 'Training' ? (
                                                                   <Swords className="w-4 h-4 text-foreground/80" />
                                                               ) : (
-                                                                  <Trophy className="w-4 h-4 text-yellow-500" />
+                                                                  <Trophy className="w-4 h-4 text-primary" />
                                                               )}
                                                               </div>
                                                           </TooltipTrigger>

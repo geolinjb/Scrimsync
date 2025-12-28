@@ -1,10 +1,10 @@
 'use client';
 
 import * as React from 'react';
-import { format, addDays, startOfWeek, endOfWeek, isSameDay, parseISO, addWeeks } from 'date-fns';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
-import type { User } from 'firebase/auth';
-import { collection, doc, writeBatch, query, where, getDocs } from 'firebase/firestore';
+import { format, addDays, startOfWeek, endOfWeek, parseISO, addWeeks } from 'date-fns';
+import { ChevronLeft, ChevronRight, User, CalendarPlus, CalendarCheck } from 'lucide-react';
+import type { User as AuthUser } from 'firebase/auth';
+import { collection, doc, writeBatch } from 'firebase/firestore';
 
 import type { PlayerProfileData, ScheduleEvent, UserVotes, AllVotes, Vote, FirestoreScheduleEvent } from '@/lib/types';
 import { timeSlots } from '@/lib/types';
@@ -26,10 +26,11 @@ import { FirestorePermissionError } from '@/firebase/errors';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { ADMIN_UID } from '@/lib/config';
 import { UserDataPanel } from './user-data-panel';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../ui/accordion';
 
 
 type ScrimSyncDashboardProps = {
-    user: User;
+    user: AuthUser;
 };
 
 export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
@@ -62,7 +63,6 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
   // Firestore Hooks
   const { data: profile, isLoading: isProfileLoading } = useDoc<PlayerProfileData>(profileRef);
   
-  // We need all profiles for the heatmap (to map userId to username), so we'll fetch them for everyone
   const allProfilesForHeatmapRef = useMemoFirebase(() => collection(firestore, 'users'), [firestore]);
   const { data: allProfiles, isLoading: areProfilesLoading } = useCollection<PlayerProfileData>(allProfilesForHeatmapRef);
 
@@ -71,7 +71,6 @@ export function ScrimSyncDashboard({ user }: ScrimSyncDashboardProps) {
   
   const scheduledEvents: ScheduleEvent[] = React.useMemo(() => {
     if (!scheduledEventsData) return [];
-    // Convert date strings from Firestore to Date objects
     return scheduledEventsData.map(e => ({...e, date: parseISO(e.date)}));
   }, [scheduledEventsData]);
 
@@ -359,7 +358,7 @@ const hasLastWeekVotes = React.useMemo(() => {
                 creatorId: user.uid,
                 isRecurring: true,
             };
-            const docRef = doc(eventsRef); // Create a new doc with a generated ID
+            const docRef = doc(eventsRef); 
             batch.set(docRef, newEvent);
         }
 
@@ -427,21 +426,31 @@ const hasLastWeekVotes = React.useMemo(() => {
       <Header />
       <main className="flex-1 container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          <div className="lg:col-span-1 space-y-8">
-            <PlayerProfile 
-                initialProfile={profile ?? { id: user.uid, username: user.displayName || '', favoriteTank: '', role: '' }} 
-                onSave={handleProfileSave}
-                isSaving={isSavingProfile}
-                isLoading={isProfileLoading}
-            />
-            <ScheduleForm onAddEvent={handleAddEvent} currentDate={currentDate} />
-            <ScheduledEvents 
-                events={scheduledEvents} 
-                votes={allVotes}
-                allPlayerNames={allPlayerNames}
-                onRemoveEvent={handleRemoveEvent}
-                currentUser={user}
-            />
+          <div className="lg:col-span-1">
+            <Accordion type="multiple" defaultValue={['profile', 'events']} className="w-full space-y-6">
+                <AccordionItem value="profile" className="border-none">
+                    <PlayerProfile 
+                        initialProfile={profile ?? { id: user.uid, username: user.displayName || '', favoriteTank: '', role: '' }} 
+                        onSave={handleProfileSave}
+                        isSaving={isSavingProfile}
+                        isLoading={isProfileLoading}
+                    />
+                </AccordionItem>
+                
+                <AccordionItem value="schedule" className="border-none">
+                     <ScheduleForm onAddEvent={handleAddEvent} currentDate={currentDate} />
+                </AccordionItem>
+
+                <AccordionItem value="events" className="border-none">
+                     <ScheduledEvents 
+                        events={scheduledEvents} 
+                        votes={allVotes}
+                        allPlayerNames={allPlayerNames}
+                        onRemoveEvent={handleRemoveEvent}
+                        currentUser={user}
+                    />
+                </AccordionItem>
+            </Accordion>
           </div>
           <div className="lg:col-span-3 space-y-6">
             <Tabs defaultValue="individual" className='w-full'>

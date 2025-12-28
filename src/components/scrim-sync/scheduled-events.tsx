@@ -96,7 +96,7 @@ export function ScheduledEvents({ events, votes, allPlayerNames, onRemoveEvent, 
         let result = 'in';
         if (daysLeft > 0) result += ` ${daysLeft}d`;
         if (hoursLeft > 0) result += ` ${hoursLeft}h`;
-        if (minutesLeft > 0) result += ` ${minutesLeft}m`;
+        if (daysLeft === 0 && minutesLeft > 0) result += ` ${minutesLeft}m`;
         
         return result;
     };
@@ -106,7 +106,7 @@ export function ScheduledEvents({ events, votes, allPlayerNames, onRemoveEvent, 
         const neededPlayers = Math.max(0, MINIMUM_PLAYERS - availablePlayers.length);
 
         const timeRemaining = formatTimeRemaining(event.date, event.time);
-        const header = `Roster for ${event.type} on ${format(event.date, 'EEEE, d MMM')} at ${event.time} (${timeRemaining}):`;
+        const header = `Roster for ${event.type} on ${format(event.date, 'EEEE, d MMM')} at ${event.time} (starts ${timeRemaining}):`;
         
         const availableHeader = `✅ Available Players (${availablePlayers.length}):`;
         const availableList = availablePlayers.length > 0 ? availablePlayers.map(p => `- ${p}`).join('\n') : '- None';
@@ -154,7 +154,7 @@ export function ScheduledEvents({ events, votes, allPlayerNames, onRemoveEvent, 
                 Here are your team's scheduled sessions.
                 </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className='p-0'>
                 {upcomingEvents.length > 0 ? (
                 <Accordion type="single" collapsible className="w-full">
                     {upcomingEvents.map((event) => {
@@ -162,7 +162,7 @@ export function ScheduledEvents({ events, votes, allPlayerNames, onRemoveEvent, 
                     const canDelete = currentUser?.uid === event.creatorId;
 
                     return (
-                        <AccordionItem key={event.id} value={event.id}>
+                        <AccordionItem key={event.id} value={event.id} className="px-6">
                         <AccordionTrigger>
                             <div className="flex justify-between items-center w-full pr-2">
                                 <div className='flex flex-col items-start text-left'>
@@ -248,7 +248,7 @@ export function ScheduledEvents({ events, votes, allPlayerNames, onRemoveEvent, 
                     })}
                 </Accordion>
                 ) : (
-                <div className="flex flex-col items-center justify-center text-center py-10">
+                <div className="flex flex-col items-center justify-center text-center py-10 px-6">
                     <CalendarCheck className="w-12 h-12 text-muted-foreground" />
                     <p className="mt-4 text-muted-foreground">
                     No upcoming events scheduled.

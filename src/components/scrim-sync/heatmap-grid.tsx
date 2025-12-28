@@ -55,12 +55,12 @@ type SelectedSlot = {
 } | null;
 
 const heatmapColors = [
-    'bg-green-500/10',
-    'bg-green-500/20',
-    'bg-green-500/40',
-    'bg-green-500/60',
-    'bg-green-500/80',
-    'bg-green-500/100',
+    'bg-primary/10',
+    'bg-primary/20',
+    'bg-primary/40',
+    'bg-primary/60',
+    'bg-primary/80',
+    'bg-primary/100',
 ];
 
 export function HeatmapGrid({
@@ -167,11 +167,11 @@ export function HeatmapGrid({
                 <Table className="w-full border-collapse">
                     <TableHeader className="sticky top-0 z-30 bg-muted/50 backdrop-blur-sm">
                         <TableRow className="border-b-2 border-border">
-                            <TableHead className="w-[100px] sticky left-0 bg-muted/50 backdrop-blur-sm z-40">Time</TableHead>
+                            <TableHead className="w-[100px] sticky left-0 bg-muted/50 backdrop-blur-sm z-40 text-center">Time</TableHead>
                             {weekDates.map(date => (
                                 <TableHead key={date.toISOString()} className={cn("text-center p-2", isToday(date) && "bg-primary/10")}>
                                   <div className='min-w-[6rem] font-semibold'>{format(date, 'EEE')}</div>
-                                  <div className="font-normal">{format(date, 'd/M')}</div>
+                                  <div className="font-normal text-muted-foreground">{format(date, 'd/M')}</div>
                                 </TableHead>
                             ))}
                         </TableRow>
@@ -193,12 +193,12 @@ export function HeatmapGrid({
                                                     <div
                                                         onClick={() => handleSlotClick(date, slot, availablePlayers)}
                                                         className={cn(
-                                                            'relative h-14 w-full flex flex-col justify-center items-center text-center p-1 transition-all duration-300 cursor-pointer border-l border-t',
+                                                            'relative h-14 w-full flex flex-col justify-center items-center text-center p-1 transition-all duration-300 cursor-pointer border-l border-t glow-on-hover',
                                                             getHeatmapColor(voteCount),
                                                             isToday(date) && 'bg-primary/5'
                                                         )}
                                                     >
-                                                        <div className="relative z-10 text-sm font-bold text-foreground">
+                                                        <div className="relative z-10 text-sm font-bold text-foreground/90">
                                                             {voteCount > 0 ? voteCount : ''}
                                                         </div>
                                                         {event && (
@@ -206,7 +206,7 @@ export function HeatmapGrid({
                                                             {event.type === 'Training' ? (
                                                                 <Swords className="w-4 h-4 text-foreground/80" />
                                                             ) : (
-                                                                <Trophy className="w-4 h-4 text-yellow-500" />
+                                                                <Trophy className="w-4 h-4 text-primary" />
                                                             )}
                                                             </div>
                                                         )}

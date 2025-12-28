@@ -21,8 +21,6 @@ export default function Home() {
       await signInWithPopup(auth, provider);
     } catch (error) {
       const firebaseError = error as FirebaseError;
-      // This error occurs when the user closes the popup or cancels the request.
-      // It's a normal user action, so we can safely ignore it.
       if (firebaseError.code !== 'auth/popup-closed-by-user' && firebaseError.code !== 'auth/cancelled-popup-request') {
         console.error("Error during sign-in:", error);
       }
@@ -31,32 +29,22 @@ export default function Home() {
     }
   };
 
+  const FADE_IN_VARIANTS = {
+    hidden: { opacity: 0, y: 10 },
+    show: { opacity: 1, y: 0, transition: { type: "spring" } },
+  };
+
   if (isUserLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-background">
-        <AnimatePresence>
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            transition={{ duration: 0.5 }}
+            initial="hidden"
+            animate="show"
+            variants={FADE_IN_VARIANTS}
             className="flex flex-col items-center justify-center text-center"
           >
             <div className="relative mb-4">
               <Loader className="w-16 h-16 text-primary animate-spin" />
-              <motion.div
-                className="absolute inset-0 flex items-center justify-center"
-                initial={{ scale: 0 }}
-                animate={{ scale: 1, transition: { delay: 0.2 } }}
-              >
-                <svg
-                  className="w-8 h-8 text-primary"
-                  fill="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path d="M18.829 5.303a11.034 11.034 0 00-13.658 0L4 6.46l5.732 5.733-4.508 4.508 1.157 1.157 4.508-4.508L16.62 19.18l1.157-1.157-4.508-4.508L19.999 7.62l-1.17-2.317z" />
-                </svg>
-              </motion.div>
             </div>
             <h2 className="text-2xl font-semibold text-foreground">
               Connecting to Firebase...
@@ -65,35 +53,59 @@ export default function Home() {
               Syncing your data, just a moment.
             </p>
           </motion.div>
-        </AnimatePresence>
       </div>
     );
   }
 
   if (!user) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-background text-center p-4">
-        <AnimatePresence>
-          <motion.div
-            className="flex flex-col items-center justify-center"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            transition={{ duration: 0.5 }}
-          >
-            <h1 className="text-4xl font-bold tracking-tight text-foreground font-headline mb-4">Welcome to ScrimSync</h1>
-            <p className="text-xl text-muted-foreground mb-8 max-w-2xl">The easiest way to coordinate your team's practice schedules and availability.</p>
-            <Button onClick={handleLogin} size="lg" disabled={!auth || isLoggingIn}>
-              {isLoggingIn ? (
-                <Loader className="mr-2 h-5 w-5 animate-spin" />
-              ) : (
-                <Chrome className="mr-2 h-5 w-5" />
-              )}
-              {isLoggingIn ? 'Signing in...' : 'Sign in with Google'}
-            </Button>
-          </motion.div>
-        </AnimatePresence>
-      </div>
+        <div className="relative flex flex-col items-center justify-center min-h-screen bg-background text-center p-4 overflow-hidden">
+            <div 
+              className="absolute inset-0 bg-repeat bg-center"
+              style={{
+                backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%239C92AC' fill-opacity='0.04'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+                maskImage: 'radial-gradient(ellipse at center, white 5%, transparent 70%)',
+                WebkitMaskImage: 'radial-gradient(ellipse at center, white 5%, transparent 70%)'
+              }}
+            />
+            <AnimatePresence>
+                <motion.div
+                    className="flex flex-col items-center justify-center"
+                    initial="hidden"
+                    animate="show"
+                    variants={{
+                        show: {
+                            transition: {
+                                staggerChildren: 0.1,
+                            },
+                        },
+                    }}
+                >
+                    <motion.h1 
+                        className="text-5xl font-bold tracking-tight text-foreground font-headline mb-4"
+                        variants={FADE_IN_VARIANTS}
+                    >
+                        Welcome to ScrimSync
+                    </motion.h1>
+                    <motion.p 
+                        className="text-xl text-muted-foreground mb-8 max-w-2xl"
+                        variants={FADE_IN_VARIANTS}
+                    >
+                        Coordinate your team's practice schedules and availability, effortlessly.
+                    </motion.p>
+                    <motion.div variants={FADE_IN_VARIANTS}>
+                        <Button onClick={handleLogin} size="lg" disabled={!auth || isLoggingIn}>
+                        {isLoggingIn ? (
+                            <Loader className="mr-2 h-5 w-5 animate-spin" />
+                        ) : (
+                            <Chrome className="mr-2 h-5 w-5" />
+                        )}
+                        {isLoggingIn ? 'Signing in...' : 'Sign in with Google'}
+                        </Button>
+                    </motion.div>
+                </motion.div>
+            </AnimatePresence>
+        </div>
     )
   }
 
