@@ -196,7 +196,7 @@ export function TeamSyncDashboard({ user }: TeamSyncDashboardProps) {
         const date = addDays(weekStartVote, i);
         const dateKey = format(date, 'yyyy-MM-dd');
         const timeslotId = `${dateKey}_${timeSlot}`;
-        const voteId = `${user.uid}_${timeslotId}`;
+        const voteId = `${user.uid}_${timeSlotId}`;
         const voteRef = doc(firestore, 'votes', voteId);
 
         if (allSelected) {
@@ -265,14 +265,17 @@ export function TeamSyncDashboard({ user }: TeamSyncDashboardProps) {
 const handleCopyLastWeeksVotes = React.useCallback(async () => {
     if (!firestore || !allVotesData) return;
 
-    const lastWeekStartDate = addDays(startOfWeek(currentDate, { weekStartsOn: 1 }), -7);
-    const currentWeekStartDate = startOfWeek(currentDate, { weekStartsOn: 1 });
+    const lastWeekStartDate = addDays(weekStart, -7);
+    const lastWeekEndDate = addDays(lastWeekStartDate, 6);
 
     const lastWeekVotes = allVotesData.filter(vote => {
         if (vote.userId !== user.uid) return false;
-        const voteDate = parseISO(vote.timeslot.split('_')[0]);
-        const lastWeekEndDate = addDays(lastWeekStartDate, 6);
-        return voteDate >= lastWeekStartDate && voteDate <= lastWeekEndDate;
+        try {
+            const voteDate = parseISO(vote.timeslot.split('_')[0]);
+            return voteDate >= lastWeekStartDate && voteDate <= lastWeekEndDate;
+        } catch (e) {
+            return false;
+        }
     });
 
     if (lastWeekVotes.length === 0) {
@@ -286,17 +289,19 @@ const handleCopyLastWeeksVotes = React.useCallback(async () => {
     lastWeekVotes.forEach(vote => {
         const [dateKey, slot] = vote.timeslot.split('_');
         const prevDate = parseISO(dateKey);
-        const dayOfWeek = prevDate.getDay(); // Sunday is 0, Monday is 1, etc.
         
-        // Adjust because our week starts on Monday
+        // This calculates the day of the week (0 for Sunday, 6 for Saturday)
+        const dayOfWeek = prevDate.getDay(); 
+        
+        // We adjust because our week starts on Monday (0) and date-fns starts on Sunday (0)
+        // So, Sunday (0) becomes day 6, Monday (1) becomes day 0, etc.
         const adjustedDayOfWeek = (dayOfWeek === 0) ? 6 : dayOfWeek - 1;
 
-        const newDate = addDays(currentWeekStartDate, adjustedDayOfWeek);
+        const newDate = addDays(weekStart, adjustedDayOfWeek);
         const newDateKey = format(newDate, 'yyyy-MM-dd');
         const newTimeslotId = `${newDateKey}_${slot}`;
         const newVoteId = `${user.uid}_${newTimeslotId}`;
 
-        // Avoid overwriting existing votes in the current week
         if (!userVotes[newDateKey] || !userVotes[newDateKey].has(slot)) {
             const voteRef = doc(firestore, 'votes', newVoteId);
             const voteData: Vote = {
@@ -328,19 +333,23 @@ const handleCopyLastWeeksVotes = React.useCallback(async () => {
         });
         errorEmitter.emit('permission-error', permissionError);
     }
-}, [firestore, allVotesData, currentDate, user.uid, userVotes, toast]);
+}, [firestore, allVotesData, weekStart, user.uid, userVotes, toast]);
 
 const hasLastWeekVotes = React.useMemo(() => {
     if (!allVotesData) return false;
-    const lastWeekStartDate = addDays(startOfWeek(currentDate, { weekStartsOn: 1 }), -7);
+    const lastWeekStartDate = addDays(weekStart, -7);
     const lastWeekEndDate = addDays(lastWeekStartDate, 6);
 
     return allVotesData.some(vote => {
         if (vote.userId !== user.uid) return false;
-        const voteDate = parseISO(vote.timeslot.split('_')[0]);
-        return voteDate >= lastWeekStartDate && voteDate <= lastWeekEndDate;
+        try {
+            const voteDate = parseISO(vote.timeslot.split('_')[0]);
+            return voteDate >= lastWeekStartDate && voteDate <= lastWeekEndDate;
+        } catch(e) {
+            return false;
+        }
     });
-}, [allVotesData, user.uid, currentDate]);
+}, [allVotesData, user.uid, weekStart]);
 
   const handleAddEvent = (data: { type: 'Training' | 'Tournament'; date: Date; time: string, repeatWeekly?: boolean; }) => {
     if (!firestore) return;
@@ -530,3 +539,5 @@ const hasLastWeekVotes = React.useMemo(() => {
     </div>
   );
 }
+
+    
