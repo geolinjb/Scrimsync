@@ -11,7 +11,7 @@ export default {
     extend: {
       fontFamily: {
         body: ['"Inter"', 'system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', '"Helvetica Neue"', 'Arial', 'sans-serif'],
-        headline: ['"Space Mono"', 'monospace'],
+        headline: ['"Inter"', 'sans-serif'],
         code: ['monospace'],
       },
       colors: {
