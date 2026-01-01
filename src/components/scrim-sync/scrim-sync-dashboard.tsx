@@ -27,6 +27,7 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { ADMIN_UID } from '@/lib/config';
 import { UserDataPanel } from './user-data-panel';
 import { WelcomeInstructions } from './welcome-instructions';
+import { DailyVotingGrid } from './daily-voting-grid';
 
 
 type TeamSyncDashboardProps = {
@@ -266,12 +267,14 @@ const handleCopyLastWeeksVotes = React.useCallback(async () => {
     if (!firestore || !allVotesData) return;
 
     const lastWeekStartDate = addDays(weekStart, -7);
+    const lastWeekEndDate = endOfWeek(lastWeekStartDate);
+
 
     const lastWeekVotes = allVotesData.filter(vote => {
         if (vote.userId !== user.uid) return false;
         try {
             const voteDate = parseISO(vote.timeslot.split('_')[0]);
-            return voteDate >= lastWeekStartDate && voteDate < weekStart;
+            return voteDate >= lastWeekStartDate && voteDate <= lastWeekEndDate;
         } catch (e) {
             return false;
         }
@@ -287,21 +290,16 @@ const handleCopyLastWeeksVotes = React.useCallback(async () => {
 
     lastWeekVotes.forEach(vote => {
         const [dateKey, slot] = vote.timeslot.split('_');
-        const prevDate = parseISO(dateKey);
-        
-        // This calculates the day of the week (0 for Sunday, 6 for Saturday)
-        const dayOfWeek = prevDate.getDay(); 
-        
-        // We adjust because our week starts on Monday (1) and date-fns starts on Sunday (0)
-        // So, Sunday (0) becomes day 6, Monday (1) becomes day 0, etc.
-        const adjustedDayOfWeek = (dayOfWeek === 0) ? 6 : dayOfWeek - 1;
-
-        const newDate = addDays(weekStart, adjustedDayOfWeek);
+        const newDate = addDays(parseISO(dateKey), 7);
         const newDateKey = format(newDate, 'yyyy-MM-dd');
+        
         const newTimeslotId = `${newDateKey}_${slot}`;
         const newVoteId = `${user.uid}_${newTimeslotId}`;
 
-        if (!userVotes[newDateKey] || !userVotes[newDateKey].has(slot)) {
+        // Check if the vote for the new week already exists
+        const voteExists = userVotes[newDateKey]?.has(slot);
+
+        if (!voteExists) {
             const voteRef = doc(firestore, 'votes', newVoteId);
             const voteData: Vote = {
                 id: newVoteId,
@@ -337,12 +335,13 @@ const handleCopyLastWeeksVotes = React.useCallback(async () => {
 const hasLastWeekVotes = React.useMemo(() => {
     if (!allVotesData) return false;
     const lastWeekStartDate = addDays(weekStart, -7);
+    const lastWeekEndDate = endOfWeek(lastWeekStartDate);
 
     return allVotesData.some(vote => {
         if (vote.userId !== user.uid) return false;
         try {
             const voteDate = parseISO(vote.timeslot.split('_')[0]);
-            return voteDate >= lastWeekStartDate && voteDate < weekStart;
+            return voteDate >= lastWeekStartDate && voteDate <= lastWeekEndDate;
         } catch(e) {
             return false;
         }
@@ -452,29 +451,62 @@ const hasLastWeekVotes = React.useMemo(() => {
             </div>
         </div>
 
-        {isLoading ? (
-            <Card>
-            <CardHeader>
-                <Skeleton className="h-8 w-1/2" />
-                <Skeleton className="h-4 w-3/4" />
-            </CardHeader>
-            <CardContent>
-                <Skeleton className="h-[65vh] w-full" />
-            </CardContent>
-            </Card>
-        ) : (
-            <IndividualVotingGrid 
-                userVotes={userVotes} 
-                onVote={handleVote}
-                onVoteAllDay={handleVoteAllDay}
-                onVoteAllTime={handleVoteAllTime}
-                onClearAllVotes={handleClearAllVotes}
-                onCopyLastWeeksVotes={handleCopyLastWeeksVotes}
-                hasLastWeekVotes={hasLastWeekVotes}
-                currentDate={currentDate}
-                scheduledEvents={scheduledEvents}
-            />
-        )}
+        <Tabs defaultValue="daily" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="daily">Daily View</TabsTrigger>
+            <TabsTrigger value="weekly">Weekly View</TabsTrigger>
+          </TabsList>
+          <TabsContent value="daily">
+            {isLoading ? (
+                <Card>
+                <CardHeader>
+                    <Skeleton className="h-8 w-1/2" />
+                    <Skeleton className="h-4 w-3/4" />
+                </CardHeader>
+                <CardContent>
+                    <Skeleton className="h-[65vh] w-full" />
+                </CardContent>
+                </Card>
+            ) : (
+                <DailyVotingGrid 
+                    userVotes={userVotes} 
+                    onVote={handleVote}
+                    onVoteAllDay={handleVoteAllDay}
+                    onClearAllVotes={handleClearAllVotes}
+                    onCopyLastWeeksVotes={handleCopyLastWeeksVotes}
+                    hasLastWeekVotes={hasLastWeekVotes}
+                    currentDate={currentDate}
+                    scheduledEvents={scheduledEvents}
+                />
+            )}
+          </TabsContent>
+          <TabsContent value="weekly">
+             {isLoading ? (
+                <Card>
+                <CardHeader>
+                    <Skeleton className="h-8 w-1/2" />
+                    <Skeleton className="h-4 w-3/4" />
+                </CardHeader>
+                <CardContent>
+                    <Skeleton className="h-[65vh] w-full" />
+                </CardContent>
+                </Card>
+            ) : (
+                <IndividualVotingGrid 
+                    userVotes={userVotes} 
+                    onVote={handleVote}
+                    onVoteAllDay={handleVoteAllDay}
+                    onVoteAllTime={handleVoteAllTime}
+                    onClearAllVotes={handleClearAllVotes}
+                    onCopyLastWeeksVotes={handleCopyLastWeeksVotes}
+                    hasLastWeekVotes={hasLastWeekVotes}
+                    currentDate={currentDate}
+                    scheduledEvents={scheduledEvents}
+                />
+            )}
+          </TabsContent>
+        </Tabs>
+        
         
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-1 space-y-8">
@@ -484,6 +516,7 @@ const hasLastWeekVotes = React.useMemo(() => {
                     isSaving={isSavingProfile}
                     isLoading={isProfileLoading}
                 />
+                 <ScheduleForm onAddEvent={handleAddEvent} currentDate={currentDate} />
             </div>
             <div className="lg:col-span-2 space-y-8">
                 <ScheduledEvents 
@@ -493,7 +526,6 @@ const hasLastWeekVotes = React.useMemo(() => {
                     onRemoveEvent={handleRemoveEvent}
                     currentUser={user}
                 />
-                 <ScheduleForm onAddEvent={handleAddEvent} currentDate={currentDate} />
             </div>
         </div>
 
