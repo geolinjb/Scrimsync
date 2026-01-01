@@ -55,12 +55,12 @@ type SelectedSlot = {
 } | null;
 
 const heatmapColors = [
-    'bg-indigo-950/50', //rgb(49 46 129 / 0.5)
-    'bg-purple-900/60', //rgb(76 29 149 / 0.6)
-    'bg-violet-800/70', //rgb(91 33 182 / 0.7)
-    'bg-fuchsia-700/80', //rgb(192 38 211 / 0.8)
-    'bg-pink-600/90', //rgb(219 39 119 / 0.9)
-    'bg-orange-500', //rgb(249 115 22)
+    'bg-yellow-950/50',
+    'bg-yellow-900/60',
+    'bg-amber-800/70',
+    'bg-amber-700/80',
+    'bg-gold-600/90',
+    'bg-yellow-500',
 ];
 
 export function HeatmapGrid({
@@ -311,5 +311,3 @@ export function HeatmapGrid({
     </Card>
   );
 }
-
-    
