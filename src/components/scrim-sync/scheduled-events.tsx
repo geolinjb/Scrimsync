@@ -35,6 +35,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { ScrollArea } from '../ui/scroll-area';
 
 type ScheduledEventsProps = {
   events: ScheduleEvent[];
@@ -156,97 +157,99 @@ export function ScheduledEvents({ events, votes, allPlayerNames, onRemoveEvent, 
             </CardHeader>
             <CardContent className='p-0'>
                 {upcomingEvents.length > 0 ? (
-                <Accordion type="single" collapsible className="w-full">
-                    {upcomingEvents.map((event) => {
-                    const availablePlayers = getAvailablePlayers(event);
-                    const canDelete = currentUser?.uid === event.creatorId;
+                <ScrollArea className='h-[400px]'>
+                    <Accordion type="single" collapsible className="w-full">
+                        {upcomingEvents.map((event) => {
+                        const availablePlayers = getAvailablePlayers(event);
+                        const canDelete = currentUser?.uid === event.creatorId;
 
-                    return (
-                        <AccordionItem key={event.id} value={event.id} className="px-6">
-                        <AccordionTrigger>
-                            <div className="flex justify-between items-center w-full pr-2">
-                                <div className='flex flex-col items-start text-left'>
-                                    <div className='flex items-center gap-2'>
-                                        <Badge variant={event.type === 'Tournament' ? 'default' : 'secondary'}>{event.type}</Badge>
-                                        <span className='font-semibold'>{format(event.date, 'EEEE, d MMM')}</span>
-                                    </div>
-                                    <div className='flex items-baseline gap-2'>
-                                        <span className='text-sm text-muted-foreground'>{event.time}</span>
-                                        <span className='text-xs text-primary/80 font-medium'>{formatTimeRemaining(event.date, event.time)}</span>
+                        return (
+                            <AccordionItem key={event.id} value={event.id} className="px-6">
+                            <AccordionTrigger>
+                                <div className="flex justify-between items-center w-full pr-2">
+                                    <div className='flex flex-col items-start text-left'>
+                                        <div className='flex items-center gap-2'>
+                                            <Badge variant={event.type === 'Tournament' ? 'default' : 'secondary'}>{event.type}</Badge>
+                                            <span className='font-semibold'>{format(event.date, 'EEEE, d MMM')}</span>
+                                        </div>
+                                        <div className='flex items-baseline gap-2'>
+                                            <span className='text-sm text-muted-foreground'>{event.time}</span>
+                                            <span className='text-xs text-primary/80 font-medium'>{formatTimeRemaining(event.date, event.time)}</span>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        </AccordionTrigger>
-                        <AccordionContent>
-                            <div className='flex justify-between items-start gap-4'>
-                                <div className='flex-grow'>
-                                    <div className='mb-2'>
-                                        <span className='font-semibold'>{availablePlayers.length}</span> players available. <span className='text-muted-foreground'>{Math.max(0, MINIMUM_PLAYERS - availablePlayers.length)} more needed.</span>
+                            </AccordionTrigger>
+                            <AccordionContent>
+                                <div className='flex justify-between items-start gap-4'>
+                                    <div className='flex-grow'>
+                                        <div className='mb-2'>
+                                            <span className='font-semibold'>{availablePlayers.length}</span> players available. <span className='text-muted-foreground'>{Math.max(0, MINIMUM_PLAYERS - availablePlayers.length)} more needed.</span>
+                                        </div>
+                                        {availablePlayers.length > 0 ? (
+                                        <ul className="space-y-3">
+                                            {availablePlayers.map((player) => (
+                                            <li key={player} className="flex items-center gap-3">
+                                                <Avatar className="h-8 w-8">
+                                                <AvatarImage
+                                                    src={`https://api.dicebear.com/8.x/pixel-art/svg?seed=${player}`}
+                                                />
+                                                <AvatarFallback>
+                                                    {player.charAt(0).toUpperCase()}
+                                                </AvatarFallback>
+                                                </Avatar>
+                                                <span className="font-medium">{player}</span>
+                                            </li>
+                                            ))}
+                                        </ul>
+                                        ) : (
+                                        <div className="flex flex-col items-center justify-center text-center py-6">
+                                            <Users className="w-10 h-10 text-muted-foreground" />
+                                            <p className="mt-3 text-muted-foreground">
+                                            No players have marked themselves as available yet.
+                                            </p>
+                                        </div>
+                                        )}
                                     </div>
-                                    {availablePlayers.length > 0 ? (
-                                    <ul className="space-y-3">
-                                        {availablePlayers.map((player) => (
-                                        <li key={player} className="flex items-center gap-3">
-                                            <Avatar className="h-8 w-8">
-                                            <AvatarImage
-                                                src={`https://api.dicebear.com/8.x/pixel-art/svg?seed=${player}`}
-                                            />
-                                            <AvatarFallback>
-                                                {player.charAt(0).toUpperCase()}
-                                            </AvatarFallback>
-                                            </Avatar>
-                                            <span className="font-medium">{player}</span>
-                                        </li>
-                                        ))}
-                                    </ul>
-                                    ) : (
-                                    <div className="flex flex-col items-center justify-center text-center py-6">
-                                        <Users className="w-10 h-10 text-muted-foreground" />
-                                        <p className="mt-3 text-muted-foreground">
-                                        No players have marked themselves as available yet.
-                                        </p>
+                                    <div className="flex flex-col items-center gap-2 shrink-0">
+                                        {canDelete && (
+                                            <AlertDialog>
+                                                <AlertDialogTrigger asChild>
+                                                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive h-8 w-8">
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </Button>
+                                                </AlertDialogTrigger>
+                                                <AlertDialogContent>
+                                                    <AlertDialogHeader>
+                                                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                                    <AlertDialogDescription>
+                                                        This action cannot be undone. This will permanently delete the scheduled {event.type.toLowerCase()}.
+                                                    </AlertDialogDescription>
+                                                    </AlertDialogHeader>
+                                                    <AlertDialogFooter>
+                                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                    <AlertDialogAction onClick={() => onRemoveEvent(event.id)} className="bg-destructive hover:bg-destructive/90">
+                                                        Delete
+                                                    </AlertDialogAction>
+                                                    </AlertDialogFooter>
+                                                </AlertDialogContent>
+                                            </AlertDialog>
+                                        )}
+                                        <Button
+                                            variant="outline"
+                                            size="icon"
+                                            className="h-8 w-8"
+                                            onClick={() => handleCopyList(event, availablePlayers)}
+                                        >
+                                            <Copy className="w-4 h-4" />
+                                        </Button>
                                     </div>
-                                    )}
                                 </div>
-                                <div className="flex flex-col items-center gap-2 shrink-0">
-                                    {canDelete && (
-                                        <AlertDialog>
-                                            <AlertDialogTrigger asChild>
-                                                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive h-8 w-8">
-                                                    <Trash2 className="w-4 h-4" />
-                                                </Button>
-                                            </AlertDialogTrigger>
-                                            <AlertDialogContent>
-                                                <AlertDialogHeader>
-                                                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                                <AlertDialogDescription>
-                                                    This action cannot be undone. This will permanently delete the scheduled {event.type.toLowerCase()}.
-                                                </AlertDialogDescription>
-                                                </AlertDialogHeader>
-                                                <AlertDialogFooter>
-                                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                <AlertDialogAction onClick={() => onRemoveEvent(event.id)} className="bg-destructive hover:bg-destructive/90">
-                                                    Delete
-                                                </AlertDialogAction>
-                                                </AlertDialogFooter>
-                                            </AlertDialogContent>
-                                        </AlertDialog>
-                                    )}
-                                    <Button
-                                        variant="outline"
-                                        size="icon"
-                                        className="h-8 w-8"
-                                        onClick={() => handleCopyList(event, availablePlayers)}
-                                    >
-                                        <Copy className="w-4 h-4" />
-                                    </Button>
-                                </div>
-                            </div>
-                        </AccordionContent>
-                        </AccordionItem>
-                    );
-                    })}
-                </Accordion>
+                            </AccordionContent>
+                            </AccordionItem>
+                        );
+                        })}
+                    </Accordion>
+                </ScrollArea>
                 ) : (
                 <div className="flex flex-col items-center justify-center text-center py-10 px-6">
                     <CalendarCheck className="w-12 h-12 text-muted-foreground" />

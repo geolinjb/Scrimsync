@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { format, addDays, startOfWeek, endOfWeek, parseISO, addWeeks } from 'date-fns';
-import { ChevronLeft, ChevronRight, User, CalendarPlus, CalendarCheck } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import type { User as AuthUser } from 'firebase/auth';
 import { collection, doc, writeBatch } from 'firebase/firestore';
 
@@ -26,7 +26,7 @@ import { FirestorePermissionError } from '@/firebase/errors';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { ADMIN_UID } from '@/lib/config';
 import { UserDataPanel } from './user-data-panel';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../ui/accordion';
+import { WelcomeInstructions } from './welcome-instructions';
 
 
 type TeamSyncDashboardProps = {
@@ -424,115 +424,108 @@ const hasLastWeekVotes = React.useMemo(() => {
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <Header />
-      <main className="flex-1 container mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          <div className="lg:col-span-1">
-            <Accordion type="multiple" defaultValue={['profile', 'events']} className="w-full space-y-6">
-                <AccordionItem value="profile" className="border-none">
-                    <PlayerProfile 
-                        initialProfile={profile ?? { id: user.uid, username: user.displayName || '', favoriteTank: '', role: '' }} 
-                        onSave={handleProfileSave}
-                        isSaving={isSavingProfile}
-                        isLoading={isProfileLoading}
-                    />
-                </AccordionItem>
-                
-                <AccordionItem value="schedule" className="border-none">
-                     <ScheduleForm onAddEvent={handleAddEvent} currentDate={currentDate} />
-                </AccordionItem>
+      <main className="flex-1 container mx-auto px-4 py-8 space-y-8">
+        
+        <WelcomeInstructions username={profile?.username || user.displayName || 'Player'} />
 
-                <AccordionItem value="events" className="border-none">
-                     <ScheduledEvents 
-                        events={scheduledEvents} 
-                        votes={allVotes}
-                        allPlayerNames={allPlayerNames}
-                        onRemoveEvent={handleRemoveEvent}
-                        currentUser={user}
-                    />
-                </AccordionItem>
-            </Accordion>
-          </div>
-          <div className="lg:col-span-3 space-y-6">
-            <Tabs defaultValue="individual" className='w-full'>
-              <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
-                <TabsList>
-                  <TabsTrigger value="individual">Individual Voting</TabsTrigger>
-                  <TabsTrigger value="heatmap">Team Heatmap</TabsTrigger>
-                  {isAdmin && <TabsTrigger value="admin">User Data</TabsTrigger>}
-                </TabsList>
-                <div className='flex items-center gap-2'>
-                    <Button variant="outline" onClick={goToToday}>Today</Button>
-                    <div className='flex items-center'>
-                      <Button variant="outline" size="icon" onClick={goToPreviousWeek} className="rounded-r-none">
-                          <ChevronLeft className="h-4 w-4" />
-                      </Button>
-                      <Button variant="outline" size="icon" onClick={goToNextWeek} className="rounded-l-none border-l-0">
-                          <ChevronRight className="h-4 w-4" />
-                      </Button>
-                    </div>
+        <div className="flex justify-between items-center flex-wrap gap-4">
+            <h2 className="text-2xl font-bold tracking-tight">
+                Availability for: {format(weekStart, 'd MMM')} - {format(weekEnd, 'd MMM, yyyy')}
+            </h2>
+            <div className='flex items-center gap-2'>
+                <Button variant="outline" onClick={goToToday}>Today</Button>
+                <div className='flex items-center'>
+                    <Button variant="outline" size="icon" onClick={goToPreviousWeek} className="rounded-r-none">
+                        <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <Button variant="outline" size="icon" onClick={goToNextWeek} className="rounded-l-none border-l-0">
+                        <ChevronRight className="h-4 w-4" />
+                    </Button>
                 </div>
-              </div>
-              <div className="text-center text-sm font-medium text-foreground mb-4">
-                  {format(weekStart, 'd MMM')} - {format(weekEnd, 'd MMM, yyyy')}
-              </div>
-              <TabsContent value="individual">
-                {isLoading ? (
-                  <Card>
-                    <CardHeader>
-                      <Skeleton className="h-8 w-1/2" />
-                      <Skeleton className="h-4 w-3/4" />
-                    </CardHeader>
-                    <CardContent>
-                      <Skeleton className="h-[65vh] w-full" />
-                    </CardContent>
-                  </Card>
-                ) : (
-                  <IndividualVotingGrid 
-                      userVotes={userVotes} 
-                      onVote={handleVote}
-                      onVoteAllDay={handleVoteAllDay}
-                      onVoteAllTime={handleVoteAllTime}
-                      onClearAllVotes={handleClearAllVotes}
-                      onCopyLastWeeksVotes={handleCopyLastWeeksVotes}
-                      hasLastWeekVotes={hasLastWeekVotes}
-                      currentDate={currentDate}
-                      scheduledEvents={scheduledEvents}
-                  />
-                )}
-              </TabsContent>
-              <TabsContent value="heatmap" className="space-y-4">
-                {isLoading ? (
-                  <Card>
-                    <CardHeader>
-                      <Skeleton className="h-8 w-1/2" />
-                      <Skeleton className="h-4 w-3/4" />
-                    </CardHeader>
-                    <CardContent>
-                      <Skeleton className="h-[65vh] w-full" />
-                    </CardContent>
-                  </Card>
-                ) : (
-                  <HeatmapGrid
-                    allVotes={allVotes}
-                    scheduledEvents={scheduledEvents}
-                    currentDate={currentDate}
-                    allPlayerNames={allPlayerNames}
-                  />
-                )}
-              </TabsContent>
-              {isAdmin && (
-                <TabsContent value="admin">
-                  <UserDataPanel 
-                    allProfiles={allProfiles} 
-                    isLoading={areProfilesLoading}
-                    events={scheduledEvents}
-                    onRemoveEvent={handleRemoveEvent}
-                  />
-                </TabsContent>
-              )}
-            </Tabs>
-          </div>
+            </div>
         </div>
+
+        {isLoading ? (
+            <Card>
+            <CardHeader>
+                <Skeleton className="h-8 w-1/2" />
+                <Skeleton className="h-4 w-3/4" />
+            </CardHeader>
+            <CardContent>
+                <Skeleton className="h-[65vh] w-full" />
+            </CardContent>
+            </Card>
+        ) : (
+            <IndividualVotingGrid 
+                userVotes={userVotes} 
+                onVote={handleVote}
+                onVoteAllDay={handleVoteAllDay}
+                onVoteAllTime={handleVoteAllTime}
+                onClearAllVotes={handleClearAllVotes}
+                onCopyLastWeeksVotes={handleCopyLastWeeksVotes}
+                hasLastWeekVotes={hasLastWeekVotes}
+                currentDate={currentDate}
+                scheduledEvents={scheduledEvents}
+            />
+        )}
+        
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-1 space-y-8">
+                <PlayerProfile 
+                    initialProfile={profile ?? { id: user.uid, username: user.displayName || '', favoriteTank: '', role: '' }} 
+                    onSave={handleProfileSave}
+                    isSaving={isSavingProfile}
+                    isLoading={isProfileLoading}
+                />
+                <ScheduleForm onAddEvent={handleAddEvent} currentDate={currentDate} />
+            </div>
+            <div className="lg:col-span-2 space-y-8">
+                <ScheduledEvents 
+                    events={scheduledEvents} 
+                    votes={allVotes}
+                    allPlayerNames={allPlayerNames}
+                    onRemoveEvent={handleRemoveEvent}
+                    currentUser={user}
+                />
+            </div>
+        </div>
+
+        <Tabs defaultValue="heatmap" className='w-full pt-8'>
+            <TabsList>
+                <TabsTrigger value="heatmap">Team Heatmap</TabsTrigger>
+                {isAdmin && <TabsTrigger value="admin">User Data</TabsTrigger>}
+            </TabsList>
+            <TabsContent value="heatmap" className="space-y-4">
+            {isLoading ? (
+                <Card>
+                <CardHeader>
+                    <Skeleton className="h-8 w-1/2" />
+                    <Skeleton className="h-4 w-3/4" />
+                </CardHeader>
+                <CardContent>
+                    <Skeleton className="h-[65vh] w-full" />
+                </CardContent>
+                </Card>
+            ) : (
+                <HeatmapGrid
+                allVotes={allVotes}
+                scheduledEvents={scheduledEvents}
+                currentDate={currentDate}
+                allPlayerNames={allPlayerNames}
+                />
+            )}
+            </TabsContent>
+            {isAdmin && (
+            <TabsContent value="admin">
+                <UserDataPanel 
+                allProfiles={allProfiles} 
+                isLoading={areProfilesLoading}
+                events={scheduledEvents}
+                onRemoveEvent={handleRemoveEvent}
+                />
+            </TabsContent>
+            )}
+        </Tabs>
       </main>
     </div>
   );
