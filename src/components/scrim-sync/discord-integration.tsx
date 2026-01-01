@@ -38,15 +38,15 @@ export function DiscordIntegration() {
     setIsSaving(true);
     setResultMessage(null);
 
-    const setWebhookUrl = httpsCallable(functions, 'setWebhookUrl');
+    const setWebhookUrlCallable = httpsCallable(functions, 'setWebhookUrl');
     try {
-      const result = await setWebhookUrl({ url: webhookUrl });
+      const result = await setWebhookUrlCallable({ url: webhookUrl });
       const data = result.data as { success: boolean; message: string };
       if (data.success) {
         setResultMessage(data.message);
         toast({
-          title: 'Success!',
-          description: 'The webhook URL has been saved securely.',
+          title: 'Action Required',
+          description: 'Follow the instructions shown to complete the setup.',
         });
       }
     } catch (error) {
@@ -119,7 +119,7 @@ export function DiscordIntegration() {
                 <AlertTriangle className="h-4 w-4" />
                 <AlertTitle>Action Required</AlertTitle>
                 <AlertDescription>
-                    <p>{resultMessage}</p>
+                    <p className='font-mono bg-muted p-2 rounded-md text-xs whitespace-pre-wrap'>{resultMessage}</p>
                 </AlertDescription>
             </Alert>
         )}
