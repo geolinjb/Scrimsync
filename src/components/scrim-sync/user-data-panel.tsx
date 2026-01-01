@@ -44,6 +44,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Separator } from '../ui/separator';
 import { Badge } from '../ui/badge';
 import { ScrollArea } from '../ui/scroll-area';
+import { DiscordIntegration } from './discord-integration';
 
 type UserDataPanelProps = {
   allProfiles: PlayerProfileData[] | null;
@@ -394,10 +395,10 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent }:
                     <div className='flex items-center justify-between gap-2 p-2 border rounded-lg'>
                         <div className='flex items-center gap-1'>
                             <Button variant="outline" size="icon" onClick={goToPreviousWeek} className="h-8 w-8">
-                                <ChevronLeft className="h-4 w-4" />
+                                <ChevronLeft className="h-4 h-4" />
                             </Button>
                             <Button variant="outline" size="icon" onClick={goToNextWeek} className="h-8 w-8">
-                                <ChevronRight className="h-4 w-4" />
+                                <ChevronRight className="h-4 h-4" />
                             </Button>
                         </div>
                         <div className="text-center text-sm font-medium text-foreground">
@@ -429,6 +430,9 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent }:
                 </div>
             </CardFooter>
         </Card>
+        
+        <DiscordIntegration />
+
         <Card>
             <CardHeader>
                 <div className="flex items-center gap-3">
