@@ -81,7 +81,7 @@ export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: P
     <Card>
       <CardHeader>
         <div className="flex items-center gap-3">
-            <User className="w-6 h-6" />
+            <User className="w-6 h-6 text-gold" />
             <CardTitle>Player Profile</CardTitle>
         </div>
         <CardDescription>

@@ -87,7 +87,7 @@ export function ScheduleForm({ onAddEvent, currentDate }: ScheduleFormProps) {
     <Card>
       <CardHeader>
         <div className="flex items-center gap-3">
-          <CalendarPlus className="w-6 h-6" />
+          <CalendarPlus className="w-6 h-6 text-gold" />
           <CardTitle>Schedule Event</CardTitle>
         </div>
         <CardDescription>

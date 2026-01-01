@@ -93,7 +93,7 @@ export function DailyVotingGrid({
         <CardHeader>
           <div className='flex items-start justify-between'>
               <div className="flex items-center gap-3">
-              <Vote className="w-6 h-6" />
+              <Vote className="w-6 h-6 text-gold" />
               <CardTitle>Set Your Availability</CardTitle>
               </div>
               <div className="flex items-center gap-1">
@@ -182,7 +182,7 @@ export function DailyVotingGrid({
                                         {event.type === 'Training' ? (
                                             <Swords className="w-5 h-5 text-blue-400" />
                                         ) : (
-                                            <Trophy className="w-5 h-5 text-primary" />
+                                            <Trophy className="w-5 h-5 text-gold" />
                                         )}
                                         </div>
                                     </TooltipTrigger>

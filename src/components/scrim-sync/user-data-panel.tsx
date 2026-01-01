@@ -305,7 +305,7 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent }:
         <Card>
             <CardHeader>
                 <div className="flex items-center gap-3">
-                <ShieldCheck className="w-6 h-6 text-primary" />
+                <ShieldCheck className="w-6 h-6 text-gold" />
                 <CardTitle>Admin Panel</CardTitle>
                 </div>
                 <CardDescription>
@@ -432,7 +432,7 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent }:
         <Card>
             <CardHeader>
                 <div className="flex items-center gap-3">
-                    <CalendarX2 className="w-6 h-6 text-primary" />
+                    <CalendarX2 className="w-6 h-6 text-gold" />
                     <CardTitle>Manage Scheduled Events</CardTitle>
                 </div>
                 <CardDescription>Delete individual events or clear all past events from the calendar.</CardDescription>
@@ -510,5 +510,3 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent }:
     </div>
   );
 }
-
-    

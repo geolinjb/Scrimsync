@@ -46,8 +46,8 @@ export function Header() {
     <header className="border-b">
       <div className="container mx-auto px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Trophy className="w-8 h-8 text-primary" />
-          <h1 className="text-2xl font-bold tracking-tight text-foreground font-headline">
+          <Trophy className="w-8 h-8 text-gold" />
+          <h1 className="text-2xl font-bold tracking-tight text-gold font-headline">
             TeamSync
           </h1>
         </div>

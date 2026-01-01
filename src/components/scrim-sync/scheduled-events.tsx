@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { format, startOfToday, differenceInMinutes, isToday } from 'date-fns';
-import { CalendarCheck, Users, Trash2, Copy } from 'lucide-react';
+import { CalendarCheck, Users, Trash2, Copy, Trophy } from 'lucide-react';
 import type { User } from 'firebase/auth';
 
 import type { AllVotes, ScheduleEvent } from '@/lib/types';
@@ -152,7 +152,7 @@ export function ScheduledEvents({ events, votes, allPlayerNames, onRemoveEvent, 
         <Card>
             <CardHeader>
                 <div className="flex items-center gap-3">
-                <CalendarCheck className="w-6 h-6" />
+                <CalendarCheck className="w-6 h-6 text-gold" />
                 <CardTitle>Upcoming Events</CardTitle>
                 </div>
                 <CardDescription>
@@ -173,8 +173,11 @@ export function ScheduledEvents({ events, votes, allPlayerNames, onRemoveEvent, 
                                 <div className="flex justify-between items-center w-full pr-2">
                                     <div className='flex flex-col items-start text-left'>
                                         <div className='flex items-center gap-2'>
-                                            <Badge variant={event.type === 'Tournament' ? 'default' : 'secondary'}>{event.type}</Badge>
-                                            <span className={cn('font-semibold', isToday(event.date) && 'text-primary')}>{format(event.date, 'EEEE, d MMM')}</span>
+                                            <Badge variant={event.type === 'Tournament' ? 'default' : 'secondary'} className={cn(event.type === 'Tournament' && 'bg-gold text-black hover:bg-gold/90')}>
+                                                {event.type === 'Tournament' && <Trophy className='w-3 h-3 mr-1'/>}
+                                                {event.type}
+                                            </Badge>
+                                            <span className={cn('font-semibold', isToday(event.date) && 'text-gold')}>{format(event.date, 'EEEE, d MMM')}</span>
                                             {isToday(event.date) && <Badge variant="outline">Today</Badge>}
                                         </div>
                                         <div className='flex items-baseline gap-2'>
@@ -267,5 +270,3 @@ export function ScheduledEvents({ events, votes, allPlayerNames, onRemoveEvent, 
         </Card>
     );
 }
-
-    

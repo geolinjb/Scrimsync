@@ -156,7 +156,7 @@ export function HeatmapGrid({
       <CardHeader>
         <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-            <Vote className="w-6 h-6" />
+            <Vote className="w-6 h-6 text-gold" />
             <CardTitle>Team Availability Heatmap</CardTitle>
             </div>
         </div>
@@ -209,7 +209,7 @@ export function HeatmapGrid({
                                                             {event.type === 'Training' ? (
                                                                 <Swords className="w-4 h-4 text-foreground/80" />
                                                             ) : (
-                                                                <Trophy className="w-4 h-4 text-primary" />
+                                                                <Trophy className="w-4 h-4 text-gold" />
                                                             )}
                                                             </div>
                                                         )}

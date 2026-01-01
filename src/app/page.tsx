@@ -50,7 +50,7 @@ export default function Home() {
             className="flex flex-col items-center justify-center text-center"
           >
             <div className="relative mb-4">
-              <Loader className="w-16 h-16 text-primary animate-spin" />
+              <Loader className="w-16 h-16 text-gold animate-spin" />
             </div>
             <h2 className="text-2xl font-semibold text-foreground">
               Connecting to Firebase...
@@ -88,7 +88,7 @@ export default function Home() {
                     }}
                 >
                     <motion.h1 
-                        className="text-5xl font-bold tracking-tight text-foreground font-headline mb-4"
+                        className="text-5xl font-bold tracking-tight text-gold font-headline mb-4"
                         variants={FADE_IN_VARIANTS}
                     >
                         Welcome to TeamSync
@@ -122,7 +122,7 @@ export default function Home() {
                     </CollapsibleTrigger>
                 </div>
                 <CollapsibleContent className="mt-4 max-w-3xl mx-auto p-6 bg-card/80 backdrop-blur-sm rounded-lg border text-left text-sm text-card-foreground animate-in fade-in-0 slide-in-from-bottom-4">
-                    <h3 className="font-bold text-base mb-2">Welcome to TeamSync!</h3>
+                    <h3 className="font-bold text-base mb-2 text-gold">Welcome to TeamSync!</h3>
                     <p className="text-muted-foreground mb-4">
                         TeamSync is a scheduling tool used by Tamilanda (TAMZH) to coordinate team practices, scrims, and tournaments.
                     </p>

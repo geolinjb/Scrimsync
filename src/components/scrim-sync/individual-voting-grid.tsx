@@ -74,7 +74,7 @@ export function IndividualVotingGrid({
         <CardHeader>
           <div className='flex items-start justify-between'>
               <div className="flex items-center gap-3">
-              <Vote className="w-6 h-6" />
+              <Vote className="w-6 h-6 text-gold" />
               <CardTitle>Set Your Weekly Availability</CardTitle>
               </div>
               <div className="flex items-center gap-1">
@@ -183,7 +183,7 @@ export function IndividualVotingGrid({
                                                               {event.type === 'Training' ? (
                                                                   <Swords className="w-4 h-4 text-blue-400" />
                                                               ) : (
-                                                                  <Trophy className="w-4 h-4 text-primary" />
+                                                                  <Trophy className="w-4 h-4 text-gold" />
                                                               )}
                                                               </div>
                                                           </TooltipTrigger>
