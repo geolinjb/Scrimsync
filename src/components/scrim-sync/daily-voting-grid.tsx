@@ -48,7 +48,7 @@ export function DailyVotingGrid({
   });
 
   const weekDates = React.useMemo(() => {
-    const start = React.useMemo(() => new Date(currentDate), [currentDate]);
+    const start = new Date(currentDate);
     start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
     return Array.from({ length: 7 }, (_, i) => new Date(start.getFullYear(), start.getMonth(), start.getDate() + i));
   }, [currentDate]);
@@ -70,7 +70,7 @@ export function DailyVotingGrid({
   };
 
   const handlePreviousDay = () => setDayOffset(prev => (prev > 0 ? prev - 1 : 6));
-  const handleNextDay = () => setDayOffset(prev => (prev < 6 ? prev + 1 : 0));
+  const handleNextDay = () => setDayOffset(prev => (prev < 6 ? prev - 1 : 0));
   
   const dateKey = format(selectedDate, 'yyyy-MM-dd');
   const allDayVoted = timeSlots.every(slot => userVotes[dateKey]?.has(slot));
