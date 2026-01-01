@@ -1,13 +1,18 @@
 /**
  * See a full list of supported triggers at https://firebase.google.com/docs/functions
  */
-import * as functions from "firebase-functions";
+import { onCall, HttpsError } from "firebase-functions/v2/https";
+import { onSchedule } from "firebase-functions/v2/pubsub";
 import * as admin from "firebase-admin";
 import fetch from "node-fetch";
+import { setGlobalOptions } from "firebase-functions/v2";
 
 // Initialize the Firebase Admin SDK
 admin.initializeApp();
 const db = admin.firestore();
+
+// Set the region for all functions
+setGlobalOptions({ region: 'us-central1' });
 
 // --- HARDCODED DISCORD WEBHOOK URL ---
 const DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1454808762475872358/vzp7fiSxE7THIR5sc6npnuAG2TVl_B3fikdS_WgZFnzxQmejMJylsYafopfEkzU035Yt";
@@ -34,13 +39,13 @@ interface Vote {
 }
 
 // Function to send a test message to the configured Discord webhook
-export const testDiscordWebhook = functions.region('us-central1').https.onCall(async (data, context) => {
-    if (context.auth?.uid !== ADMIN_UID) {
-        throw new functions.https.HttpsError('permission-denied', 'You must be an administrator to perform this action.');
+export const testDiscordWebhook = onCall(async (request) => {
+    if (request.auth?.uid !== ADMIN_UID) {
+        throw new HttpsError('permission-denied', 'You must be an administrator to perform this action.');
     }
     
     if (!DISCORD_WEBHOOK_URL) {
-        throw new functions.https.HttpsError('failed-precondition', 'Discord webhook URL is not configured in the backend.');
+        throw new HttpsError('failed-precondition', 'Discord webhook URL is not configured in the backend.');
     }
 
     const testMessage = {
@@ -62,18 +67,18 @@ export const testDiscordWebhook = functions.region('us-central1').https.onCall(a
         if (!response.ok) {
             const responseBody = await response.text();
             console.error(`Discord API Error: ${response.status}`, responseBody);
-            throw new functions.https.HttpsError('internal', `Discord API returned status ${response.status}.`);
+            throw new HttpsError('internal', `Discord API returned status ${response.status}.`);
         }
     } catch (error) {
         console.error("Error sending test webhook message:", error);
-        throw new functions.https.HttpsError('internal', 'Failed to send test message to Discord.');
+        throw new HttpsError('internal', 'Failed to send test message to Discord.');
     }
 
     return { success: true, message: "Test message sent successfully!" };
 });
 
 // Scheduled function to send reminders for upcoming events
-export const sendDiscordReminders = functions.region('us-central1').pubsub.schedule("every 15 minutes").onRun(async (context) => {
+export const sendDiscordReminders = onSchedule("every 15 minutes", async (event) => {
     const webhookUrl = DISCORD_WEBHOOK_URL;
     
     if (!webhookUrl) {
