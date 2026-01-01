@@ -10,6 +10,7 @@ import { setGlobalOptions } from "firebase-functions/v2";
 admin.initializeApp();
 const db = admin.firestore();
 
+// Set the region for all functions
 setGlobalOptions({ region: 'us-central1' });
 
 // Define the shape of your data
@@ -32,7 +33,7 @@ interface Vote {
 }
 
 // Function to securely set the Discord webhook URL in Firestore
-const setDiscordWebhookUrl = functions.https.onCall(async (data, context) => {
+export const setDiscordWebhookUrl = functions.https.onCall(async (data, context) => {
     // Ensure the user is an administrator
     if (context.auth?.uid !== 'BpA8qniZ03YttlnTR25nc6RrWrZ2') {
         throw new functions.https.HttpsError('permission-denied', 'You must be an administrator to perform this action.');
@@ -53,7 +54,7 @@ const setDiscordWebhookUrl = functions.https.onCall(async (data, context) => {
 });
 
 // Function to send a test message to the configured Discord webhook
-const testDiscordWebhook = functions.https.onCall(async (data, context) => {
+export const testDiscordWebhook = functions.https.onCall(async (data, context) => {
     if (context.auth?.uid !== 'BpA8qniZ03YttlnTR25nc6RrWrZ2') {
         throw new functions.https.HttpsError('permission-denied', 'You must be an administrator to perform this action.');
     }
@@ -98,7 +99,7 @@ const testDiscordWebhook = functions.https.onCall(async (data, context) => {
 });
 
 // Scheduled function to send reminders for upcoming events
-const sendDiscordReminders = functions.pubsub.schedule("every 15 minutes").onRun(async (context) => {
+export const sendDiscordReminders = functions.pubsub.schedule("every 15 minutes").onRun(async (context) => {
     let webhookUrl;
     try {
         const configDoc = await db.doc('app-config/discord').get();
@@ -220,10 +221,3 @@ function convertTimeTo24Hour(timeStr: string): string {
     }
     return `${hours.padStart(2, '0')}:${minutes}`;
 }
-
-
-module.exports = {
-    setDiscordWebhookUrl,
-    testDiscordWebhook,
-    sendDiscordReminders,
-};
