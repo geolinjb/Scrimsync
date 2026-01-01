@@ -9,8 +9,8 @@ const Card = React.forwardRef<
   <div
     ref={ref}
     className={cn(
-      "rounded-lg bg-card text-card-foreground",
-      "neumorphic-flat", // Neumorphism style
+      "rounded-lg border bg-card text-card-foreground",
+      "brutalist-shadow", // Brutalism style
       className
     )}
     {...props}

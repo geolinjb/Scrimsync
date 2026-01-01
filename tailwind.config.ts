@@ -11,7 +11,7 @@ export default {
     extend: {
       fontFamily: {
         body: ['"Inter"', 'system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', '"Helvetica Neue"', 'Arial', 'sans-serif'],
-        headline: ['"Inter"', 'sans-serif'],
+        headline: ['"IBM Plex Mono"', 'monospace'],
         code: ['monospace'],
       },
       colors: {
@@ -68,8 +68,8 @@ export default {
       },
       borderRadius: {
         lg: 'var(--radius)',
-        md: 'calc(var(--radius) - 2px)',
-        sm: 'calc(var(--radius) - 4px)',
+        md: 'calc(var(--radius) - 0px)',
+        sm: 'calc(var(--radius) - 0px)',
       },
       keyframes: {
         'accordion-down': {
