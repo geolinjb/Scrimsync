@@ -12,19 +12,19 @@ import {
 } from '@/components/ui/card';
 import { Button } from '../ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { httpsCallable, FunctionsError } from 'firebase/functions';
-import { useFunctions } from '@/firebase';
+import { getFunctions, httpsCallable, FunctionsError } from 'firebase/functions';
+import { useFirebaseApp } from '@/firebase';
 
 export function DiscordIntegration() {
   const { toast } = useToast();
-  const functions = useFunctions();
-  
+  const app = useFirebaseApp();
   const [isTesting, setIsTesting] = React.useState(false);
 
   const handleTestWebhook = async () => {
-    if (!functions) return;
+    if (!app) return;
     setIsTesting(true);
 
+    const functions = getFunctions(app, 'us-central1');
     const testWebhookCallable = httpsCallable(functions, 'testDiscordWebhook');
     try {
       const result = await testWebhookCallable();
@@ -72,7 +72,7 @@ export function DiscordIntegration() {
           </div>
       </CardContent>
       <CardFooter className="justify-end">
-        <Button variant="outline" onClick={handleTestWebhook} disabled={isTesting || !functions}>
+        <Button variant="outline" onClick={handleTestWebhook} disabled={isTesting || !app}>
            {isTesting ? (
             <Loader className="mr-2 h-4 w-4 animate-spin" />
           ) : (
