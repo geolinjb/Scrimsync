@@ -22,7 +22,7 @@ type DailyVotingGridProps = {
   userVotes: UserVotes;
   onVote: (date: Date, timeSlot: string) => void;
   onVoteAllDay: (date: Date) => void;
-  onClearAllVotes: () => void;
+  onClearAllVotes: (date: Date) => void;
   onCopyLastWeeksVotes: () => void;
   hasLastWeekVotes: boolean;
   currentDate: Date;
@@ -54,7 +54,7 @@ export function DailyVotingGrid({
 
   const selectedDate = weekDates[dayOffset];
 
-  const hasAnyVotes = React.useMemo(() => {
+  const hasAnyVotesForDay = React.useMemo(() => {
     if (!selectedDate) return false;
     const dateKey = format(selectedDate, 'yyyy-MM-dd');
     return userVotes[dateKey] && userVotes[dateKey].size > 0;
@@ -105,18 +105,18 @@ export function DailyVotingGrid({
                         </Button>
                     </TooltipTrigger>
                     <TooltipContent>
-                        <p>Copy last week's votes</p>
+                        <p>Copy last week's votes to this week</p>
                     </TooltipContent>
                 </Tooltip>
                 <Tooltip>
                     <TooltipTrigger asChild>
-                        <Button variant="ghost" size="icon" onClick={onClearAllVotes} disabled={!hasAnyVotes}>
+                        <Button variant="ghost" size="icon" onClick={() => onClearAllVotes(selectedDate)} disabled={!hasAnyVotesForDay}>
                             <Trash2 className="w-5 h-5" />
-                            <span className="sr-only">Clear all votes for this week</span>
+                            <span className="sr-only">Clear all votes for this day</span>
                         </Button>
                     </TooltipTrigger>
                     <TooltipContent>
-                        <p>Clear all your votes for today</p>
+                        <p>Clear all your votes for this day</p>
                     </TooltipContent>
                 </Tooltip>
               </div>
@@ -126,7 +126,7 @@ export function DailyVotingGrid({
           </CardDescription>
         </CardHeader>
         <CardContent>
-            <div className={cn('flex items-center justify-between p-4 border rounded-t-lg bg-muted/20', isToday(selectedDate) && 'bg-primary/10 border-primary/50')}>
+            <div className={cn('flex items-center justify-between p-4 border-b rounded-t-lg bg-muted', isToday(selectedDate) && 'bg-primary/10 border-primary/50')}>
                 <Button variant="outline" size="icon" onClick={handlePreviousDay}>
                     <ChevronLeft className="w-4 h-4" />
                 </Button>
@@ -139,7 +139,7 @@ export function DailyVotingGrid({
                 </Button>
             </div>
             <div className="border-l border-r border-b rounded-b-lg overflow-hidden max-h-[60vh] overflow-y-auto">
-                <div className='flex items-center justify-between p-3 border-b bg-muted/10'>
+                <div className='flex items-center justify-between p-3 border-b bg-muted/50'>
                     <p className='text-sm font-medium'>Select all times for {format(selectedDate, 'EEEE')}</p>
                     <Tooltip>
                         <TooltipTrigger asChild>
@@ -152,7 +152,7 @@ export function DailyVotingGrid({
                         </TooltipContent>
                     </Tooltip>
                 </div>
-                <div className='divide-y divide-border/50'>
+                <div className='divide-y'>
                 {timeSlots.map(slot => {
                     const isVoted = userVotes[dateKey]?.has(slot);
                     const event = getEventForSlot(selectedDate, slot);
@@ -162,7 +162,7 @@ export function DailyVotingGrid({
                             key={slot}
                             onClick={() => onVote(selectedDate, slot)}
                             className={cn(
-                                'flex items-center justify-between p-3 cursor-pointer transition-colors hover:bg-accent/20',
+                                'flex items-center justify-between p-3 cursor-pointer transition-colors hover:bg-accent',
                                 isVoted ? "bg-primary/20" : "bg-transparent"
                             )}
                             whileTap={{ scale: 0.98 }}

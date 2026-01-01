@@ -222,14 +222,15 @@ export function TeamSyncDashboard({ user }: TeamSyncDashboardProps) {
     });
   };
 
-  const handleClearAllVotes = async () => {
+  const handleClearAllVotes = async (date?: Date) => {
     if (!firestore) return;
     const batch = writeBatch(firestore);
     let votesToDelete = 0;
+    
+    const datesToClear = date ? [date] : Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
-    for (let i = 0; i < 7; i++) {
-        const date = addDays(weekStart, i);
-        const dateKey = format(date, 'yyyy-MM-dd');
+    datesToClear.forEach(d => {
+        const dateKey = format(d, 'yyyy-MM-dd');
         const dayVotes = userVotes[dateKey];
         if (dayVotes) {
             dayVotes.forEach(slot => {
@@ -240,11 +241,12 @@ export function TeamSyncDashboard({ user }: TeamSyncDashboardProps) {
                 votesToDelete++;
             });
         }
-    }
+    });
+    
 
     if (votesToDelete === 0) {
         toast({
-            description: "You have no votes to clear for this week.",
+            description: `You have no votes to clear for ${date ? 'this day' : 'this week'}.`,
         });
         return;
     }
@@ -252,7 +254,7 @@ export function TeamSyncDashboard({ user }: TeamSyncDashboardProps) {
     batch.commit().then(() => {
         toast({
             title: "Votes Cleared",
-            description: "All your votes for this week have been removed.",
+            description: `All your votes for ${date ? 'this day' : 'this week'} have been removed.`,
         });
     }).catch(e => {
         const permissionError = new FirestorePermissionError({
@@ -497,7 +499,7 @@ const hasLastWeekVotes = React.useMemo(() => {
                     onVote={handleVote}
                     onVoteAllDay={handleVoteAllDay}
                     onVoteAllTime={handleVoteAllTime}
-                    onClearAllVotes={handleClearAllVotes}
+                    onClearAllVotes={() => handleClearAllVotes()}
                     onCopyLastWeeksVotes={handleCopyLastWeeksVotes}
                     hasLastWeekVotes={hasLastWeekVotes}
                     currentDate={currentDate}
@@ -516,7 +518,7 @@ const hasLastWeekVotes = React.useMemo(() => {
                     isSaving={isSavingProfile}
                     isLoading={isProfileLoading}
                 />
-                 <ScheduleForm onAddEvent={handleAddEvent} currentDate={currentDate} />
+                 {isAdmin && <ScheduleForm onAddEvent={handleAddEvent} currentDate={currentDate} />}
             </div>
             <div className="lg:col-span-2 space-y-8">
                 <ScheduledEvents 

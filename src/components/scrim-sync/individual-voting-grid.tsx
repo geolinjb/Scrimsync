@@ -86,7 +86,7 @@ export function IndividualVotingGrid({
                         </Button>
                     </TooltipTrigger>
                     <TooltipContent>
-                        <p>Copy last week's votes</p>
+                        <p>Copy last week's votes to this week</p>
                     </TooltipContent>
                 </Tooltip>
                 <Tooltip>
@@ -109,9 +109,9 @@ export function IndividualVotingGrid({
         <CardContent>
           <div className="border rounded-lg overflow-auto max-h-[65vh] relative">
               <Table className="w-full border-collapse">
-                  <TableHeader className="sticky top-0 z-30 bg-muted/50 backdrop-blur-sm">
+                  <TableHeader className="sticky top-0 z-30 bg-muted/80 backdrop-blur-sm">
                       <TableRow className="border-b-2 border-border">
-                          <TableHead className="w-[120px] font-bold sticky left-0 bg-muted/50 backdrop-blur-sm z-40 p-2 text-center">Time</TableHead>
+                          <TableHead className="w-[120px] font-bold sticky left-0 bg-muted/80 backdrop-blur-sm z-40 p-2 text-center">Time</TableHead>
                           {weekDates.map(date => {
                               const dateKey = format(date, 'yyyy-MM-dd');
                               const allDayVoted = timeSlots.every(slot => userVotes[dateKey]?.has(slot));
@@ -168,24 +168,20 @@ export function IndividualVotingGrid({
                                               <motion.div
                                                   onClick={() => onVote(date, slot)}
                                                   className={cn(
-                                                      'h-14 w-full cursor-pointer flex justify-center items-center transition-all duration-200 border-l border-t border-white/5 relative group',
+                                                      'h-14 w-full cursor-pointer flex justify-center items-center transition-colors duration-200 border-l border-t relative group',
                                                       'hover:bg-accent',
+                                                      isVoted ? 'bg-primary/20' : 'bg-transparent',
                                                       isToday(date) && 'bg-primary/5',
                                                   )}
                                                   whileTap={{ scale: 0.95 }}
                                               >
-                                                <div className={cn(
-                                                    'absolute inset-0 transition-all duration-200',
-                                                    isVoted ? 'bg-primary/20' : 'bg-transparent',
-                                                    'group-hover:bg-primary/30'
-                                                )} />
                                                   {isVoted && <Check className="relative z-10 w-5 h-5 text-primary" />}
                                                   {event && (
                                                       <Tooltip>
                                                           <TooltipTrigger asChild>
                                                               <div className="absolute top-1 right-1 z-20 p-1">
                                                               {event.type === 'Training' ? (
-                                                                  <Swords className="w-4 h-4 text-foreground/80" />
+                                                                  <Swords className="w-4 h-4 text-blue-400" />
                                                               ) : (
                                                                   <Trophy className="w-4 h-4 text-primary" />
                                                               )}

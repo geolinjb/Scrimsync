@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { format, isSameDay, startOfWeek, addDays } from 'date-fns';
+import { format, isSameDay, startOfWeek, addDays, isToday } from 'date-fns';
 import { Calendar as CalendarIcon, CalendarPlus } from 'lucide-react';
 import { useForm, useWatch } from 'react-hook-form';
 import * as z from 'zod';
@@ -136,7 +136,7 @@ export function ScheduleForm({ onAddEvent, currentDate }: ScheduleFormProps) {
                             e.preventDefault();
                             form.setValue('date', date, { shouldValidate: true });
                         }}
-                        className='flex-col h-auto p-2'
+                        className={cn('flex-col h-auto p-2', isToday(date) && !isSameDay(date, selectedDate) && 'border-primary/50')}
                       >
                         <span className="text-xs">{format(date, 'EEE')}</span>
                         <span className='text-sm font-bold'>{format(date, 'd/M')}</span>
