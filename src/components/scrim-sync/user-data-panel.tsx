@@ -44,7 +44,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Separator } from '../ui/separator';
 import { Badge } from '../ui/badge';
 import { ScrollArea } from '../ui/scroll-area';
-import { DiscordIntegration } from './discord-integration';
 
 type UserDataPanelProps = {
   allProfiles: PlayerProfileData[] | null;
@@ -431,8 +430,6 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent }:
             </CardFooter>
         </Card>
         
-        <DiscordIntegration />
-
         <Card>
             <CardHeader>
                 <div className="flex items-center gap-3">
