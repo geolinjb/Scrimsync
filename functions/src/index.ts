@@ -7,7 +7,7 @@ import * as admin from "firebase-admin";
 import { setGlobalOptions } from "firebase-functions/v2";
 
 // node-fetch is a CommonJS module, so we need to import it this way
-const fetch = require('node-fetch');
+import fetch from 'node-fetch';
 
 // Initialize the Firebase Admin SDK
 admin.initializeApp();
