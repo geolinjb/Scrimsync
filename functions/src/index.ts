@@ -1,7 +1,8 @@
 /**
  * See a full list of supported triggers at https://firebase.google.com/docs/functions
  */
-import * as functions from "firebase-functions";
+import { onCall, HttpsError } from "firebase-functions/v2/https";
+import { onSchedule } from "firebase-functions/v2/pubsub";
 import * as admin from "firebase-admin";
 import fetch from "node-fetch";
 import { setGlobalOptions } from "firebase-functions/v2";
@@ -12,6 +13,11 @@ const db = admin.firestore();
 
 // Set the region for all functions
 setGlobalOptions({ region: 'us-central1' });
+
+// --- HARDCODED DISCORD WEBHOOK URL ---
+const DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1454808762475872358/vzp7fiSxE7THIR5sc6npnuAG2TVl_B3fikdS_WgZFnzxQmejMJylsYafopfEkzU035Yt";
+const ADMIN_UID = 'BpA8qniZ03YttlnTR25nc6RrWrZ2';
+
 
 // Define the shape of your data
 interface ScheduledEvent {
@@ -32,46 +38,14 @@ interface Vote {
     timeslot: string; // format: 'YYYY-MM-DD_HH:mm AM/PM'
 }
 
-// Function to securely set the Discord webhook URL in Firestore
-export const setDiscordWebhookUrl = functions.https.onCall(async (data, context) => {
-    // Ensure the user is an administrator
-    if (context.auth?.uid !== 'BpA8qniZ03YttlnTR25nc6RrWrZ2') {
-        throw new functions.https.HttpsError('permission-denied', 'You must be an administrator to perform this action.');
-    }
-    
-    const { url } = data;
-    if (typeof url !== 'string' || !url.startsWith('https://discord.com/api/webhooks/')) {
-        throw new functions.https.HttpsError('invalid-argument', 'A valid Discord webhook URL is required.');
-    }
-    
-    try {
-        await db.doc('app-config/discord').set({ discordWebhookUrl: url });
-        return { success: true, message: 'Webhook URL saved successfully!' };
-    } catch (error) {
-        console.error('Error saving webhook URL to Firestore:', error);
-        throw new functions.https.HttpsError('internal', 'Could not save webhook URL.');
-    }
-});
-
 // Function to send a test message to the configured Discord webhook
-export const testDiscordWebhook = functions.https.onCall(async (data, context) => {
-    if (context.auth?.uid !== 'BpA8qniZ03YttlnTR25nc6RrWrZ2') {
-        throw new functions.https.HttpsError('permission-denied', 'You must be an administrator to perform this action.');
-    }
-
-    let webhookUrl;
-    try {
-        const configDoc = await db.doc('app-config/discord').get();
-        if (configDoc.exists) {
-            webhookUrl = configDoc.data()?.discordWebhookUrl;
-        }
-    } catch (error) {
-        console.error("Error fetching webhook URL from Firestore:", error);
-        throw new functions.https.HttpsError('internal', 'Could not retrieve webhook configuration.');
+export const testDiscordWebhook = onCall(async (request) => {
+    if (request.auth?.uid !== ADMIN_UID) {
+        throw new HttpsError('permission-denied', 'You must be an administrator to perform this action.');
     }
     
-    if (!webhookUrl) {
-        throw new functions.https.HttpsError('failed-precondition', 'Discord webhook URL is not configured.');
+    if (!DISCORD_WEBHOOK_URL) {
+        throw new HttpsError('failed-precondition', 'Discord webhook URL is not configured in the backend.');
     }
 
     const testMessage = {
@@ -83,37 +57,33 @@ export const testDiscordWebhook = functions.https.onCall(async (data, context) =
         }],
     };
 
-    const response = await fetch(webhookUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(testMessage),
-    });
+    try {
+        const response = await fetch(DISCORD_WEBHOOK_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(testMessage),
+        });
 
-    if (!response.ok) {
-        const responseBody = await response.text();
-        console.error(`Discord API Error: ${response.status}`, responseBody);
-        throw new functions.https.HttpsError('internal', `Discord API returned status ${response.status}. Check function logs for details.`);
+        if (!response.ok) {
+            const responseBody = await response.text();
+            console.error(`Discord API Error: ${response.status}`, responseBody);
+            throw new HttpsError('internal', `Discord API returned status ${response.status}.`);
+        }
+    } catch (error) {
+        console.error("Error sending test webhook message:", error);
+        throw new HttpsError('internal', 'Failed to send test message to Discord.');
     }
 
     return { success: true, message: "Test message sent successfully!" };
 });
 
 // Scheduled function to send reminders for upcoming events
-export const sendDiscordReminders = functions.pubsub.schedule("every 15 minutes").onRun(async (context) => {
-    let webhookUrl;
-    try {
-        const configDoc = await db.doc('app-config/discord').get();
-        if (configDoc.exists) {
-            webhookUrl = configDoc.data()?.discordWebhookUrl;
-        }
-    } catch (error) {
-        console.error("Error fetching webhook URL from Firestore for reminders:", error);
-        return null; // Exit if we can't get the config
-    }
+export const sendDiscordReminders = onSchedule("every 15 minutes", async (event) => {
+    const webhookUrl = DISCORD_WEBHOOK_URL;
     
     if (!webhookUrl) {
-        console.log("Discord webhook URL not set in Firestore. Skipping reminders.");
-        return null;
+        console.log("Discord webhook URL not set in backend. Skipping reminders.");
+        return;
     }
 
     const now = new Date();
@@ -122,17 +92,27 @@ export const sendDiscordReminders = functions.pubsub.schedule("every 15 minutes"
     const reminderWindowEnd = new Date(now.getTime() + 30 * 60 * 1000);
 
     const eventsSnapshot = await db.collection("scheduledEvents").get();
+    if (eventsSnapshot.empty) {
+        console.log("No scheduled events found.");
+        return;
+    }
+    
     const allEvents = eventsSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as ScheduledEvent));
 
     const upcomingEvents = allEvents.filter((event) => {
-        const eventDateTimeStr = `${event.date}T${convertTimeTo24Hour(event.time)}:00`;
-        const eventDate = new Date(eventDateTimeStr);
-        return eventDate > reminderWindowStart && eventDate <= reminderWindowEnd;
+        try {
+            const eventDateTimeStr = `${event.date}T${convertTimeTo24Hour(event.time)}:00`;
+            const eventDate = new Date(eventDateTimeStr);
+            return eventDate > reminderWindowStart && eventDate <= reminderWindowEnd;
+        } catch (e) {
+            console.error(`Could not parse date for event ${event.id}: '${event.date}' '${event.time}'`);
+            return false;
+        }
     });
 
     if (upcomingEvents.length === 0) {
         console.log("No upcoming events to send reminders for.");
-        return null;
+        return;
     }
 
     // Fetch all user profiles and votes once
@@ -147,8 +127,6 @@ export const sendDiscordReminders = functions.pubsub.schedule("every 15 minutes"
     for (const event of upcomingEvents) {
         await sendReminderForEvent(event, allProfiles, allVotes, webhookUrl);
     }
-
-    return null;
 });
 
 
@@ -177,12 +155,12 @@ async function sendReminderForEvent(event: ScheduledEvent, allProfiles: Map<stri
         fields: [
             {
                 name: `✅ Available Players (${availablePlayers.length})`,
-                value: availablePlayers.length > 0 ? availablePlayers.join("\n") : "None",
+                value: availablePlayers.length > 0 ? availablePlayers.join("\\n") : "None",
                 inline: true,
             },
             {
                 name: `❌ Unavailable Players (${unavailablePlayers.length})`,
-                value: unavailablePlayers.length > 0 ? unavailablePlayers.join("\n") : "None",
+                value: unavailablePlayers.length > 0 ? unavailablePlayers.join("\\n") : "None",
                 inline: true,
             },
             {

@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Bot, Loader, Send, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Bot, Loader } from 'lucide-react';
 import {
   Card,
   CardContent,
@@ -34,6 +34,12 @@ export function DiscordIntegration() {
           title: 'Success!',
           description: data.message,
         });
+      } else {
+         toast({
+            variant: 'destructive',
+            title: 'Test Failed',
+            description: data.message || 'An unknown error occurred.',
+        });
       }
     } catch (error) {
       const e = error as FunctionsError;
@@ -62,12 +68,11 @@ export function DiscordIntegration() {
       </CardHeader>
       <CardContent>
           <div className='flex items-center gap-2 p-4 bg-muted rounded-lg'>
-              <CheckCircle className="h-5 w-5 text-green-500 shrink-0" />
-              <p className='text-sm text-muted-foreground'>Webhook URL is hardcoded in the backend function.</p>
+              <p className='text-sm text-muted-foreground'>The webhook URL is hardcoded in the backend. No need to set it here.</p>
           </div>
       </CardContent>
       <CardFooter className="justify-end">
-        <Button variant="outline" onClick={handleTestWebhook} disabled={isTesting}>
+        <Button variant="outline" onClick={handleTestWebhook} disabled={isTesting || !functions}>
            {isTesting ? (
             <Loader className="mr-2 h-4 w-4 animate-spin" />
           ) : (
