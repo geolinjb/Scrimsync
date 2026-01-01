@@ -22,7 +22,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from '../ui/skeleton';
-import type { PlayerProfileData, Vote, ScheduleEvent } from '@/lib/types';
+import type { PlayerProfileData, Vote, ScheduleEvent, AllVotes as AllVotesType } from '@/lib/types';
 import { timeSlots, MINIMUM_PLAYERS } from '@/lib/types';
 import { Button } from '../ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -44,6 +44,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Separator } from '../ui/separator';
 import { Badge } from '../ui/badge';
 import { ScrollArea } from '../ui/scroll-area';
+import { ReminderGenerator } from './reminder-generator';
 
 type UserDataPanelProps = {
   allProfiles: PlayerProfileData[] | null;
@@ -66,7 +67,26 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent }:
     [firestore]
   );
 
-  const { data: allVotes, isLoading: areVotesLoading } = useCollection<Vote>(votesCollectionRef);
+  const { data: allVotesData, isLoading: areVotesLoading } = useCollection<Vote>(votesCollectionRef);
+
+  const allVotes: AllVotesType = React.useMemo(() => {
+    if (!allVotesData || !allProfiles) return {};
+    const profileMap = new Map(allProfiles.map(p => [p.id, p.username]));
+    return allVotesData.reduce((acc, vote) => {
+      const [dateKey, slot] = vote.timeslot.split('_');
+      const voteKey = `${dateKey}-${slot}`;
+      const username = profileMap.get(vote.userId);
+
+      if (username) {
+        if (!acc[voteKey]) {
+          acc[voteKey] = [];
+        }
+        acc[voteKey].push(username);
+      }
+      return acc;
+    }, {} as AllVotesType);
+  }, [allVotesData, allProfiles]);
+
 
   const weekStart = React.useMemo(() => startOfWeek(selectedDate, { weekStartsOn: 1 }), [selectedDate]);
   const weekEnd = React.useMemo(() => endOfWeek(selectedDate, { weekStartsOn: 1 }), [selectedDate]);
@@ -76,12 +96,12 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent }:
   }, [weekStart]);
 
   const votesInSelectedWeek = React.useMemo(() => {
-    if (!allVotes) return [];
-    return allVotes.filter(vote => {
+    if (!allVotesData) return [];
+    return allVotesData.filter(vote => {
       const voteDate = parseISO(vote.timeslot.split('_')[0]);
       return voteDate >= weekStart && voteDate <= weekEnd;
     });
-  }, [allVotes, weekStart, weekEnd]);
+  }, [allVotesData, weekStart, weekEnd]);
 
   const allPlayerNames = React.useMemo(() => {
       if (!allProfiles) return [];
@@ -178,12 +198,11 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent }:
   };
 
   const handleCopyRoster = () => {
-    if (!selectedRosterDate || !selectedRosterTime || !allVotes || !allProfiles) return;
+    if (!selectedRosterDate || !selectedRosterTime || !allVotesData || !allProfiles) return;
 
     const profileMap = new Map(allProfiles.map(p => [p.id, p.username]));
-    const voteKey = `${selectedRosterDate}-${selectedRosterTime}`;
     
-    const availableUserIds = allVotes
+    const availableUserIds = allVotesData
         .filter(v => v.timeslot === `${selectedRosterDate}_${selectedRosterTime}`)
         .map(v => v.userId);
 
@@ -429,6 +448,12 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent }:
                 </div>
             </CardFooter>
         </Card>
+
+        <ReminderGenerator 
+            events={events} 
+            allVotes={allVotes} 
+            allProfiles={allProfiles || []} 
+        />
         
         <Card>
             <CardHeader>

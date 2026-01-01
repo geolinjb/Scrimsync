@@ -197,7 +197,7 @@ export function TeamSyncDashboard({ user }: TeamSyncDashboardProps) {
         const date = addDays(weekStartVote, i);
         const dateKey = format(date, 'yyyy-MM-dd');
         const timeslotId = `${dateKey}_${timeSlot}`;
-        const voteId = `${user.uid}_${timeSlotId}`;
+        const voteId = `${user.uid}_${timeslotId}`;
         const voteRef = doc(firestore, 'votes', voteId);
 
         if (allSelected) {
@@ -559,10 +559,10 @@ const hasLastWeekVotes = React.useMemo(() => {
             {isAdmin && (
             <TabsContent value="admin">
                 <UserDataPanel 
-                allProfiles={allProfiles} 
-                isLoading={areProfilesLoading}
-                events={scheduledEvents}
-                onRemoveEvent={handleRemoveEvent}
+                    allProfiles={allProfiles} 
+                    isLoading={areProfilesLoading}
+                    events={scheduledEvents}
+                    onRemoveEvent={handleRemoveEvent}
                 />
             </TabsContent>
             )}
