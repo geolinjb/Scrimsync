@@ -70,7 +70,7 @@ export function DailyVotingGrid({
   };
 
   const handlePreviousDay = () => setDayOffset(prev => (prev > 0 ? prev - 1 : 6));
-  const handleNextDay = () => setDayOffset(prev => (prev < 6 ? prev - 1 : 0));
+  const handleNextDay = () => setDayOffset(prev => (prev < 6 ? prev + 1 : 0));
   
   const dateKey = format(selectedDate, 'yyyy-MM-dd');
   const allDayVoted = timeSlots.every(slot => userVotes[dateKey]?.has(slot));
