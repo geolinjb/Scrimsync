@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { format, startOfToday, differenceInMinutes } from 'date-fns';
+import { format, startOfToday, differenceInMinutes, isToday } from 'date-fns';
 import { CalendarCheck, Users, Trash2, Copy } from 'lucide-react';
 import type { User } from 'firebase/auth';
 
@@ -36,6 +36,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { ScrollArea } from '../ui/scroll-area';
+import { cn } from '@/lib/utils';
 
 type ScheduledEventsProps = {
   events: ScheduleEvent[];
@@ -173,7 +174,8 @@ export function ScheduledEvents({ events, votes, allPlayerNames, onRemoveEvent, 
                                     <div className='flex flex-col items-start text-left'>
                                         <div className='flex items-center gap-2'>
                                             <Badge variant={event.type === 'Tournament' ? 'default' : 'secondary'}>{event.type}</Badge>
-                                            <span className='font-semibold'>{format(event.date, 'EEEE, d MMM')}</span>
+                                            <span className={cn('font-semibold', isToday(event.date) && 'text-primary')}>{format(event.date, 'EEEE, d MMM')}</span>
+                                            {isToday(event.date) && <Badge variant="outline">Today</Badge>}
                                         </div>
                                         <div className='flex items-baseline gap-2'>
                                             <span className='text-sm text-muted-foreground'>{event.time}</span>
