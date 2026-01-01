@@ -266,13 +266,12 @@ const handleCopyLastWeeksVotes = React.useCallback(async () => {
     if (!firestore || !allVotesData) return;
 
     const lastWeekStartDate = addDays(weekStart, -7);
-    const lastWeekEndDate = addDays(lastWeekStartDate, 6);
 
     const lastWeekVotes = allVotesData.filter(vote => {
         if (vote.userId !== user.uid) return false;
         try {
             const voteDate = parseISO(vote.timeslot.split('_')[0]);
-            return voteDate >= lastWeekStartDate && voteDate <= lastWeekEndDate;
+            return voteDate >= lastWeekStartDate && voteDate < weekStart;
         } catch (e) {
             return false;
         }
@@ -293,7 +292,7 @@ const handleCopyLastWeeksVotes = React.useCallback(async () => {
         // This calculates the day of the week (0 for Sunday, 6 for Saturday)
         const dayOfWeek = prevDate.getDay(); 
         
-        // We adjust because our week starts on Monday (0) and date-fns starts on Sunday (0)
+        // We adjust because our week starts on Monday (1) and date-fns starts on Sunday (0)
         // So, Sunday (0) becomes day 6, Monday (1) becomes day 0, etc.
         const adjustedDayOfWeek = (dayOfWeek === 0) ? 6 : dayOfWeek - 1;
 
@@ -338,13 +337,12 @@ const handleCopyLastWeeksVotes = React.useCallback(async () => {
 const hasLastWeekVotes = React.useMemo(() => {
     if (!allVotesData) return false;
     const lastWeekStartDate = addDays(weekStart, -7);
-    const lastWeekEndDate = addDays(lastWeekStartDate, 6);
 
     return allVotesData.some(vote => {
         if (vote.userId !== user.uid) return false;
         try {
             const voteDate = parseISO(vote.timeslot.split('_')[0]);
-            return voteDate >= lastWeekStartDate && voteDate <= lastWeekEndDate;
+            return voteDate >= lastWeekStartDate && voteDate < weekStart;
         } catch(e) {
             return false;
         }
@@ -486,7 +484,6 @@ const hasLastWeekVotes = React.useMemo(() => {
                     isSaving={isSavingProfile}
                     isLoading={isProfileLoading}
                 />
-                <ScheduleForm onAddEvent={handleAddEvent} currentDate={currentDate} />
             </div>
             <div className="lg:col-span-2 space-y-8">
                 <ScheduledEvents 
@@ -496,6 +493,7 @@ const hasLastWeekVotes = React.useMemo(() => {
                     onRemoveEvent={handleRemoveEvent}
                     currentUser={user}
                 />
+                 <ScheduleForm onAddEvent={handleAddEvent} currentDate={currentDate} />
             </div>
         </div>
 
@@ -539,5 +537,3 @@ const hasLastWeekVotes = React.useMemo(() => {
     </div>
   );
 }
-
-    
