@@ -54,5 +54,14 @@ service cloud.firestore {
       // Only the creator or an admin can update or delete an event.
       allow update, delete: if isOwner(resource.data.creatorId) || isAdmin();
     }
+    
+    /**
+     * @description Secures the application configuration.
+     * @path /app-config/discord
+     */
+    match /app-config/discord {
+        // Only an admin can read or write the config.
+        allow read, write: if isAdmin();
+    }
   }
 }

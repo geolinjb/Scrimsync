@@ -91,6 +91,19 @@
         "date",
         "time"
       ]
+    },
+    "AppConfig": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "AppConfig",
+        "type": "object",
+        "description": "Stores global application configuration, like webhook URLs.",
+        "properties": {
+            "discordWebhookUrl": {
+                "type": "string",
+                "format": "uri",
+                "description": "The Discord webhook URL for sending notifications."
+            }
+        }
     }
   },
   "auth": {
@@ -116,6 +129,12 @@
         "$ref": "#/entities/ScheduledEvent"
       },
       "description": "Stores information about scheduled events. Rules allow any authenticated user to read, but only the creator to write or delete."
+    },
+    "/app-config/discord": {
+        "schema": {
+            "$ref": "#/entities/AppConfig"
+        },
+        "description": "Stores application-wide configuration. Only accessible by admins."
     }
   }
 }

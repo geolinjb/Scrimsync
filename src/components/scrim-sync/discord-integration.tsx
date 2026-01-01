@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { AlertTriangle, Bot, Loader, Send } from 'lucide-react';
+import { Bot, Loader, Send, CheckCircle, AlertTriangle } from 'lucide-react';
 import {
   Card,
   CardContent,
@@ -13,17 +13,27 @@ import {
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { getFunctions, httpsCallable, FunctionsError } from 'firebase/functions';
-import { useFunctions } from '@/firebase';
-import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
+import { httpsCallable, FunctionsError } from 'firebase/functions';
+import { useFunctions, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
+import { doc } from 'firebase/firestore';
 
 export function DiscordIntegration() {
   const { toast } = useToast();
   const functions = useFunctions();
+  const firestore = useFirestore();
+
+  const configRef = useMemoFirebase(() => doc(firestore, 'app-config/discord'), [firestore]);
+  const { data: configData, isLoading: isConfigLoading } = useDoc<{discordWebhookUrl: string}>(configRef);
+  
   const [webhookUrl, setWebhookUrl] = React.useState('');
   const [isSaving, setIsSaving] = React.useState(false);
   const [isTesting, setIsTesting] = React.useState(false);
-  const [resultMessage, setResultMessage] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (configData?.discordWebhookUrl) {
+      setWebhookUrl(configData.discordWebhookUrl);
+    }
+  }, [configData]);
 
   const handleSetWebhook = async () => {
     if (!webhookUrl) {
@@ -36,17 +46,15 @@ export function DiscordIntegration() {
     }
     if (!functions) return;
     setIsSaving(true);
-    setResultMessage(null);
 
-    const setWebhookUrlCallable = httpsCallable(functions, 'setWebhookUrl');
+    const setWebhookUrlCallable = httpsCallable(functions, 'setDiscordWebhookUrl');
     try {
       const result = await setWebhookUrlCallable({ url: webhookUrl });
       const data = result.data as { success: boolean; message: string };
       if (data.success) {
-        setResultMessage(data.message);
         toast({
-          title: 'Action Required',
-          description: 'Follow the instructions shown to complete the setup.',
+          title: 'Success!',
+          description: data.message,
         });
       }
     } catch (error) {
@@ -66,9 +74,9 @@ export function DiscordIntegration() {
     if (!functions) return;
     setIsTesting(true);
 
-    const testDiscordWebhook = httpsCallable(functions, 'testDiscordWebhook');
+    const testWebhookCallable = httpsCallable(functions, 'testDiscordWebhook');
     try {
-      const result = await testDiscordWebhook();
+      const result = await testWebhookCallable();
       const data = result.data as { success: boolean; message: string };
       if (data.success) {
         toast({
@@ -104,37 +112,32 @@ export function DiscordIntegration() {
       <CardContent className="space-y-4">
         <div className="space-y-2">
             <label htmlFor="webhook-url" className='text-sm font-medium'>Discord Webhook URL</label>
-            <Input
-                id="webhook-url"
-                type="password"
-                placeholder="https://discord.com/api/webhooks/..."
-                value={webhookUrl}
-                onChange={(e) => setWebhookUrl(e.target.value)}
-            />
-             <p className='text-xs text-muted-foreground'>Your URL is kept secret and is only used by secure backend functions.</p>
+            <div className="flex items-center gap-2">
+              <Input
+                  id="webhook-url"
+                  type="password"
+                  placeholder="https://discord.com/api/webhooks/..."
+                  value={webhookUrl}
+                  onChange={(e) => setWebhookUrl(e.target.value)}
+                  disabled={isConfigLoading}
+              />
+               {configData?.discordWebhookUrl && (
+                  <CheckCircle className="h-5 w-5 text-green-500 shrink-0" />
+               )}
+            </div>
+             <p className='text-xs text-muted-foreground'>Your URL is stored securely in Firestore and is only accessible by backend functions.</p>
         </div>
-
-        {resultMessage && (
-            <Alert>
-                <AlertTriangle className="h-4 w-4" />
-                <AlertTitle>Action Required</AlertTitle>
-                <AlertDescription>
-                    <p className='font-mono bg-muted p-2 rounded-md text-xs whitespace-pre-wrap'>{resultMessage}</p>
-                </AlertDescription>
-            </Alert>
-        )}
-
       </CardContent>
       <CardFooter className="justify-between">
-        <Button onClick={handleSetWebhook} disabled={isSaving || !webhookUrl}>
+        <Button onClick={handleSetWebhook} disabled={isSaving || isConfigLoading || !webhookUrl}>
           {isSaving ? (
             <Loader className="mr-2 h-4 w-4 animate-spin" />
           ) : (
             <Send className="mr-2 h-4 w-4" />
           )}
-          Set Webhook URL
+          Save URL
         </Button>
-        <Button variant="outline" onClick={handleTestWebhook} disabled={isTesting}>
+        <Button variant="outline" onClick={handleTestWebhook} disabled={isTesting || isConfigLoading || !configData?.discordWebhookUrl}>
            {isTesting ? (
             <Loader className="mr-2 h-4 w-4 animate-spin" />
           ) : (
