@@ -1,10 +1,9 @@
 'use client';
 
 import * as React from 'react';
-import { ShieldCheck, User, Users, Trash2, Loader, ChevronLeft, ChevronRight, Copy, ClipboardList } from 'lucide-react';
+import { ShieldCheck, User, Users, Trash2, Loader, ChevronLeft, ChevronRight, Copy, ClipboardList, CalendarX2 } from 'lucide-react';
 import { collection, doc, writeBatch } from 'firebase/firestore';
-
-import { format, startOfWeek, endOfWeek, addDays, parseISO } from 'date-fns';
+import { format, startOfWeek, endOfWeek, addDays, parseISO, startOfToday, isBefore } from 'date-fns';
 
 import {
   Card,
@@ -23,7 +22,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from '../ui/skeleton';
-import type { PlayerProfileData, Vote } from '@/lib/types';
+import type { PlayerProfileData, Vote, ScheduleEvent } from '@/lib/types';
 import { timeSlots, MINIMUM_PLAYERS } from '@/lib/types';
 import { Button } from '../ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -43,16 +42,21 @@ import { FirestorePermissionError } from '@/firebase/errors';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Separator } from '../ui/separator';
+import { Badge } from '../ui/badge';
+import { ScrollArea } from '../ui/scroll-area';
 
 type UserDataPanelProps = {
   allProfiles: PlayerProfileData[] | null;
   isLoading: boolean;
+  events: ScheduleEvent[] | null;
+  onRemoveEvent: (eventId: string) => void;
 };
 
-export function UserDataPanel({ allProfiles, isLoading }: UserDataPanelProps) {
+export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent }: UserDataPanelProps) {
   const { toast } = useToast();
   const firestore = useFirestore();
   const [isDeleting, setIsDeleting] = React.useState(false);
+  const [isDeletingEvents, setIsDeletingEvents] = React.useState(false);
   const [selectedDate, setSelectedDate] = React.useState(() => new Date());
   const [selectedRosterDate, setSelectedRosterDate] = React.useState<string>('');
   const [selectedRosterTime, setSelectedRosterTime] = React.useState<string>('');
@@ -83,6 +87,17 @@ export function UserDataPanel({ allProfiles, isLoading }: UserDataPanelProps) {
       if (!allProfiles) return [];
       return allProfiles.map(p => p.username).filter(Boolean);
   }, [allProfiles]);
+
+  const sortedEvents = React.useMemo(() => {
+      if (!events) return [];
+      return [...events].sort((a,b) => a.date.getTime() - b.date.getTime());
+  }, [events]);
+
+  const pastEvents = React.useMemo(() => {
+    if (!events) return [];
+    const today = startOfToday();
+    return events.filter(e => isBefore(e.date, today));
+  }, [events]);
 
   const handleDeleteWeeksVotes = async () => {
     if (!firestore || votesInSelectedWeek.length === 0) {
@@ -123,6 +138,36 @@ export function UserDataPanel({ allProfiles, isLoading }: UserDataPanelProps) {
         setIsDeleting(false);
     }
   };
+
+  const handleDeletePastEvents = async () => {
+    if (!firestore || pastEvents.length === 0) {
+        toast({ description: "No past events to delete." });
+        return;
+    }
+    setIsDeletingEvents(true);
+    const batch = writeBatch(firestore);
+    pastEvents.forEach(event => {
+        const eventRef = doc(firestore, 'scheduledEvents', event.id);
+        batch.delete(eventRef);
+    });
+
+    try {
+        await batch.commit();
+        toast({
+            title: "Past Events Cleared",
+            description: `Successfully deleted ${pastEvents.length} past event(s).`
+        });
+    } catch(error) {
+        const permissionError = new FirestorePermissionError({
+            path: 'scheduledEvents',
+            operation: 'delete',
+        });
+        errorEmitter.emit('permission-error', permissionError);
+    } finally {
+        setIsDeletingEvents(false);
+    }
+  };
+
 
   const goToPreviousWeek = () => {
     setSelectedDate(prev => addDays(prev, -7));
@@ -256,7 +301,7 @@ export function UserDataPanel({ allProfiles, isLoading }: UserDataPanelProps) {
             <CardHeader>
                 <div className="flex items-center gap-3">
                 <ShieldCheck className="w-6 h-6 text-primary" />
-                <CardTitle>User Data Panel</CardTitle>
+                <CardTitle>Admin Panel</CardTitle>
                 </div>
                 <CardDescription>
                 View all registered users and perform administrative actions.
@@ -264,9 +309,9 @@ export function UserDataPanel({ allProfiles, isLoading }: UserDataPanelProps) {
             </CardHeader>
             <CardContent>
                 {allProfiles && allProfiles.length > 0 ? (
-                <div className="border rounded-lg overflow-auto max-h-[60vh]">
+                <ScrollArea className="border rounded-lg h-[40vh]">
                     <Table>
-                    <TableHeader>
+                    <TableHeader className="sticky top-0 bg-muted/80 backdrop-blur-sm">
                         <TableRow>
                         <TableHead>Username</TableHead>
                         <TableHead>Favorite Tank</TableHead>
@@ -283,16 +328,16 @@ export function UserDataPanel({ allProfiles, isLoading }: UserDataPanelProps) {
                         ))}
                     </TableBody>
                     </Table>
-                </div>
+                </ScrollArea>
                 ) : (
-                <div className="flex flex-col items-center justify-center text-center py-12">
+                <div className="flex flex-col items-center justify-center text-center py-12 border rounded-lg">
                     <Users className="w-12 h-12 text-muted-foreground" />
                     <p className="mt-4 text-muted-foreground">No users have created a profile yet.</p>
                 </div>
                 )}
             </CardContent>
-            <CardFooter className="flex-col items-start gap-6">
-                <div className='w-full space-y-2'>
+            <CardFooter className="flex-col items-start gap-4">
+                 <div className="w-full space-y-2">
                     <h4 className='text-sm font-medium'>Generate Roster Summary</h4>
                     <div className='flex flex-col sm:flex-row items-center gap-2 p-2 border rounded-lg'>
                         <div className='grid grid-cols-2 gap-2 w-full'>
@@ -377,6 +422,84 @@ export function UserDataPanel({ allProfiles, isLoading }: UserDataPanelProps) {
                         </AlertDialog>
                     </div>
                 </div>
+            </CardFooter>
+        </Card>
+        <Card>
+            <CardHeader>
+                <div className="flex items-center gap-3">
+                    <CalendarX2 className="w-6 h-6 text-primary" />
+                    <CardTitle>Manage Scheduled Events</CardTitle>
+                </div>
+                <CardDescription>Delete individual events or clear all past events from the calendar.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                {sortedEvents && sortedEvents.length > 0 ? (
+                    <ScrollArea className="border rounded-lg h-[40vh]">
+                        <div className='p-2 space-y-2'>
+                        {sortedEvents.map(event => (
+                            <div key={event.id} className="flex items-center justify-between p-2 rounded-md hover:bg-muted">
+                                <div className="flex flex-col">
+                                    <div className="flex items-center gap-2">
+                                        <Badge variant={event.type === 'Tournament' ? 'default' : 'secondary'}>{event.type}</Badge>
+                                        <span className="font-semibold">{format(event.date, 'MMM d, yyyy')}</span>
+                                        <span className="text-sm text-muted-foreground">{event.time}</span>
+                                    </div>
+                                </div>
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive h-8 w-8 shrink-0">
+                                            <Trash2 className="w-4 h-4" />
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                This will permanently delete the {event.type.toLowerCase()} on {format(event.date, 'MMM d')}. This action cannot be undone.
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                            <AlertDialogAction onClick={() => onRemoveEvent(event.id)} className="bg-destructive hover:bg-destructive/90">
+                                                Delete Event
+                                            </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            </div>
+                        ))}
+                        </div>
+                    </ScrollArea>
+                ) : (
+                    <div className="flex flex-col items-center justify-center text-center py-12 border rounded-lg">
+                        <CalendarX2 className="w-12 h-12 text-muted-foreground" />
+                        <p className="mt-4 text-muted-foreground">No scheduled events found.</p>
+                    </div>
+                )}
+            </CardContent>
+            <CardFooter>
+                 <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                        <Button variant="destructive" disabled={isDeletingEvents || pastEvents.length === 0}>
+                            {isDeletingEvents ? <Loader className="w-4 h-4 mr-2 animate-spin" /> : <Trash2 className="w-4 h-4 mr-2" />}
+                            Delete {pastEvents.length} Past Event(s)
+                        </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Delete all past events?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                This will permanently delete {pastEvents.length} event(s) that occurred before today. This action cannot be undone.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleDeletePastEvents} className="bg-destructive hover:bg-destructive/90">
+                                Yes, Delete Events
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
             </CardFooter>
         </Card>
     </div>

@@ -51,8 +51,8 @@ service cloud.firestore {
       allow read: if isSignedIn();
       // A user can create an event if they are the creator specified in the new document.
       allow create: if isOwner(request.resource.data.creatorId);
-      // Only the creator of an existing event can update or delete it.
-      allow update, delete: if isOwner(resource.data.creatorId);
+      // Only the creator or an admin can update or delete an event.
+      allow update, delete: if isOwner(resource.data.creatorId) || isAdmin();
     }
   }
 }
