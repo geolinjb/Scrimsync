@@ -23,7 +23,7 @@ export function DiscordIntegration() {
   const [webhookUrl, setWebhookUrl] = React.useState('');
   const [isSaving, setIsSaving] = React.useState(false);
   const [isTesting, setIsTesting] = React.useState(false);
-  const [instruction, setInstruction] = React.useState<string | null>(null);
+  const [resultMessage, setResultMessage] = React.useState<string | null>(null);
 
   const handleSetWebhook = async () => {
     if (!webhookUrl) {
@@ -36,17 +36,17 @@ export function DiscordIntegration() {
     }
     if (!functions) return;
     setIsSaving(true);
-    setInstruction(null);
+    setResultMessage(null);
 
     const setWebhookUrl = httpsCallable(functions, 'setWebhookUrl');
     try {
       const result = await setWebhookUrl({ url: webhookUrl });
       const data = result.data as { success: boolean; message: string };
       if (data.success) {
-        setInstruction(data.message);
+        setResultMessage(data.message);
         toast({
-          title: 'Action Required',
-          description: 'Please follow the command-line instructions shown below.',
+          title: 'Success!',
+          description: 'The webhook URL has been saved securely.',
         });
       }
     } catch (error) {
@@ -114,15 +114,12 @@ export function DiscordIntegration() {
              <p className='text-xs text-muted-foreground'>Your URL is kept secret and is only used by secure backend functions.</p>
         </div>
 
-        {instruction && (
+        {resultMessage && (
             <Alert>
                 <AlertTriangle className="h-4 w-4" />
-                <AlertTitle>Follow These Steps</AlertTitle>
+                <AlertTitle>Action Required</AlertTitle>
                 <AlertDescription>
-                    <p>To securely save your webhook, run the following command in your local terminal:</p>
-                    <pre className="mt-2 p-2 bg-muted rounded-md text-xs whitespace-pre-wrap">
-                        <code>{instruction}</code>
-                    </pre>
+                    <p>{resultMessage}</p>
                 </AlertDescription>
             </Alert>
         )}

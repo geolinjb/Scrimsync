@@ -4,11 +4,15 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import fetch from "node-fetch";
+import { setGlobalOptions } from "firebase-functions/v2";
+import { SecretManagerServiceClient } from "@google-cloud/secret-manager";
 
 // Initialize the Firebase Admin SDK
 admin.initializeApp();
-
 const db = admin.firestore();
+const secretManager = new SecretManagerServiceClient();
+
+setGlobalOptions({ region: 'us-central1' });
 
 // Define the shape of your data
 interface ScheduledEvent {
@@ -29,8 +33,6 @@ interface Vote {
     timeslot: string; // format: 'YYYY-MM-DD_HH:mm AM/PM'
 }
 
-// This function now provides instructions on how to set the secret.
-// It does not set the secret itself.
 const setWebhookUrlCallable = functions.https.onCall(async (data, context) => {
     // Make sure the user is an admin
     if (context.auth?.uid !== "BpA8qniZ03YttlnTR25nc6RrWrZ2") {
@@ -42,13 +44,54 @@ const setWebhookUrlCallable = functions.https.onCall(async (data, context) => {
         throw new functions.https.HttpsError("invalid-argument", "A valid Discord webhook URL is required.");
     }
 
-    const command = `firebase functions:secrets:set DISCORD_WEBHOOK_URL`;
-    console.log(`Admin ${context.auth.uid} requested to set webhook. Instructing to run: ${command}`);
+    const secretName = "DISCORD_WEBHOOK_URL";
+    const projectId = process.env.GCP_PROJECT;
 
-    return {
-      success: true,
-      message: `Run the command \`${command}\` in your terminal. When prompted for the secret value, paste your webhook URL. Finally, redeploy your functions with \`firebase deploy --only functions\` to apply the change.`,
-    };
+    if (!projectId) {
+        throw new functions.https.HttpsError('failed-precondition', 'Google Cloud project ID is not available.');
+    }
+    
+    const parent = `projects/${projectId}`;
+    const secretPath = `${parent}/secrets/${secretName}`;
+
+    try {
+        // Check if the secret exists
+        try {
+            await secretManager.getSecret({ name: secretPath });
+        } catch (error: any) {
+            if (error.code === 5) { // NOT_FOUND
+                // Secret does not exist, so create it
+                await secretManager.createSecret({
+                    parent: parent,
+                    secretId: secretName,
+                    secret: {
+                        replication: {
+                            automatic: {},
+                        },
+                    },
+                });
+            } else {
+                throw error; // Re-throw other errors
+            }
+        }
+
+        // Add the secret version
+        await secretManager.addSecretVersion({
+            parent: secretPath,
+            payload: {
+                data: Buffer.from(webhookUrl, 'utf8'),
+            },
+        });
+
+        return {
+            success: true,
+            message: "Discord webhook URL has been securely saved. Please redeploy functions with `firebase deploy --only functions` to apply the change.",
+        };
+
+    } catch (error: any) {
+        console.error("Error setting secret:", error);
+        throw new functions.https.HttpsError("internal", "Failed to save the webhook URL. Check the function logs for details.", error.message);
+    }
 });
 
 
@@ -61,7 +104,7 @@ const testDiscordWebhookCallable = functions.runWith({
 
     const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
     if (!webhookUrl) {
-        throw new functions.https.HttpsError("failed-precondition", "Discord webhook URL is not configured. Please save it using the instructions and redeploy the functions.");
+        throw new functions.https.HttpsError("failed-precondition", "Discord webhook URL is not configured. Please set it and redeploy the functions.");
     }
 
     const testMessage = {
