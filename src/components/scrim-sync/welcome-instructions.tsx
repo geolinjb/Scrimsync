@@ -13,7 +13,7 @@ export function WelcomeInstructions({ username }: WelcomeInstructionsProps) {
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Welcome, {username}!</AlertTitle>
             <AlertDescription>
-                <p>Your main task is to mark your weekly availability on the grid below.</p>
+                <p>Choose the "Daily" or "Weekly" tab to mark your availability. Use the bulk-selection features in each view to save time!</p>
                 <p className='text-muted-foreground text-xs mt-1'>
                     This helps admins schedule practices and scrims effectively. Players who do not submit availability may not be included in the roster.
                 </p>

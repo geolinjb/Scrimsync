@@ -75,7 +75,7 @@ export function IndividualVotingGrid({
           <div className='flex items-start justify-between'>
               <div className="flex items-center gap-3">
               <Vote className="w-6 h-6 text-gold" />
-              <CardTitle>Set Your Weekly Availability</CardTitle>
+              <CardTitle>Set Your Availability (Weekly)</CardTitle>
               </div>
               <div className="flex items-center gap-1">
                 <Tooltip>
@@ -103,7 +103,7 @@ export function IndividualVotingGrid({
               </div>
           </div>
           <CardDescription>
-            Click on a time slot to mark yourself as available. Use the header buttons to select entire days or time blocks.
+            Click a day's header button to select all times for that day. Click a time slot's button in the first column to select that time for the entire week.
           </CardDescription>
         </CardHeader>
         <CardContent>

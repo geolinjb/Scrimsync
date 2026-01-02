@@ -94,7 +94,7 @@ export function DailyVotingGrid({
           <div className='flex items-start justify-between'>
               <div className="flex items-center gap-3">
               <Vote className="w-6 h-6 text-gold" />
-              <CardTitle>Set Your Availability</CardTitle>
+              <CardTitle>Set Your Availability (Daily)</CardTitle>
               </div>
               <div className="flex items-center gap-1">
                 <Tooltip>
@@ -122,7 +122,7 @@ export function DailyVotingGrid({
               </div>
           </div>
           <CardDescription>
-            Focus on one day at a time. Use the arrows to navigate through the week.
+            Focus on one day at a time. Use the arrows to navigate the week, and click the circle button at the top to select all times for the chosen day.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -173,7 +173,7 @@ export function DailyVotingGrid({
                                 ) : (
                                     <Circle className="w-5 h-5 text-muted-foreground/30" />
                                 )}
-                                <span className={cn('font-medium text-foreground')}>{slot}</span>
+                                <span className={cn('font-medium text-black')}>{slot}</span>
                             </div>
                              {event && (
                                 <Tooltip>
