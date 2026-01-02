@@ -21,6 +21,10 @@
         "role": {
           "type": "string",
           "description": "The user's favorite in-game role."
+        },
+        "isRosterMember": {
+            "type": "boolean",
+            "description": "Whether the user is an official member of the team roster."
         }
       },
       "required": [

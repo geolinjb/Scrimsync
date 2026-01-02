@@ -21,10 +21,16 @@ service cloud.firestore {
      * @path /users/{userId}
      */
     match /users/{userId} {
-      // Any signed-in user can read profiles, and the admin can list all of them.
-      allow read, list: if isSignedIn();
-      // Only the owner can create or update their profile.
-      allow create, update: if isOwner(userId);
+      // Any signed-in user can read profiles.
+      allow read: if isSignedIn();
+
+      // On creation, a user can only set their basic info. 'isRosterMember' must be false or absent.
+      allow create: if isOwner(userId) && (!('isRosterMember' in request.resource.data) || request.resource.data.isRosterMember == false);
+      
+      // An owner can update their own non-admin fields.
+      // An admin can update any field, including 'isRosterMember'.
+      allow update: if (isOwner(userId) && !('isRosterMember' in request.resource.data.diff(resource.data))) || isAdmin();
+      
       // No one can delete user profiles from the client.
       allow delete: if false;
     }

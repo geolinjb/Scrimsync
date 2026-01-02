@@ -16,6 +16,7 @@ export type PlayerProfileData = {
   username: string;
   favoriteTank: string;
   role: (typeof gameRoles)[number] | '';
+  isRosterMember?: boolean;
 };
 
 export type Vote = {
