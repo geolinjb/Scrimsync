@@ -124,17 +124,19 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent }:
             title: 'User Deleted',
             description: `The user and their ${votesSnapshot.size} vote(s) have been removed.`,
         });
-    } catch (error) {
+    } catch (error: any) {
         console.error('Error deleting user:', error);
         toast({
             variant: 'destructive',
             title: 'Error',
             description: 'Could not delete user and their data.',
         });
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-            path: `/users/${userId}`,
-            operation: 'delete',
-        }));
+        if (error.code === 'permission-denied') {
+             errorEmitter.emit('permission-error', new FirestorePermissionError({
+                path: `/users/${userId}`,
+                operation: 'delete',
+            }));
+        }
     } finally {
         setDeletingUserId(null);
     }
