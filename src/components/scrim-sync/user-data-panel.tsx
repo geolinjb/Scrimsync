@@ -363,7 +363,6 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent }:
                             <TableHead>Username</TableHead>
                             <TableHead>Favorite Tank</TableHead>
                             <TableHead>Role</TableHead>
-                            <TableHead className='text-right'>Actions</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -372,29 +371,6 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent }:
                             <TableCell className="font-medium">{profile.username || '(Not set)'}</TableCell>
                             <TableCell>{profile.favoriteTank || '(Not set)'}</TableCell>
                             <TableCell>{profile.role || '(Not set)'}</TableCell>
-                            <TableCell className="text-right">
-                                <AlertDialog>
-                                    <AlertDialogTrigger asChild>
-                                        <Button variant="ghost" size="icon" disabled={deletingUserId === profile.id}>
-                                            {deletingUserId === profile.id ? <Loader className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4 text-destructive" />}
-                                        </Button>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                        <AlertDialogHeader>
-                                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                            <AlertDialogDescription>
-                                                This will permanently delete the user '{profile.username}' and all of their voting data. This action cannot be undone.
-                                            </AlertDialogDescription>
-                                        </AlertDialogHeader>
-                                        <AlertDialogFooter>
-                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                            <AlertDialogAction onClick={() => handleDeleteUser(profile.id, profile.username)} className="bg-destructive hover:bg-destructive/90">
-                                                Delete User
-                                            </AlertDialogAction>
-                                        </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                </AlertDialog>
-                            </TableCell>
                         </TableRow>
                         ))}
                     </TableBody>
@@ -592,3 +568,5 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent }:
     </div>
   );
 }
+
+    
