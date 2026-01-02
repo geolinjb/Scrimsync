@@ -102,7 +102,7 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent }:
     return events.filter(e => isBefore(new Date(e.date), today));
   }, [events]);
 
-  const handleDeleteUser = async (userId: string) => {
+  const handleDeleteUser = async (userId: string, username: string) => {
     if (!firestore) return;
     setDeletingUserId(userId);
     try {
@@ -122,7 +122,7 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent }:
         await batch.commit();
         toast({
             title: 'User Deleted',
-            description: `The user and their ${votesSnapshot.size} vote(s) have been removed.`,
+            description: `User '${username}' and their ${votesSnapshot.size} vote(s) have been removed.`,
         });
     } catch (error: any) {
         console.error('Error deleting user:', error);
@@ -388,7 +388,7 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent }:
                                         </AlertDialogHeader>
                                         <AlertDialogFooter>
                                             <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                            <AlertDialogAction onClick={() => handleDeleteUser(profile.id)} className="bg-destructive hover:bg-destructive/90">
+                                            <AlertDialogAction onClick={() => handleDeleteUser(profile.id, profile.username)} className="bg-destructive hover:bg-destructive/90">
                                                 Delete User
                                             </AlertDialogAction>
                                         </AlertDialogFooter>
