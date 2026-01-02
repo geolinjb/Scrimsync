@@ -22,7 +22,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from '../ui/skeleton';
-import type { PlayerProfileData, Vote, ScheduleEvent, AllVotes as AllVotesType } from '@/lib/types';
+import type { PlayerProfileData, Vote, ScheduleEvent } from '@/lib/types';
 import { timeSlots, MINIMUM_PLAYERS } from '@/lib/types';
 import { Button } from '../ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -37,7 +37,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { useCollection, useFirestore, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
@@ -46,7 +46,7 @@ import { Badge } from '../ui/badge';
 import { ScrollArea } from '../ui/scroll-area';
 import { ReminderGenerator } from './reminder-generator';
 import { Switch } from '../ui/switch';
-import { Label } from '../ui/label';
+import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 type UserDataPanelProps = {
   allProfiles: PlayerProfileData[] | null;
@@ -68,27 +68,7 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent }:
     () => (firestore ? collection(firestore, 'votes') : null),
     [firestore]
   );
-
   const { data: allVotesData, isLoading: areVotesLoading } = useCollection<Vote>(votesCollectionRef);
-
-  const allVotes: AllVotesType = React.useMemo(() => {
-    if (!allVotesData || !allProfiles) return {};
-    const profileMap = new Map(allProfiles.map(p => [p.id, p.username]));
-    return allVotesData.reduce((acc, vote) => {
-      const [dateKey, slot] = vote.timeslot.split('_');
-      const voteKey = `${dateKey}-${slot}`;
-      const username = profileMap.get(vote.userId);
-
-      if (username) {
-        if (!acc[voteKey]) {
-          acc[voteKey] = [];
-        }
-        acc[voteKey].push(username);
-      }
-      return acc;
-    }, {} as AllVotesType);
-  }, [allVotesData, allProfiles]);
-
 
   const weekStart = React.useMemo(() => startOfWeek(selectedDate, { weekStartsOn: 1 }), [selectedDate]);
   const weekEnd = React.useMemo(() => endOfWeek(selectedDate, { weekStartsOn: 1 }), [selectedDate]);
@@ -109,7 +89,7 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent }:
 
   const allRosterPlayerNames = React.useMemo(() => {
       if (!allProfiles) return [];
-      return allProfiles.filter(p => p.isRosterMember).map(p => p.username).filter(Boolean);
+      return allProfiles.filter(p => p.isRosterMember).map(p => p.username).filter(Boolean) as string[];
   }, [allProfiles]);
 
   const sortedEvents = React.useMemo(() => {
@@ -126,7 +106,7 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent }:
   const handleRosterStatusChange = (profileId: string, newStatus: boolean) => {
     if (!firestore) return;
     const profileRef = doc(firestore, 'users', profileId);
-    updateDocumentNonBlocking(profileRef, { isRosterMember: newStatus });
+    setDocumentNonBlocking(profileRef, { isRosterMember: newStatus }, { merge: true });
     toast({
         title: "Roster Updated",
         description: `Player status has been changed to ${newStatus ? 'Roster Member' : 'Not on Roster'}.`
@@ -264,8 +244,8 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent }:
   };
 
   const handleCopyAllPlayers = () => {
-    if (!allProfiles || allProfiles.length === 0) {
-      toast({ description: 'No players to copy.' });
+    if (!allRosterPlayerNames || allRosterPlayerNames.length === 0) {
+      toast({ description: 'No roster players to copy.' });
       return;
     }
     const header = 'All Roster Players:';
@@ -367,7 +347,7 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent }:
                                 <div className='flex items-center justify-end'>
                                     <Switch
                                         id={`roster-switch-${profile.id}`}
-                                        checked={profile.isRosterMember}
+                                        checked={!!profile.isRosterMember}
                                         onCheckedChange={(checked) => handleRosterStatusChange(profile.id, checked)}
                                         aria-label='Toggle Roster Status'
                                     />
@@ -476,7 +456,16 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent }:
 
         <ReminderGenerator 
             events={events} 
-            allVotes={allVotes} 
+            allVotes={areVotesLoading ? {} : (allVotesData || []).reduce((acc: any, vote: Vote) => {
+                const [dateKey, slot] = vote.timeslot.split('_');
+                const voteKey = `${dateKey}-${slot}`;
+                const username = allProfiles?.find(p => p.id === vote.userId)?.username;
+                if(username) {
+                    if(!acc[voteKey]) acc[voteKey] = [];
+                    acc[voteKey].push(username);
+                }
+                return acc;
+            }, {})} 
             allProfiles={allProfiles || []} 
         />
         

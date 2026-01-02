@@ -81,14 +81,22 @@ export function TeamSyncDashboard({ user }: TeamSyncDashboardProps) {
       if (!firestore) return;
       setIsSavingProfile(true);
       const profileDocRef = doc(firestore, 'users', user.uid);
-      setDocumentNonBlocking(profileDocRef, { ...newProfile, id: user.uid }, { merge: true });
+      
+      const dataToSave = { ...newProfile, id: user.uid };
+      // Ensure non-admins cannot set themselves as roster members
+      if (!isAdmin) {
+          delete dataToSave.isRosterMember;
+      }
+      
+      setDocumentNonBlocking(profileDocRef, dataToSave, { merge: true });
+
       toast({
         title: 'Profile Saved!',
         description: 'Your profile has been successfully updated.',
       });
       setTimeout(() => setIsSavingProfile(false), 1000);
     },
-    [firestore, user.uid, toast]
+    [firestore, user.uid, toast, isAdmin]
   );
 
   const userVotes: UserVotes = React.useMemo(() => {
@@ -422,9 +430,10 @@ const hasLastWeekVotes = React.useMemo(() => {
     setCurrentDate(new Date());
   };
   
-  const allPlayerNames = React.useMemo(() => {
+  const allRosterPlayerNames = React.useMemo(() => {
       if (!allProfiles) return [];
-      return allProfiles.map(p => p.username).filter(Boolean);
+      // Only include players marked as roster members
+      return allProfiles.filter(p => p.isRosterMember).map(p => p.username).filter(Boolean) as string[];
   }, [allProfiles]);
 
   const isLoading = areEventsLoading || areVotesLoading || areProfilesLoading;
@@ -513,7 +522,7 @@ const hasLastWeekVotes = React.useMemo(() => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-1 space-y-8">
                 <PlayerProfile 
-                    initialProfile={profile ?? { id: user.uid, username: user.displayName || '', favoriteTank: '', role: '' }} 
+                    initialProfile={profile ?? { id: user.uid, username: user.displayName || '', favoriteTank: '', role: '', isRosterMember: false }} 
                     onSave={handleProfileSave}
                     isSaving={isSavingProfile}
                     isLoading={isProfileLoading}
@@ -524,7 +533,7 @@ const hasLastWeekVotes = React.useMemo(() => {
                 <ScheduledEvents 
                     events={scheduledEvents} 
                     votes={allVotes}
-                    allPlayerNames={allPlayerNames}
+                    allPlayerNames={allRosterPlayerNames}
                     onRemoveEvent={handleRemoveEvent}
                     currentUser={user}
                 />
@@ -552,7 +561,7 @@ const hasLastWeekVotes = React.useMemo(() => {
                 allVotes={allVotes}
                 scheduledEvents={scheduledEvents}
                 currentDate={currentDate}
-                allPlayerNames={allPlayerNames}
+                allPlayerNames={allRosterPlayerNames}
                 />
             )}
             </TabsContent>

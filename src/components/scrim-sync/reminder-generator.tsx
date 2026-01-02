@@ -60,7 +60,7 @@ export function ReminderGenerator({ events, allVotes, allProfiles }: ReminderGen
     if (!event) return;
 
     const rosterProfiles = allProfiles.filter(p => p.isRosterMember);
-    const rosterPlayerNames = rosterProfiles.map(p => p.username).filter(Boolean);
+    const rosterPlayerNames = rosterProfiles.map(p => p.username).filter(Boolean) as string[];
 
     // Logic to get players
     const dateKey = format(new Date(event.date), 'yyyy-MM-dd');

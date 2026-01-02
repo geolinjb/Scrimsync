@@ -24,7 +24,7 @@
         },
         "isRosterMember": {
             "type": "boolean",
-            "description": "Whether the user is an official member of the team roster."
+            "description": "Whether the user is an official member of the team roster. Can only be set by an admin."
         }
       },
       "required": [

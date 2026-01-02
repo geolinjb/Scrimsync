@@ -25,11 +25,11 @@ service cloud.firestore {
       allow read: if isSignedIn();
 
       // On creation, a user can only set their basic info. 'isRosterMember' must be false or absent.
-      allow create: if isOwner(userId) && (!('isRosterMember' in request.resource.data) || request.resource.data.isRosterMember == false);
+      allow create: if isOwner(userId) && (request.resource.data.isRosterMember == false || !('isRosterMember' in request.resource.data));
       
       // An owner can update their own non-admin fields.
       // An admin can update any field, including 'isRosterMember'.
-      allow update: if (isOwner(userId) && !('isRosterMember' in request.resource.data.diff(resource.data))) || isAdmin();
+      allow update: if (isOwner(userId) && !('isRosterMember' in request.resource.data)) || isAdmin();
       
       // No one can delete user profiles from the client.
       allow delete: if false;
