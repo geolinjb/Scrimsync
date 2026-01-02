@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { ShieldCheck, User, Users, Trash2, Loader, ChevronLeft, ChevronRight, Copy, ClipboardList, CalendarX2 } from 'lucide-react';
-import { collection, doc, writeBatch } from 'firebase/firestore';
+import { collection, doc, writeBatch, query, where, getDocs } from 'firebase/firestore';
 import { format, startOfWeek, endOfWeek, addDays, parseISO, startOfToday, isBefore } from 'date-fns';
 
 import {
@@ -58,6 +58,7 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent }:
   const firestore = useFirestore();
   const [isDeleting, setIsDeleting] = React.useState(false);
   const [isDeletingEvents, setIsDeletingEvents] = React.useState(false);
+  const [deletingUserId, setDeletingUserId] = React.useState<string | null>(null);
   const [selectedDate, setSelectedDate] = React.useState(() => new Date());
   const [selectedRosterDate, setSelectedRosterDate] = React.useState<string>('');
   const [selectedRosterTime, setSelectedRosterTime] = React.useState<string>('');
@@ -100,6 +101,44 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent }:
     const today = startOfToday();
     return events.filter(e => isBefore(new Date(e.date), today));
   }, [events]);
+
+  const handleDeleteUser = async (userId: string) => {
+    if (!firestore) return;
+    setDeletingUserId(userId);
+    try {
+        const batch = writeBatch(firestore);
+
+        // 1. Delete user profile
+        const userRef = doc(firestore, 'users', userId);
+        batch.delete(userRef);
+
+        // 2. Find and delete all votes by that user
+        const votesQuery = query(collection(firestore, 'votes'), where('userId', '==', userId));
+        const votesSnapshot = await getDocs(votesQuery);
+        votesSnapshot.forEach(voteDoc => {
+            batch.delete(voteDoc.ref);
+        });
+
+        await batch.commit();
+        toast({
+            title: 'User Deleted',
+            description: `The user and their ${votesSnapshot.size} vote(s) have been removed.`,
+        });
+    } catch (error) {
+        console.error('Error deleting user:', error);
+        toast({
+            variant: 'destructive',
+            title: 'Error',
+            description: 'Could not delete user and their data.',
+        });
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: `/users/${userId}`,
+            operation: 'delete',
+        }));
+    } finally {
+        setDeletingUserId(null);
+    }
+  };
 
   const handleDeleteWeeksVotes = async () => {
     if (!firestore || votesInSelectedWeek.length === 0) {
@@ -319,9 +358,10 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent }:
                     <Table>
                     <TableHeader className="sticky top-0 bg-muted/80 backdrop-blur-sm">
                         <TableRow>
-                        <TableHead>Username</TableHead>
-                        <TableHead>Favorite Tank</TableHead>
-                        <TableHead>Role</TableHead>
+                            <TableHead>Username</TableHead>
+                            <TableHead>Favorite Tank</TableHead>
+                            <TableHead>Role</TableHead>
+                            <TableHead className='text-right'>Actions</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -330,6 +370,29 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent }:
                             <TableCell className="font-medium">{profile.username || '(Not set)'}</TableCell>
                             <TableCell>{profile.favoriteTank || '(Not set)'}</TableCell>
                             <TableCell>{profile.role || '(Not set)'}</TableCell>
+                            <TableCell className="text-right">
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button variant="ghost" size="icon" disabled={deletingUserId === profile.id}>
+                                            {deletingUserId === profile.id ? <Loader className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4 text-destructive" />}
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                This will permanently delete the user '{profile.username}' and all of their voting data. This action cannot be undone.
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                            <AlertDialogAction onClick={() => handleDeleteUser(profile.id)} className="bg-destructive hover:bg-destructive/90">
+                                                Delete User
+                                            </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            </TableCell>
                         </TableRow>
                         ))}
                     </TableBody>

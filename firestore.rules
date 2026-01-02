@@ -27,8 +27,8 @@ service cloud.firestore {
       // Users can create and update their own profile.
       allow write: if isOwner(userId);
       
-      // No one can delete user profiles from the client.
-      allow delete: if false;
+      // Only the admin can delete user profiles.
+      allow delete: if isAdmin();
     }
     
     /**
