@@ -172,7 +172,7 @@ export function HeatmapGrid({
                         <TableRow>
                             <TableHead className="w-[100px] sticky left-0 bg-muted/50 backdrop-blur-sm z-40 text-center font-bold">Time</TableHead>
                             {weekDates.map(date => (
-                                <TableHead key={date.toISOString()} className={cn("text-center p-2", isToday(date) && "bg-primary/10")}>
+                                <TableHead key={date.toISOString()} className={cn("text-center p-2", isToday(date) && "bg-gold-10")}>
                                   <div className='min-w-[6rem] font-bold'>{format(date, 'EEE')}</div>
                                   <div className="font-normal text-muted-foreground">{format(date, 'd/M')}</div>
                                 </TableHead>
@@ -198,7 +198,7 @@ export function HeatmapGrid({
                                                         className={cn(
                                                             'relative h-14 w-full flex flex-col justify-center items-center text-center p-1 transition-all duration-300 cursor-pointer border-l border-t border-border glow-on-hover',
                                                             getHeatmapColor(voteCount),
-                                                            isToday(date) && 'bg-primary/5'
+                                                            isToday(date) && 'bg-gold-10'
                                                         )}
                                                     >
                                                         <div className="relative z-10 text-sm font-bold text-foreground/90">

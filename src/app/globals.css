@@ -63,3 +63,11 @@
 .text-gold {
   color: hsl(var(--gold));
 }
+
+.bg-gold-10 {
+  background-color: hsl(var(--gold) / 0.1);
+}
+
+.border-gold-50 {
+    border-color: hsl(var(--gold) / 0.5);
+}

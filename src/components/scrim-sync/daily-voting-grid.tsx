@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { motion } from 'framer-motion';
-import { Check, Vote, CheckCircle, Circle, Swords, Trophy, Trash2, ClipboardCopy, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Vote, CheckCircle, Circle, Swords, Trophy, Trash2, ClipboardCopy, ChevronLeft, ChevronRight } from 'lucide-react';
 import { format, isToday } from 'date-fns';
 
 import type { UserVotes, ScheduleEvent } from '@/lib/types';
@@ -122,11 +122,11 @@ export function DailyVotingGrid({
               </div>
           </div>
           <CardDescription>
-            Focus on one day at a time. Use the arrows to navigate the week, and click the circle button at the top to select all times for the chosen day.
+            Focus on one day at a time. Use the arrows to navigate the week, and click the circle button at the top to select all times for the chosen day. There's also a "Weekly View" tab for a broader look.
           </CardDescription>
         </CardHeader>
         <CardContent>
-            <div className={cn('flex items-center justify-between p-4 border-b rounded-t-lg bg-muted', isToday(selectedDate) && 'bg-primary/10 border-primary/50')}>
+            <div className={cn('flex items-center justify-between p-4 border-b rounded-t-lg bg-muted', isToday(selectedDate) && 'bg-gold-10 border-gold-50')}>
                 <Button variant="outline" size="icon" onClick={handlePreviousDay}>
                     <ChevronLeft className="w-4 h-4" />
                 </Button>
@@ -173,7 +173,7 @@ export function DailyVotingGrid({
                                 ) : (
                                     <Circle className="w-5 h-5 text-muted-foreground/30" />
                                 )}
-                                <span className={cn('font-medium text-black')}>{slot}</span>
+                                <span className='font-medium'>{slot}</span>
                             </div>
                              {event && (
                                 <Tooltip>

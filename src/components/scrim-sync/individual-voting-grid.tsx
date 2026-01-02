@@ -103,7 +103,7 @@ export function IndividualVotingGrid({
               </div>
           </div>
           <CardDescription>
-            Click a day's header button to select all times for that day. Click a time slot's button in the first column to select that time for the entire week.
+            Click a day's header button to select all times for that day. Click a time slot's button in the first column to select that time for the entire week. Check the "Daily View" for a more focused experience.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -117,7 +117,7 @@ export function IndividualVotingGrid({
                               const allDayVoted = timeSlots.every(slot => userVotes[dateKey]?.has(slot));
 
                               return (
-                                  <TableHead key={date.toISOString()} className={cn("text-center p-2", isToday(date) && "bg-primary/10")}>
+                                  <TableHead key={date.toISOString()} className={cn("text-center p-2", isToday(date) && "bg-gold-10")}>
                                     <div className='flex flex-col items-center gap-1 min-w-[6rem]'>
                                         <span className='font-semibold'>{format(date, 'EEE')}</span>
                                         <span className="font-normal text-muted-foreground">{format(date, 'd/M')}</span>
@@ -171,7 +171,7 @@ export function IndividualVotingGrid({
                                                       'h-14 w-full cursor-pointer flex justify-center items-center transition-colors duration-200 border-l border-t relative group',
                                                       'hover:bg-accent',
                                                       isVoted ? 'bg-primary/20' : 'bg-transparent',
-                                                      isToday(date) && 'bg-primary/5',
+                                                      isToday(date) && 'bg-gold-10',
                                                   )}
                                                   whileTap={{ scale: 0.95 }}
                                               >
