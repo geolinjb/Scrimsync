@@ -24,12 +24,8 @@ service cloud.firestore {
       // Any signed-in user can read profiles.
       allow read: if isSignedIn();
 
-      // On creation, a user can only set their basic info. 'isRosterMember' must be false or absent.
-      allow create: if isOwner(userId) && (request.resource.data.isRosterMember == false || !('isRosterMember' in request.resource.data));
-      
-      // An owner can update their own non-admin fields.
-      // An admin can update any field, including 'isRosterMember'.
-      allow update: if (isOwner(userId) && !('isRosterMember' in request.resource.data)) || isAdmin();
+      // Users can create and update their own profile.
+      allow write: if isOwner(userId);
       
       // No one can delete user profiles from the client.
       allow delete: if false;

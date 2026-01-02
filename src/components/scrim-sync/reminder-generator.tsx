@@ -59,19 +59,15 @@ export function ReminderGenerator({ events, allVotes, allProfiles }: ReminderGen
     const event = upcomingEvents.find(e => e.id === eventId);
     if (!event) return;
 
-    const rosterProfiles = allProfiles.filter(p => p.isRosterMember);
-    const rosterPlayerNames = rosterProfiles.map(p => p.username).filter(Boolean) as string[];
+    const allPlayerNames = allProfiles.map(p => p.username).filter(Boolean) as string[];
 
     // Logic to get players
     const dateKey = format(new Date(event.date), 'yyyy-MM-dd');
     const voteKey = `${dateKey}-${event.time}`;
-    const allAvailablePlayers = allVotes[voteKey] || [];
+    const availablePlayers = allVotes[voteKey] || [];
     
-    // Filter available players to only include roster members
-    const availableRosterPlayers = allAvailablePlayers.filter(p => rosterPlayerNames.includes(p));
-
-    const unavailableRosterPlayers = rosterPlayerNames.filter(p => !availableRosterPlayers.includes(p));
-    const neededPlayers = Math.max(0, MINIMUM_PLAYERS - availableRosterPlayers.length);
+    const unavailablePlayers = allPlayerNames.filter(p => !availablePlayers.includes(p));
+    const neededPlayers = Math.max(0, MINIMUM_PLAYERS - availablePlayers.length);
     
     // Time formatting
     const timeRemaining = formatTimeRemaining(new Date(event.date), event.time);
@@ -80,13 +76,13 @@ export function ReminderGenerator({ events, allVotes, allProfiles }: ReminderGen
     // Message construction (Discord Markdown)
     const header = `**🔔 REMINDER: ${event.type.toUpperCase()} @Spartan [Tour chad]! 🔔**`;
     const eventInfo = `> **When:** ${formattedDate} at **${event.time}** (Starts in ~${timeRemaining})`;
-    const rosterHeader = `--- \n**ROSTER (${availableRosterPlayers.length}/${MINIMUM_PLAYERS})**`;
+    const rosterHeader = `--- \n**ROSTER (${availablePlayers.length}/${MINIMUM_PLAYERS})**`;
     
-    const availableHeader = `✅ **Available Roster Players (${availableRosterPlayers.length}):**`;
-    const availableList = availableRosterPlayers.length > 0 ? availableRosterPlayers.map(p => `- ${p}`).join('\n') : '> - *None yet*';
+    const availableHeader = `✅ **Available Players (${availablePlayers.length}):**`;
+    const availableList = availablePlayers.length > 0 ? availablePlayers.map(p => `- ${p}`).join('\n') : '> - *None yet*';
     
-    const unavailableHeader = `❌ **Unavailable Roster Players (${unavailableRosterPlayers.length}):**`;
-    const unavailableList = unavailableRosterPlayers.length > 0 ? unavailableRosterPlayers.map(p => `- ${p}`).join('\n') : '> - *Everyone is available!*';
+    const unavailableHeader = `❌ **Unavailable Players (${unavailablePlayers.length}):**`;
+    const unavailableList = unavailablePlayers.length > 0 ? unavailablePlayers.map(p => `- ${p}`).join('\n') : '> - *Everyone is available!*';
     
     const neededText = `🔥 **Players Needed: ${neededPlayers}**`;
     const footer = `\n---\nVote or update your availability:\nhttps://scrimsync.vercel.app/`;

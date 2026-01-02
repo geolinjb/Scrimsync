@@ -83,10 +83,6 @@ export function TeamSyncDashboard({ user }: TeamSyncDashboardProps) {
       const profileDocRef = doc(firestore, 'users', user.uid);
       
       const dataToSave = { ...newProfile, id: user.uid };
-      // Ensure non-admins cannot set themselves as roster members
-      if (!isAdmin) {
-          delete dataToSave.isRosterMember;
-      }
       
       setDocumentNonBlocking(profileDocRef, dataToSave, { merge: true });
 
@@ -96,7 +92,7 @@ export function TeamSyncDashboard({ user }: TeamSyncDashboardProps) {
       });
       setTimeout(() => setIsSavingProfile(false), 1000);
     },
-    [firestore, user.uid, toast, isAdmin]
+    [firestore, user.uid, toast]
   );
 
   const userVotes: UserVotes = React.useMemo(() => {
@@ -430,10 +426,9 @@ const hasLastWeekVotes = React.useMemo(() => {
     setCurrentDate(new Date());
   };
   
-  const allRosterPlayerNames = React.useMemo(() => {
+  const allPlayerNames = React.useMemo(() => {
       if (!allProfiles) return [];
-      // Only include players marked as roster members
-      return allProfiles.filter(p => p.isRosterMember).map(p => p.username).filter(Boolean) as string[];
+      return allProfiles.map(p => p.username).filter(Boolean) as string[];
   }, [allProfiles]);
 
   const isLoading = areEventsLoading || areVotesLoading || areProfilesLoading;
@@ -522,7 +517,7 @@ const hasLastWeekVotes = React.useMemo(() => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-1 space-y-8">
                 <PlayerProfile 
-                    initialProfile={profile ?? { id: user.uid, username: user.displayName || '', favoriteTank: '', role: '', isRosterMember: false }} 
+                    initialProfile={profile ?? { id: user.uid, username: user.displayName || '', favoriteTank: '', role: '' }} 
                     onSave={handleProfileSave}
                     isSaving={isSavingProfile}
                     isLoading={isProfileLoading}
@@ -533,7 +528,7 @@ const hasLastWeekVotes = React.useMemo(() => {
                 <ScheduledEvents 
                     events={scheduledEvents} 
                     votes={allVotes}
-                    allPlayerNames={allRosterPlayerNames}
+                    allPlayerNames={allPlayerNames}
                     onRemoveEvent={handleRemoveEvent}
                     currentUser={user}
                 />
@@ -561,7 +556,7 @@ const hasLastWeekVotes = React.useMemo(() => {
                 allVotes={allVotes}
                 scheduledEvents={scheduledEvents}
                 currentDate={currentDate}
-                allPlayerNames={allRosterPlayerNames}
+                allPlayerNames={allPlayerNames}
                 />
             )}
             </TabsContent>
