@@ -173,7 +173,7 @@ export function DailyVotingGrid({
                                 ) : (
                                     <Circle className="w-5 h-5 text-muted-foreground/30" />
                                 )}
-                                <span className={cn('font-medium', isVoted ? 'text-primary-foreground' : 'text-foreground')}>{slot}</span>
+                                <span className={cn('font-medium text-foreground')}>{slot}</span>
                             </div>
                              {event && (
                                 <Tooltip>
