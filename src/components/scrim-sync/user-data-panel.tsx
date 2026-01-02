@@ -129,7 +129,7 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent }:
         toast({
             variant: 'destructive',
             title: 'Error',
-            description: 'Could not delete user and their data.',
+            description: 'Could not delete user and their data. Check console for details.',
         });
         if (error.code === 'permission-denied') {
              errorEmitter.emit('permission-error', new FirestorePermissionError({
@@ -592,5 +592,4 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent }:
     </div>
   );
 }
-
     
