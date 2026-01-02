@@ -25,9 +25,8 @@ service cloud.firestore {
       allow read: if isSignedIn();
 
       // Users can create and update their own profile.
+      // Admin can delete any profile.
       allow write: if isOwner(userId);
-      
-      // Only the admin can delete user profiles.
       allow delete: if isAdmin();
     }
     
@@ -58,3 +57,5 @@ service cloud.firestore {
     }
   }
 }
+
+    
