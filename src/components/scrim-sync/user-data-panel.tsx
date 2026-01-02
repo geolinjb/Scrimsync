@@ -113,8 +113,8 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent }:
         batch.delete(userRef);
 
         // 2. Find and delete all votes by that user
-        const votesQuery = query(collection(firestore, 'votes'), where('userId', '==', userId));
-        const votesSnapshot = await getDocs(votesQuery);
+        const votesQueryInstance = query(collection(firestore, 'votes'), where('userId', '==', userId));
+        const votesSnapshot = await getDocs(votesQueryInstance);
         votesSnapshot.forEach(voteDoc => {
             batch.delete(voteDoc.ref);
         });
@@ -592,4 +592,3 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent }:
     </div>
   );
 }
-    
