@@ -22,7 +22,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from '../ui/skeleton';
-import type { PlayerProfileData, Vote, ScheduleEvent } from '@/lib/types';
+import type { PlayerProfileData, Vote, ScheduleEvent, AllVotes } from '@/lib/types';
 import { timeSlots, MINIMUM_PLAYERS } from '@/lib/types';
 import { Button } from '../ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -37,7 +37,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { useFirestore } from '@/firebase';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
@@ -51,9 +51,10 @@ type UserDataPanelProps = {
   isLoading: boolean;
   events: ScheduleEvent[] | null;
   onRemoveEvent: (eventId: string) => void;
+  allVotesData: Vote[] | null;
 };
 
-export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent }: UserDataPanelProps) {
+export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent, allVotesData }: UserDataPanelProps) {
   const { toast } = useToast();
   const firestore = useFirestore();
   const [isDeleting, setIsDeleting] = React.useState(false);
@@ -62,12 +63,6 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent }:
   const [selectedDate, setSelectedDate] = React.useState(() => new Date());
   const [selectedRosterDate, setSelectedRosterDate] = React.useState<string>('');
   const [selectedRosterTime, setSelectedRosterTime] = React.useState<string>('');
-  
-  const votesCollectionRef = useMemoFirebase(
-    () => (firestore ? collection(firestore, 'votes') : null),
-    [firestore]
-  );
-  const { data: allVotesData, isLoading: areVotesLoading } = useCollection<Vote>(votesCollectionRef);
 
   const weekStart = React.useMemo(() => startOfWeek(selectedDate, { weekStartsOn: 1 }), [selectedDate]);
   const weekEnd = React.useMemo(() => endOfWeek(selectedDate, { weekStartsOn: 1 }), [selectedDate]);
@@ -101,6 +96,24 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent }:
     const today = startOfToday();
     return events.filter(e => isBefore(new Date(e.date), today));
   }, [events]);
+
+  const allVotes: AllVotes = React.useMemo(() => {
+    if (!allVotesData || !allProfiles) return {};
+    const profileMap = new Map(allProfiles.map(p => [p.id, p.username]));
+    return allVotesData.reduce((acc, vote) => {
+      const [dateKey, slot] = vote.timeslot.split('_');
+      const voteKey = `${dateKey}-${slot}`;
+      const username = profileMap.get(vote.userId);
+
+      if (username) {
+        if (!acc[voteKey]) {
+          acc[voteKey] = [];
+        }
+        acc[voteKey].push(username);
+      }
+      return acc;
+    }, {} as AllVotes);
+  }, [allVotesData, allProfiles]);
 
   const handleDeleteUser = async (userId: string, username: string) => {
     if (!firestore) return;
@@ -217,7 +230,7 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent }:
   };
 
   const goToNextWeek = () => {
-    setSelectedDate(prev => addDays(prev, 7));
+    setSelectedDate(prev => addDays(prev, -7));
   };
 
   const handleCopyRoster = () => {
@@ -306,9 +319,7 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent }:
       setSelectedRosterTime('');
   }, [selectedDate]);
 
-  const isPanelLoading = isLoading || areVotesLoading;
-
-  if (isPanelLoading) {
+  if (isLoading) {
     return (
         <div className="space-y-8">
             <Card>
@@ -473,17 +484,8 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent }:
         </Card>
 
         <ReminderGenerator 
-            events={events} 
-            allVotes={areVotesLoading ? {} : (allVotesData || []).reduce((acc: any, vote: Vote) => {
-                const [dateKey, slot] = vote.timeslot.split('_');
-                const voteKey = `${dateKey}-${slot}`;
-                const username = allProfiles?.find(p => p.id === vote.userId)?.username;
-                if(username) {
-                    if(!acc[voteKey]) acc[voteKey] = [];
-                    acc[voteKey].push(username);
-                }
-                return acc;
-            }, {})} 
+            events={events}
+            allVotes={allVotes}
             allProfiles={allProfiles || []} 
         />
         
@@ -568,5 +570,3 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent }:
     </div>
   );
 }
-
-    

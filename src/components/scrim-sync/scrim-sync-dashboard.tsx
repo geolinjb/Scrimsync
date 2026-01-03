@@ -564,9 +564,10 @@ const hasLastWeekVotes = React.useMemo(() => {
             <TabsContent value="admin">
                 <UserDataPanel 
                     allProfiles={allProfiles} 
-                    isLoading={areProfilesLoading}
+                    isLoading={areProfilesLoading || areVotesLoading}
                     events={scheduledEvents}
                     onRemoveEvent={handleRemoveEvent}
+                    allVotesData={allVotesData}
                 />
             </TabsContent>
             )}
