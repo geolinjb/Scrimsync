@@ -24,6 +24,8 @@ import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '../ui/separator';
+import { useFunctions } from '@/firebase';
+import { httpsCallable } from 'firebase/functions';
 
 type ReminderGeneratorProps = {
   events: ScheduleEvent[] | null;
@@ -31,10 +33,9 @@ type ReminderGeneratorProps = {
   allProfiles: PlayerProfileData[];
 };
 
-const DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1454808762475872358/vzp7fiSxE7THIR5sc6npnuAG2TVl_B3fikdS_WgZFnzxQmejMJylsYafopfEkzU035Yt";
-
 export function ReminderGenerator({ events, allVotes, allProfiles }: ReminderGeneratorProps) {
   const { toast } = useToast();
+  const functions = useFunctions();
   const [selectedEventId, setSelectedEventId] = React.useState<string>('');
   const [reminderMessage, setReminderMessage] = React.useState<string>('');
   const [isSending, setIsSending] = React.useState(false);
@@ -114,35 +115,33 @@ export function ReminderGenerator({ events, allVotes, allProfiles }: ReminderGen
   };
 
   const handleSendToDiscord = async () => {
-    if (!reminderMessage) return;
+    if (!reminderMessage || !functions) {
+        toast({
+            variant: 'destructive',
+            title: 'Error',
+            description: 'Functions service not available.',
+        });
+        return;
+    }
     setIsSending(true);
     setSendSuccess(false);
 
     try {
-      const response = await fetch(DISCORD_WEBHOOK_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ content: reminderMessage }),
-      });
+        const sendDiscordMessage = httpsCallable(functions, 'sendDiscordMessage');
+        await sendDiscordMessage({ message: reminderMessage });
 
-      if (response.ok) {
         setSendSuccess(true);
         toast({
           title: 'Reminder Sent!',
           description: 'The message was successfully sent to Discord.',
         });
         setTimeout(() => setSendSuccess(false), 3000);
-      } else {
-        throw new Error(`Discord API responded with status ${response.status}`);
-      }
     } catch (error) {
-      console.error("Error sending to Discord:", error);
+      console.error("Error sending to Discord via function:", error);
       toast({
         variant: 'destructive',
         title: 'Send Failed',
-        description: 'Could not send the reminder to Discord. Check the console for details.',
+        description: 'Could not send the reminder. Check the console for details.',
       });
     } finally {
       setIsSending(false);
