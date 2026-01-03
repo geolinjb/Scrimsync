@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { format, startOfToday, differenceInMinutes } from 'date-fns';
-import { Copy, Megaphone, Check } from 'lucide-react';
+import { Send, Megaphone, Check, Loader } from 'lucide-react';
 import type { AllVotes, PlayerProfileData, ScheduleEvent } from '@/lib/types';
 import { MINIMUM_PLAYERS } from '@/lib/types';
 import {
@@ -31,11 +31,14 @@ type ReminderGeneratorProps = {
   allProfiles: PlayerProfileData[];
 };
 
+const DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1454808762475872358/vzp7fiSxE7THIR5sc6npnuAG2TVl_B3fikdS_WgZFnzxQmejMJylsYafopfEkzU035Yt";
+
 export function ReminderGenerator({ events, allVotes, allProfiles }: ReminderGeneratorProps) {
   const { toast } = useToast();
   const [selectedEventId, setSelectedEventId] = React.useState<string>('');
   const [reminderMessage, setReminderMessage] = React.useState<string>('');
-  const [hasCopied, setHasCopied] = React.useState(false);
+  const [isSending, setIsSending] = React.useState(false);
+  const [sendSuccess, setSendSuccess] = React.useState(false);
   const [now, setNow] = React.useState(new Date());
 
   React.useEffect(() => {
@@ -102,7 +105,7 @@ export function ReminderGenerator({ events, allVotes, allProfiles }: ReminderGen
     ].join('\n');
     
     setReminderMessage(fullMessage);
-    setHasCopied(false);
+    setSendSuccess(false);
   };
   
   const handleEventChange = (eventId: string) => {
@@ -110,21 +113,40 @@ export function ReminderGenerator({ events, allVotes, allProfiles }: ReminderGen
     generateReminder(eventId);
   };
 
-  const handleCopyToClipboard = () => {
-    navigator.clipboard.writeText(reminderMessage).then(() => {
-      setHasCopied(true);
-      toast({
-        title: 'Copied to Clipboard!',
-        description: 'The reminder message is ready to be pasted.',
+  const handleSendToDiscord = async () => {
+    if (!reminderMessage) return;
+    setIsSending(true);
+    setSendSuccess(false);
+
+    try {
+      const response = await fetch(DISCORD_WEBHOOK_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ content: reminderMessage }),
       });
-      setTimeout(() => setHasCopied(false), 2000);
-    }).catch(err => {
+
+      if (response.ok) {
+        setSendSuccess(true);
+        toast({
+          title: 'Reminder Sent!',
+          description: 'The message was successfully sent to Discord.',
+        });
+        setTimeout(() => setSendSuccess(false), 3000);
+      } else {
+        throw new Error(`Discord API responded with status ${response.status}`);
+      }
+    } catch (error) {
+      console.error("Error sending to Discord:", error);
       toast({
         variant: 'destructive',
-        title: 'Copy Failed',
-        description: 'Could not copy the message.',
+        title: 'Send Failed',
+        description: 'Could not send the reminder to Discord. Check the console for details.',
       });
-    });
+    } finally {
+      setIsSending(false);
+    }
   };
 
   const formatTimeRemaining = (eventDate: Date, eventTime: string) => {
@@ -160,7 +182,7 @@ export function ReminderGenerator({ events, allVotes, allProfiles }: ReminderGen
           <CardTitle>Reminder Generator</CardTitle>
         </div>
         <CardDescription>
-          Select an event to generate a formatted reminder message for Discord.
+          Select an event to generate and send a formatted reminder to Discord.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -196,9 +218,9 @@ export function ReminderGenerator({ events, allVotes, allProfiles }: ReminderGen
       </CardContent>
       {reminderMessage && (
         <CardFooter>
-          <Button onClick={handleCopyToClipboard} className="w-full">
-            {hasCopied ? <Check className="w-4 h-4 mr-2" /> : <Copy className="w-4 h-4 mr-2" />}
-            {hasCopied ? 'Copied!' : 'Copy to Clipboard'}
+          <Button onClick={handleSendToDiscord} className="w-full" disabled={isSending || sendSuccess}>
+            {isSending ? <Loader className="w-4 h-4 mr-2 animate-spin" /> : (sendSuccess ? <Check className="w-4 h-4 mr-2" /> : <Send className="w-4 h-4 mr-2" />)}
+            {isSending ? 'Sending...' : (sendSuccess ? 'Sent!' : 'Send to Discord')}
           </Button>
         </CardFooter>
       )}
