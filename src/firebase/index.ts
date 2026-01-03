@@ -4,27 +4,27 @@ import { firebaseConfig } from '@/firebase/config';
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore'
-import { getFunctions } from 'firebase/functions';
+import { getFunctions, Functions } from 'firebase/functions';
 
 // IMPORTANT: DO NOT MODIFY THIS FUNCTION
 export function initializeFirebase() {
+  let firebaseApp: FirebaseApp;
   if (getApps().length) {
-    return getSdks(getApp());
-  }
-
-  let firebaseApp;
-  // When in development, always use the explicit config object.
-  // In production, App Hosting automatically provides the configuration.
-  if (process.env.NODE_ENV === 'development') {
-    firebaseApp = initializeApp(firebaseConfig);
+    firebaseApp = getApp();
   } else {
-    try {
-      // Try to initialize from App Hosting's environment variables in production.
-      firebaseApp = initializeApp();
-    } catch (e) {
-      console.warn('Automatic initialization failed. Falling back to firebase config object.', e);
-      // Fallback for production if auto-init fails for some reason.
+    // When in development, always use the explicit config object.
+    // In production, App Hosting automatically provides the configuration.
+    if (process.env.NODE_ENV === 'development') {
       firebaseApp = initializeApp(firebaseConfig);
+    } else {
+      try {
+        // Try to initialize from App Hosting's environment variables in production.
+        firebaseApp = initializeApp();
+      } catch (e) {
+        console.warn('Automatic initialization failed. Falling back to firebase config object.', e);
+        // Fallback for production if auto-init fails for some reason.
+        firebaseApp = initializeApp(firebaseConfig);
+      }
     }
   }
 
@@ -34,7 +34,17 @@ export function initializeFirebase() {
 export function getSdks(firebaseApp: FirebaseApp) {
   const firestore = getFirestore(firebaseApp);
   const auth = getAuth(firebaseApp);
-  const functions = getFunctions(firebaseApp);
+  
+  // Initialize functions, but handle potential errors for Spark plan users
+  let functions: Functions | null = null;
+  try {
+    functions = getFunctions(firebaseApp);
+  } catch (e) {
+    // This is expected if the user is on the Spark plan.
+    // We can safely ignore this error and the `functions` service will be null.
+    console.warn("Could not initialize Firebase Functions. This is expected if you are on the Spark plan and don't use them.");
+  }
+
 
   return {
     firebaseApp,

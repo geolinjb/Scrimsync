@@ -33,9 +33,10 @@ type ReminderGeneratorProps = {
   allProfiles: PlayerProfileData[];
 };
 
+const DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1454808762475872358/vzp7fiSxE7THIR5sc6npnuAG2TVl_B3fikdS_WgZFnzxQmejMJylsYafopfEkzU035Yt";
+
 export function ReminderGenerator({ events, allVotes, allProfiles }: ReminderGeneratorProps) {
   const { toast } = useToast();
-  const functions = useFunctions();
   const [selectedEventId, setSelectedEventId] = React.useState<string>('');
   const [reminderMessage, setReminderMessage] = React.useState<string>('');
   const [isSending, setIsSending] = React.useState(false);
@@ -115,29 +116,32 @@ export function ReminderGenerator({ events, allVotes, allProfiles }: ReminderGen
   };
 
   const handleSendToDiscord = async () => {
-    if (!reminderMessage || !functions) {
-        toast({
-            variant: 'destructive',
-            title: 'Error',
-            description: 'Functions service not available.',
-        });
-        return;
-    }
+    if (!reminderMessage) return;
+
     setIsSending(true);
     setSendSuccess(false);
 
     try {
-        const sendDiscordMessage = httpsCallable(functions, 'sendDiscordMessage');
-        await sendDiscordMessage({ message: reminderMessage });
+      const response = await fetch(DISCORD_WEBHOOK_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ content: reminderMessage }),
+      });
 
+      if (response.ok) {
         setSendSuccess(true);
         toast({
           title: 'Reminder Sent!',
           description: 'The message was successfully sent to Discord.',
         });
         setTimeout(() => setSendSuccess(false), 3000);
+      } else {
+        throw new Error(`Discord API responded with ${response.status}`);
+      }
     } catch (error) {
-      console.error("Error sending to Discord via function:", error);
+      console.error("Error sending to Discord:", error);
       toast({
         variant: 'destructive',
         title: 'Send Failed',
