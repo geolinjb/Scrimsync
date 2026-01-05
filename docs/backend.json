@@ -21,6 +21,18 @@
         "role": {
           "type": "string",
           "description": "The user's favorite in-game role."
+        },
+        "playerTag": {
+          "type": "string",
+          "description": "A tag assigned by an admin to categorize the player.",
+          "enum": [
+            "Main Roster",
+            "Standby Player",
+            "Assaulter",
+            "Defender",
+            "LT",
+            "Harvester"
+          ]
         }
       },
       "required": [

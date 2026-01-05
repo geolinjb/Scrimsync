@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { ShieldCheck, User, Users, Trash2, Loader, ChevronLeft, ChevronRight, Copy, ClipboardList, CalendarX2 } from 'lucide-react';
-import { collection, doc, writeBatch, query, where, getDocs } from 'firebase/firestore';
+import { collection, doc, writeBatch, query, where, getDocs, updateDoc } from 'firebase/firestore';
 import { format, startOfWeek, endOfWeek, addDays, parseISO, startOfToday, isBefore } from 'date-fns';
 
 import {
@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/table";
 import { Skeleton } from '../ui/skeleton';
 import type { PlayerProfileData, Vote, ScheduleEvent, AllVotes } from '@/lib/types';
-import { timeSlots, MINIMUM_PLAYERS } from '@/lib/types';
+import { timeSlots, MINIMUM_PLAYERS, playerTags } from '@/lib/types';
 import { Button } from '../ui/button';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -118,6 +118,30 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent, a
       return acc;
     }, {} as AllVotes);
   }, [allVotesData, allProfiles]);
+
+  const handleTagChange = async (userId: string, tag: (typeof playerTags)[number]) => {
+    if (!firestore) return;
+    const userDocRef = doc(firestore, 'users', userId);
+    try {
+      await updateDoc(userDocRef, { playerTag: tag });
+      toast({
+        title: 'Tag Updated',
+        description: `Player tag has been set to "${tag}".`,
+      });
+    } catch (error) {
+      console.error('Error updating player tag:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Update Failed',
+        description: 'Could not update the player tag.',
+      });
+      const permissionError = new FirestorePermissionError({
+        path: userDocRef.path,
+        operation: 'update',
+      });
+      errorEmitter.emit('permission-error', permissionError);
+    }
+  };
 
   const handleDeleteUser = async (userId: string, username: string) => {
     if (!firestore) return;
@@ -378,6 +402,7 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent, a
                     <TableHeader className="sticky top-0 bg-muted/80 backdrop-blur-sm">
                         <TableRow>
                             <TableHead>Username</TableHead>
+                            <TableHead>Tag</TableHead>
                             <TableHead>Favorite Tank</TableHead>
                             <TableHead>Role</TableHead>
                         </TableRow>
@@ -386,6 +411,23 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent, a
                         {allProfiles.map(profile => (
                         <TableRow key={profile.id}>
                             <TableCell className="font-medium">{profile.username || '(Not set)'}</TableCell>
+                            <TableCell>
+                                <Select
+                                    value={profile.playerTag}
+                                    onValueChange={(value) => handleTagChange(profile.id, value as any)}
+                                >
+                                    <SelectTrigger className="w-[180px]">
+                                        <SelectValue placeholder="Assign Tag" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {playerTags.map(tag => (
+                                            <SelectItem key={tag} value={tag}>
+                                                {tag}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </TableCell>
                             <TableCell>{profile.favoriteTank || '(Not set)'}</TableCell>
                             <TableCell>{profile.role || '(Not set)'}</TableCell>
                         </TableRow>
