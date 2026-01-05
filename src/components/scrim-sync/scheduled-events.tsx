@@ -62,8 +62,8 @@ export function ScheduledEvents({ events, votes, allPlayerNames, onRemoveEvent, 
         if (!events) return [];
         const today = startOfToday();
         return events
-            .filter(event => event.date >= today)
-            .sort((a,b) => a.date.getTime() - b.date.getTime());
+            .filter(event => new Date(event.date) >= today)
+            .sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     }, [events]);
 
     const getAvailablePlayers = (event: ScheduleEvent): string[] => {
@@ -108,8 +108,8 @@ export function ScheduledEvents({ events, votes, allPlayerNames, onRemoveEvent, 
         const unavailablePlayers = allPlayerNames.filter(p => !availablePlayers.includes(p));
         const neededPlayers = Math.max(0, MINIMUM_PLAYERS - availablePlayers.length);
 
-        const timeRemaining = formatTimeRemaining(event.date, event.time);
-        const header = `Roster for ${event.type} on ${format(event.date, 'EEEE, d MMM')} at ${event.time} (starts ${timeRemaining}):`;
+        const timeRemaining = formatTimeRemaining(new Date(event.date), event.time);
+        const header = `Roster for ${event.type} on ${format(new Date(event.date), 'EEEE, d MMM')} at ${event.time} (starts ${timeRemaining}):`;
         
         const availableHeader = `✅ Available Players (${availablePlayers.length}):`;
         const availableList = availablePlayers.length > 0 ? availablePlayers.map(p => `- ${p}`).join('\n') : '- None';
@@ -177,12 +177,12 @@ export function ScheduledEvents({ events, votes, allPlayerNames, onRemoveEvent, 
                                                 {event.type === 'Tournament' && <Trophy className='w-3 h-3 mr-1'/>}
                                                 {event.type}
                                             </Badge>
-                                            <span className={cn('font-semibold', isToday(event.date) && 'text-gold')}>{format(event.date, 'EEEE, d MMM')}</span>
-                                            {isToday(event.date) && <Badge variant="outline">Today</Badge>}
+                                            <span className={cn('font-semibold', isToday(new Date(event.date)) && 'text-gold')}>{format(new Date(event.date), 'EEEE, d MMM')}</span>
+                                            {isToday(new Date(event.date)) && <Badge variant="outline">Today</Badge>}
                                         </div>
                                         <div className='flex items-baseline gap-2'>
                                             <span className='text-sm text-muted-foreground'>{event.time}</span>
-                                            <span className='text-xs text-primary/80 font-medium'>{formatTimeRemaining(event.date, event.time)}</span>
+                                            <span className='text-xs text-primary/80 font-medium'>{formatTimeRemaining(new Date(event.date), event.time)}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -270,3 +270,5 @@ export function ScheduledEvents({ events, votes, allPlayerNames, onRemoveEvent, 
         </Card>
     );
 }
+
+    

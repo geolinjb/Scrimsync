@@ -27,6 +27,7 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { UserDataPanel } from './user-data-panel';
 import { WelcomeInstructions } from './welcome-instructions';
 import { DailyVotingGrid } from './daily-voting-grid';
+import { ADMIN_UID } from '@/lib/config';
 
 type TeamSyncDashboardProps = {
     user: AuthUser;
@@ -442,6 +443,9 @@ const hasLastWeekVotes = React.useMemo(() => {
   }, [allProfiles]);
 
   const isLoading = areEventsLoading || areVotesLoading || areProfilesLoading;
+  const isSuperAdmin = authUser.uid === ADMIN_UID;
+  const canSeeAdminPanel = isAdmin || isSuperAdmin;
+
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
@@ -532,7 +536,7 @@ const hasLastWeekVotes = React.useMemo(() => {
                     isSaving={isSavingProfile}
                     isLoading={isProfileLoading}
                 />
-                 {isAdmin && <ScheduleForm onAddEvent={handleAddEvent} currentDate={currentDate} />}
+                 {canSeeAdminPanel && <ScheduleForm onAddEvent={handleAddEvent} currentDate={currentDate} />}
             </div>
             <div className="lg:col-span-2 space-y-8">
                 <ScheduledEvents 
@@ -541,7 +545,7 @@ const hasLastWeekVotes = React.useMemo(() => {
                     allPlayerNames={allPlayerNames}
                     onRemoveEvent={handleRemoveEvent}
                     currentUser={authUser}
-                    isAdmin={isAdmin}
+                    isAdmin={canSeeAdminPanel}
                 />
             </div>
         </div>
@@ -549,7 +553,7 @@ const hasLastWeekVotes = React.useMemo(() => {
         <Tabs defaultValue="heatmap" className='w-full pt-8'>
             <TabsList>
                 <TabsTrigger value="heatmap">Team Heatmap</TabsTrigger>
-                {isAdmin && <TabsTrigger value="admin">User Data</TabsTrigger>}
+                {canSeeAdminPanel && <TabsTrigger value="admin">User Data</TabsTrigger>}
             </TabsList>
             <TabsContent value="heatmap" className="space-y-4">
             {isLoading ? (
@@ -571,7 +575,7 @@ const hasLastWeekVotes = React.useMemo(() => {
                 />
             )}
             </TabsContent>
-            {isAdmin && (
+            {canSeeAdminPanel && (
             <TabsContent value="admin">
                 <UserDataPanel 
                     allProfiles={allProfiles} 
@@ -588,3 +592,5 @@ const hasLastWeekVotes = React.useMemo(() => {
     </div>
   );
 }
+
+    
