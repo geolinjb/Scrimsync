@@ -22,17 +22,26 @@
           "type": "string",
           "description": "The user's favorite in-game role."
         },
-        "playerTag": {
+        "rosterStatus": {
           "type": "string",
-          "description": "A tag assigned by an admin to categorize the player.",
+          "description": "The player's status on the active team roster.",
           "enum": [
             "Main Roster",
-            "Standby Player",
-            "Assaulter",
-            "Defender",
-            "LT",
-            "Harvester"
+            "Standby Player"
           ]
+        },
+        "playstyleTags": {
+          "type": "array",
+          "description": "Tags describing the player's preferred playstyle or specialty.",
+          "items": {
+            "type": "string",
+            "enum": [
+              "Assaulter",
+              "Defender",
+              "LT",
+              "Harvester"
+            ]
+          }
         }
       },
       "required": [
