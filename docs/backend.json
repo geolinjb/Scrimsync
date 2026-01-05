@@ -65,12 +65,15 @@
       "description": "Represents a scheduled training session or tournament.",
       "properties": {
         "creatorId": {
-            "type": "string",
-            "description": "The UID of the user who created the event."
+          "type": "string",
+          "description": "The UID of the user who created the event."
         },
         "type": {
           "type": "string",
-          "enum": ["Training", "Tournament"]
+          "enum": [
+            "Training",
+            "Tournament"
+          ]
         },
         "date": {
           "type": "string",
@@ -81,8 +84,8 @@
           "description": "The time of the event (e.g., '6:30 PM')."
         },
         "isRecurring": {
-            "type": "boolean",
-            "description": "Indicates if the event is part of a weekly recurring series."
+          "type": "boolean",
+          "description": "Indicates if the event is part of a weekly recurring series."
         }
       },
       "required": [
@@ -96,7 +99,13 @@
   "auth": {
     "providers": [
       "google.com"
-    ]
+    ],
+    "customClaims": {
+      "admin": {
+        "type": "boolean",
+        "description": "Grants the user administrative privileges across the application."
+      }
+    }
   },
   "firestore": {
     "/users/{userId}": {
@@ -115,7 +124,7 @@
       "schema": {
         "$ref": "#/entities/ScheduledEvent"
       },
-      "description": "Stores information about scheduled events. Rules allow any authenticated user to read, but only the creator to write or delete."
+      "description": "Stores information about scheduled events. Rules allow any authenticated user to read, but only an admin to write or delete."
     }
   }
 }

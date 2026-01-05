@@ -1,61 +1,66 @@
-/**
- * Import function triggers from their respective submodules:
- *
- * import {onCall} from "firebase-functions/v2/https";
- * import {onDocumentWritten} from "firebase-functions/v2/firestore";
- *
- * See a full list of supported triggers at https://firebase.google.com/docs/functions
- */
-
-import { onCall } from "firebase-functions/v2/https";
+import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
 import { defineString } from "firebase-functions/params";
 
 admin.initializeApp();
+const auth = admin.auth();
 
-const discordWebhookUrl = defineString("DISCORD_WEBHOOK_URL");
+const SUPER_ADMIN_UID = defineString("SUPER_ADMIN_UID", {
+  description:
+    "The UID of the user who has ultimate administrative privileges.",
+  default: "BpA8qniZ03YttlnTR25nc6RrWrZ2",
+});
 
-// This is an HTTP Callable function that can be called from the frontend.
-export const sendDiscordMessage = onCall(async (request) => {
-  const message = request.data.message;
+export const setAdminClaim = onCall(async (request) => {
+  // Check if the user is authenticated
+  if (!request.auth) {
+    throw new HttpsError(
+      "unauthenticated",
+      "You must be logged in to perform this action."
+    );
+  }
 
-  if (!message) {
-    logger.warn("No message provided to sendDiscordMessage function.");
-    throw new onCall.HttpsError(
+  const callerUid = request.auth.uid;
+  const targetUid = request.data.uid;
+
+  if (typeof targetUid !== "string" || targetUid.length === 0) {
+    throw new HttpsError(
       "invalid-argument",
-      "The function must be called with one argument 'message' containing the string to send."
+      "The function must be called with a 'uid' argument."
     );
   }
 
   try {
-    const response = await fetch(discordWebhookUrl.value(), {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ content: message }),
-    });
+    const callerUserRecord = await auth.getUser(callerUid);
+    const isSuperAdmin = callerUserRecord.uid === SUPER_ADMIN_UID.value();
+    const isAdmin = callerUserRecord.customClaims?.["admin"] === true;
 
-    if (!response.ok) {
-      const errorBody = await response.text();
-      logger.error(
-        `Error from Discord API: ${response.status}`,
-        { errorBody }
-      );
-      throw new onCall.HttpsError(
-        "internal",
-        "Failed to send message to Discord."
+    // Only allow an existing admin or the super admin to proceed
+    if (!isAdmin && !isSuperAdmin) {
+      throw new HttpsError(
+        "permission-denied",
+        "You do not have permission to perform this action."
       );
     }
 
-    logger.info("Successfully sent message to Discord.");
-    return { success: true };
+    // Set the custom claim on the target user
+    await auth.setCustomUserClaims(targetUid, { admin: true });
+
+    logger.info(
+      `Admin claim set for user ${targetUid} by admin ${callerUid}.`
+    );
+    return {
+      message: `Success! User ${targetUid} has been made an admin.`,
+    };
   } catch (error) {
-    logger.error("Error sending message to Discord:", error);
-    throw new onCall.HttpsError(
+    logger.error("Error setting admin claim:", error);
+    if (error instanceof HttpsError) {
+      throw error;
+    }
+    throw new HttpsError(
       "internal",
-      "An unexpected error occurred while trying to send the message."
+      "An unexpected error occurred while setting the admin claim."
     );
   }
 });

@@ -45,6 +45,9 @@ import { Separator } from '../ui/separator';
 import { Badge } from '../ui/badge';
 import { ScrollArea } from '../ui/scroll-area';
 import { ReminderGenerator } from './reminder-generator';
+import type { User as AuthUser } from 'firebase/auth';
+import { AdminManagementPanel } from './admin-management-panel';
+
 
 type UserDataPanelProps = {
   allProfiles: PlayerProfileData[] | null;
@@ -52,9 +55,10 @@ type UserDataPanelProps = {
   events: ScheduleEvent[] | null;
   onRemoveEvent: (eventId: string) => void;
   allVotesData: Vote[] | null;
+  currentUser: AuthUser | null;
 };
 
-export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent, allVotesData }: UserDataPanelProps) {
+export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent, allVotesData, currentUser }: UserDataPanelProps) {
   const { toast } = useToast();
   const firestore = useFirestore();
   const [isDeleting, setIsDeleting] = React.useState(false);
@@ -355,6 +359,8 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent, a
 
   return (
     <div className='space-y-8'>
+        <AdminManagementPanel />
+
         <Card>
             <CardHeader>
                 <div className="flex items-center gap-3">

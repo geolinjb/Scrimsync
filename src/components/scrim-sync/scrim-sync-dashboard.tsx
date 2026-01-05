@@ -18,34 +18,44 @@ import { PlayerProfile } from './player-profile';
 import { ScheduleForm } from './schedule-form';
 import { IndividualVotingGrid } from './individual-voting-grid';
 import { ScheduledEvents } from './scheduled-events';
-import { useCollection, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
+import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { addDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Skeleton } from '../ui/skeleton';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { errorEmitter } from '@/firebase/error-emitter';
-import { ADMIN_UID } from '@/lib/config';
 import { UserDataPanel } from './user-data-panel';
 import { WelcomeInstructions } from './welcome-instructions';
 import { DailyVotingGrid } from './daily-voting-grid';
-
 
 type TeamSyncDashboardProps = {
     user: AuthUser;
 };
 
-export function TeamSyncDashboard({ user }: TeamSyncDashboardProps) {
+export function TeamSyncDashboard({ user: authUser }: TeamSyncDashboardProps) {
   const { toast } = useToast();
   const firestore = useFirestore();
 
   const [currentDate, setCurrentDate] = React.useState(() => new Date());
+  const [isAdmin, setIsAdmin] = React.useState(false);
   
   const [isSavingProfile, setIsSavingProfile] = React.useState(false);
+  
+  const { user } = useUser(); // useUser provides the full user object with claims
 
-  const isAdmin = user.uid === ADMIN_UID;
+  React.useEffect(() => {
+    if (user) {
+      user.getIdTokenResult().then(idTokenResult => {
+        const claims = idTokenResult.claims;
+        setIsAdmin(claims.admin === true);
+      });
+    } else {
+        setIsAdmin(false);
+    }
+  }, [user]);
 
   // Firestore References
-  const profileRef = useMemoFirebase(() => doc(firestore, 'users', user.uid), [firestore, user.uid]);
+  const profileRef = useMemoFirebase(() => doc(firestore, 'users', authUser.uid), [firestore, authUser.uid]);
   
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(currentDate, { weekStartsOn: 1 });
@@ -80,9 +90,9 @@ export function TeamSyncDashboard({ user }: TeamSyncDashboardProps) {
     (newProfile: PlayerProfileData) => {
       if (!firestore) return;
       setIsSavingProfile(true);
-      const profileDocRef = doc(firestore, 'users', user.uid);
+      const profileDocRef = doc(firestore, 'users', authUser.uid);
       
-      const dataToSave = { ...newProfile, id: user.uid };
+      const dataToSave = { ...newProfile, id: authUser.uid };
       
       setDocumentNonBlocking(profileDocRef, dataToSave, { merge: true });
 
@@ -92,13 +102,13 @@ export function TeamSyncDashboard({ user }: TeamSyncDashboardProps) {
       });
       setTimeout(() => setIsSavingProfile(false), 1000);
     },
-    [firestore, user.uid, toast]
+    [firestore, authUser.uid, toast]
   );
 
   const userVotes: UserVotes = React.useMemo(() => {
     if (!allVotesData) return {};
     return allVotesData
-      .filter(vote => vote.userId === user.uid)
+      .filter(vote => vote.userId === authUser.uid)
       .reduce((acc, vote) => {
         const [dateKey, slot] = vote.timeslot.split('_');
         if (!acc[dateKey]) {
@@ -107,7 +117,7 @@ export function TeamSyncDashboard({ user }: TeamSyncDashboardProps) {
         acc[dateKey].add(slot);
         return acc;
       }, {} as UserVotes);
-  }, [allVotesData, user.uid]);
+  }, [allVotesData, authUser.uid]);
 
   const allVotes: AllVotes = React.useMemo(() => {
     if (!allVotesData || !allProfiles) return {};
@@ -131,7 +141,7 @@ export function TeamSyncDashboard({ user }: TeamSyncDashboardProps) {
     if (!firestore) return;
     const dateKey = format(date, 'yyyy-MM-dd');
     const timeslotId = `${dateKey}_${timeSlot}`;
-    const voteId = `${user.uid}_${timeslotId}`;
+    const voteId = `${authUser.uid}_${timeslotId}`;
     const voteRef = doc(firestore, 'votes', voteId);
 
     const isVoted = userVotes[dateKey]?.has(timeSlot);
@@ -141,7 +151,7 @@ export function TeamSyncDashboard({ user }: TeamSyncDashboardProps) {
     } else {
         const voteData: Vote = {
             id: voteId,
-            userId: user.uid,
+            userId: authUser.uid,
             timeslot: timeslotId,
             voteValue: true,
         };
@@ -159,7 +169,7 @@ export function TeamSyncDashboard({ user }: TeamSyncDashboardProps) {
 
     timeSlots.forEach(slot => {
         const timeslotId = `${dateKey}_${slot}`;
-        const voteId = `${user.uid}_${timeslotId}`;
+        const voteId = `${authUser.uid}_${timeslotId}`;
         const voteRef = doc(firestore, 'votes', voteId);
 
         if (allSelected) { // Deselect all
@@ -168,7 +178,7 @@ export function TeamSyncDashboard({ user }: TeamSyncDashboardProps) {
             if (!dayVotes.has(slot)) {
                 const voteData: Vote = {
                     id: voteId,
-                    userId: user.uid,
+                    userId: authUser.uid,
                     timeslot: timeslotId,
                     voteValue: true,
                 };
@@ -201,7 +211,7 @@ export function TeamSyncDashboard({ user }: TeamSyncDashboardProps) {
         const date = addDays(weekStartVote, i);
         const dateKey = format(date, 'yyyy-MM-dd');
         const timeslotId = `${dateKey}_${timeSlot}`;
-        const voteId = `${user.uid}_${timeslotId}`;
+        const voteId = `${authUser.uid}_${timeslotId}`;
         const voteRef = doc(firestore, 'votes', voteId);
 
         if (allSelected) {
@@ -209,7 +219,7 @@ export function TeamSyncDashboard({ user }: TeamSyncDashboardProps) {
         } else {
             const voteData: Vote = {
                 id: voteId,
-                userId: user.uid,
+                userId: authUser.uid,
                 timeslot: timeslotId,
                 voteValue: true,
             };
@@ -239,7 +249,7 @@ export function TeamSyncDashboard({ user }: TeamSyncDashboardProps) {
         if (dayVotes) {
             dayVotes.forEach(slot => {
                 const timeslotId = `${dateKey}_${slot}`;
-                const voteId = `${user.uid}_${timeslotId}`;
+                const voteId = `${authUser.uid}_${timeslotId}`;
                 const voteRef = doc(firestore, 'votes', voteId);
                 batch.delete(voteRef);
                 votesToDelete++;
@@ -277,7 +287,7 @@ const handleCopyLastWeeksVotes = React.useCallback(async () => {
 
 
     const lastWeekVotes = allVotesData.filter(vote => {
-        if (vote.userId !== user.uid) return false;
+        if (vote.userId !== authUser.uid) return false;
         try {
             const voteDate = parseISO(vote.timeslot.split('_')[0]);
             return voteDate >= lastWeekStartDate && voteDate <= lastWeekEndDate;
@@ -300,7 +310,7 @@ const handleCopyLastWeeksVotes = React.useCallback(async () => {
         const newDateKey = format(newDate, 'yyyy-MM-dd');
         
         const newTimeslotId = `${newDateKey}_${slot}`;
-        const newVoteId = `${user.uid}_${newTimeslotId}`;
+        const newVoteId = `${authUser.uid}_${newTimeslotId}`;
 
         // Check if the vote for the new week already exists
         const voteExists = userVotes[newDateKey]?.has(slot);
@@ -309,7 +319,7 @@ const handleCopyLastWeeksVotes = React.useCallback(async () => {
             const voteRef = doc(firestore, 'votes', newVoteId);
             const voteData: Vote = {
                 id: newVoteId,
-                userId: user.uid,
+                userId: authUser.uid,
                 timeslot: newTimeslotId,
                 voteValue: true,
             };
@@ -336,7 +346,7 @@ const handleCopyLastWeeksVotes = React.useCallback(async () => {
         });
         errorEmitter.emit('permission-error', permissionError);
     }
-}, [firestore, allVotesData, weekStart, user.uid, userVotes, toast]);
+}, [firestore, allVotesData, weekStart, authUser.uid, userVotes, toast]);
 
 const hasLastWeekVotes = React.useMemo(() => {
     if (!allVotesData) return false;
@@ -344,7 +354,7 @@ const hasLastWeekVotes = React.useMemo(() => {
     const lastWeekEndDate = endOfWeek(lastWeekStartDate);
 
     return allVotesData.some(vote => {
-        if (vote.userId !== user.uid) return false;
+        if (vote.userId !== authUser.uid) return false;
         try {
             const voteDate = parseISO(vote.timeslot.split('_')[0]);
             return voteDate >= lastWeekStartDate && voteDate <= lastWeekEndDate;
@@ -352,7 +362,7 @@ const hasLastWeekVotes = React.useMemo(() => {
             return false;
         }
     });
-}, [allVotesData, user.uid, weekStart]);
+}, [allVotesData, authUser.uid, weekStart]);
 
   const handleAddEvent = (data: { type: 'Training' | 'Tournament'; date: Date; time: string, repeatWeekly?: boolean; }) => {
     if (!firestore) return;
@@ -367,7 +377,7 @@ const hasLastWeekVotes = React.useMemo(() => {
                 type: data.type,
                 date: format(eventDate, 'yyyy-MM-dd'),
                 time: data.time,
-                creatorId: user.uid,
+                creatorId: authUser.uid,
                 isRecurring: true,
             };
             const docRef = doc(eventsRef); 
@@ -392,7 +402,7 @@ const hasLastWeekVotes = React.useMemo(() => {
           type: data.type,
           date: format(data.date, 'yyyy-MM-dd'),
           time: data.time,
-          creatorId: user.uid,
+          creatorId: authUser.uid,
           isRecurring: false,
         };
         const eventsRef = collection(firestore, 'scheduledEvents');
@@ -438,7 +448,7 @@ const hasLastWeekVotes = React.useMemo(() => {
       <Header />
       <main className="flex-1 container mx-auto px-4 py-8 space-y-8">
         
-        <WelcomeInstructions username={profile?.username || user.displayName || 'Player'} />
+        <WelcomeInstructions username={profile?.username || authUser.displayName || 'Player'} />
 
         <div className="flex justify-between items-center flex-wrap gap-4">
             <h2 className="text-2xl font-bold tracking-tight">
@@ -517,7 +527,7 @@ const hasLastWeekVotes = React.useMemo(() => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-1 space-y-8">
                 <PlayerProfile 
-                    initialProfile={profile ?? { id: user.uid, username: user.displayName || '', favoriteTank: '', role: '' }} 
+                    initialProfile={profile ?? { id: authUser.uid, username: authUser.displayName || '', favoriteTank: '', role: '' }} 
                     onSave={handleProfileSave}
                     isSaving={isSavingProfile}
                     isLoading={isProfileLoading}
@@ -530,7 +540,8 @@ const hasLastWeekVotes = React.useMemo(() => {
                     votes={allVotes}
                     allPlayerNames={allPlayerNames}
                     onRemoveEvent={handleRemoveEvent}
-                    currentUser={user}
+                    currentUser={authUser}
+                    isAdmin={isAdmin}
                 />
             </div>
         </div>
@@ -568,6 +579,7 @@ const hasLastWeekVotes = React.useMemo(() => {
                     events={scheduledEvents}
                     onRemoveEvent={handleRemoveEvent}
                     allVotesData={allVotesData}
+                    currentUser={authUser}
                 />
             </TabsContent>
             )}

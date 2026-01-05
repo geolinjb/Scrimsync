@@ -11,9 +11,9 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
     
-    // The UID of the designated admin user.
+    // Checks for the 'admin' custom claim on the user's token.
     function isAdmin() {
-      return request.auth.uid == 'BpA8qniZ03YttlnTR25nc6RrWrZ2';
+      return request.auth.token.admin == true;
     }
 
     /**
@@ -27,9 +27,8 @@ service cloud.firestore {
       // Users can create and update their own profile.
       allow write: if isOwner(userId);
       
-      // Any signed-in user can delete any user profile. This is safe because
-      // the delete UI is only exposed to the admin on the frontend.
-      allow delete: if isSignedIn();
+      // Only an admin can delete a user profile.
+      allow delete: if isAdmin();
     }
     
     /**
@@ -52,12 +51,8 @@ service cloud.firestore {
     match /scheduledEvents/{eventId} {
       // Any authenticated user can read events.
       allow read: if isSignedIn();
-      // A user can create an event if they are the creator specified in the new document.
-      allow create: if isOwner(request.resource.data.creatorId);
-      // Only the creator or an admin can update or delete an event.
-      allow update, delete: if isOwner(resource.data.creatorId) || isAdmin();
+      // Only an admin can create, update, or delete events.
+      allow write: if isAdmin();
     }
   }
 }
-
-    

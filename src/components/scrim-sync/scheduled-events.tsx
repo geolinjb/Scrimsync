@@ -44,9 +44,10 @@ type ScheduledEventsProps = {
   allPlayerNames: string[];
   onRemoveEvent: (eventId: string) => void;
   currentUser: User | null;
+  isAdmin: boolean;
 };
 
-export function ScheduledEvents({ events, votes, allPlayerNames, onRemoveEvent, currentUser }: ScheduledEventsProps) {
+export function ScheduledEvents({ events, votes, allPlayerNames, onRemoveEvent, currentUser, isAdmin }: ScheduledEventsProps) {
     const { toast } = useToast();
     const [now, setNow] = React.useState(new Date());
 
@@ -165,7 +166,6 @@ export function ScheduledEvents({ events, votes, allPlayerNames, onRemoveEvent, 
                     <Accordion type="single" collapsible className="w-full">
                         {upcomingEvents.map((event) => {
                         const availablePlayers = getAvailablePlayers(event);
-                        const canDelete = currentUser?.uid === event.creatorId;
 
                         return (
                             <AccordionItem key={event.id} value={event.id} className="px-6">
@@ -219,7 +219,7 @@ export function ScheduledEvents({ events, votes, allPlayerNames, onRemoveEvent, 
                                         )}
                                     </div>
                                     <div className="flex flex-col items-center gap-2 shrink-0">
-                                        {canDelete && (
+                                        {isAdmin && (
                                             <AlertDialog>
                                                 <AlertDialogTrigger asChild>
                                                     <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive h-8 w-8">
