@@ -57,7 +57,7 @@ service cloud.firestore {
       // Any authenticated user can read events.
       allow read: if isSignedIn();
       // Only an admin OR the super admin can create, update, or delete events.
-      allow write: if isAdmin() || isOwner(ADMIN_UID());
+      allow write: if isAdmin() || request.auth.uid == ADMIN_UID();
     }
   }
 }
