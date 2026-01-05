@@ -8,7 +8,7 @@ const auth = admin.auth();
 // The hardcoded UID for the super admin.
 const SUPER_ADMIN_UID = "BpA8qniZ03YttlnTR25nc6RrWrZ2";
 
-exports.setAdminClaim = functions.onCall(async (request) => {
+exports.setAdminClaim = functions.https.onCall(async (request) => {
   // Check if the user is authenticated
   if (!request.auth) {
     throw new functions.https.HttpsError(
