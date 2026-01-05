@@ -2,6 +2,11 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Global constant for the Super Admin UID
+    function ADMIN_UID() {
+      return "BpA8qniZ03YttlnTR25nc6RrWrZ2";
+    }
+
     // Helper functions for reusable logic
     function isSignedIn() {
       return request.auth != null;
@@ -51,8 +56,8 @@ service cloud.firestore {
     match /scheduledEvents/{eventId} {
       // Any authenticated user can read events.
       allow read: if isSignedIn();
-      // Only an admin can create, update, or delete events.
-      allow write: if isAdmin();
+      // Only an admin OR the super admin can create, update, or delete events.
+      allow write: if isAdmin() || isOwner(ADMIN_UID());
     }
   }
 }
