@@ -160,7 +160,7 @@ export function ScheduledEvents({ events, votes, allPlayerNames, onRemoveEvent, 
                 Here are your team's scheduled sessions.
                 </CardDescription>
             </CardHeader>
-            <CardContent className='p-0'>
+            <CardContent>
                 {upcomingEvents.length > 0 ? (
                 <ScrollArea className='h-[400px]'>
                     <Accordion type="single" collapsible className="w-full">
@@ -168,7 +168,7 @@ export function ScheduledEvents({ events, votes, allPlayerNames, onRemoveEvent, 
                         const availablePlayers = getAvailablePlayers(event);
 
                         return (
-                            <AccordionItem key={event.id} value={event.id} className="px-6">
+                            <AccordionItem key={event.id} value={event.id}>
                             <AccordionTrigger>
                                 <div className="flex justify-between items-center w-full pr-2">
                                     <div className='flex flex-col items-start text-left'>

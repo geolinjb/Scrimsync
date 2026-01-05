@@ -1,21 +1,17 @@
-import { onCall, HttpsError } from "firebase-functions/v2/https";
-import * as logger from "firebase-functions/logger";
-import * as admin from "firebase-admin";
-import { defineString } from "firebase-functions/params";
+const functions = require("firebase-functions/v2/https");
+const logger = require("firebase-functions/logger");
+const admin = require("firebase-admin");
 
 admin.initializeApp();
 const auth = admin.auth();
 
-const SUPER_ADMIN_UID = defineString("SUPER_ADMIN_UID", {
-  description:
-    "The UID of the user who has ultimate administrative privileges.",
-  default: "BpA8qniZ03YttlnTR25nc6RrWrZ2",
-});
+// The hardcoded UID for the super admin.
+const SUPER_ADMIN_UID = "BpA8qniZ03YttlnTR25nc6RrWrZ2";
 
-export const setAdminClaim = onCall(async (request) => {
+exports.setAdminClaim = functions.onCall(async (request) => {
   // Check if the user is authenticated
   if (!request.auth) {
-    throw new HttpsError(
+    throw new functions.https.HttpsError(
       "unauthenticated",
       "You must be logged in to perform this action."
     );
@@ -25,7 +21,7 @@ export const setAdminClaim = onCall(async (request) => {
   const targetUid = request.data.uid;
 
   if (typeof targetUid !== "string" || targetUid.length === 0) {
-    throw new HttpsError(
+    throw new functions.https.HttpsError(
       "invalid-argument",
       "The function must be called with a 'uid' argument."
     );
@@ -33,12 +29,12 @@ export const setAdminClaim = onCall(async (request) => {
 
   try {
     const callerUserRecord = await auth.getUser(callerUid);
-    const isSuperAdmin = callerUserRecord.uid === SUPER_ADMIN_UID.value();
+    const isSuperAdmin = callerUserRecord.uid === SUPER_ADMIN_UID;
     const isAdmin = callerUserRecord.customClaims?.["admin"] === true;
 
     // Only allow an existing admin or the super admin to proceed
     if (!isAdmin && !isSuperAdmin) {
-      throw new HttpsError(
+      throw new functions.https.HttpsError(
         "permission-denied",
         "You do not have permission to perform this action."
       );
@@ -55,10 +51,10 @@ export const setAdminClaim = onCall(async (request) => {
     };
   } catch (error) {
     logger.error("Error setting admin claim:", error);
-    if (error instanceof HttpsError) {
+    if (error instanceof functions.https.HttpsError) {
       throw error;
     }
-    throw new HttpsError(
+    throw new functions.https.HttpsError(
       "internal",
       "An unexpected error occurred while setting the admin claim."
     );
