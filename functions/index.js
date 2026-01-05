@@ -29,8 +29,7 @@ exports.setAdminClaim = https.onCall(async (request) => {
   }
 
   try {
-    const callerUserRecord = await auth.getUser(callerUid);
-    const isSuperAdmin = callerUserRecord.uid === SUPER_ADMIN_UID;
+    const isSuperAdmin = callerUid === SUPER_ADMIN_UID;
     // Check custom claims on the token, not the user record
     const isAdmin = request.auth.token.admin === true;
 
