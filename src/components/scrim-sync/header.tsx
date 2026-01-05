@@ -1,6 +1,6 @@
 'use client';
 
-import { LogOut, Trophy } from 'lucide-react';
+import { LogOut, Trophy, Copy } from 'lucide-react';
 import { useAuth, useUser } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import { Button } from '../ui/button';
@@ -38,6 +38,11 @@ export function Header() {
         });
       }, (err) => {
         console.error('Could not copy text: ', err);
+        toast({
+          variant: "destructive",
+          title: "Copy Failed",
+          description: "Could not copy your UID.",
+        });
       });
     }
   }
@@ -71,6 +76,11 @@ export function Header() {
                   </p>
                 </div>
               </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+               <DropdownMenuItem onClick={copyToClipboard}>
+                <Copy className="mr-2 h-4 w-4" />
+                <span>Copy User ID</span>
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleSignOut}>
                 <LogOut className="mr-2 h-4 w-4" />
