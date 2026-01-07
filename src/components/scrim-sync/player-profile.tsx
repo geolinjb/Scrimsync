@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { PlayerProfileData, gameRoles } from '@/lib/types';
+import { PlayerProfileData, gameRoles, rosterStatuses, playstyleTags } from '@/lib/types';
 import {
   Card,
   CardContent,
