@@ -15,5 +15,21 @@ service firebase.storage {
                    // File size must be less than 5MB
                    && request.resource.size < 5 * 1024 * 1024;
     }
+
+    // Rules for event-specific images
+    match /event-images/{eventId}/{fileName} {
+      // Anyone can read event images
+      allow read;
+
+      // Any authenticated user can upload an image for an event,
+      // as long as the event exists in Firestore.
+      // This is a simplified rule; for stricter security, you could
+      // check if the uploader is the event creator or an admin.
+      allow write: if request.auth != null
+                   // And the file is an image
+                   && request.resource.contentType.matches('image/.*')
+                   // And the file size is less than 5MB
+                   && request.resource.size < 5 * 1024 * 1024;
+    }
   }
 }

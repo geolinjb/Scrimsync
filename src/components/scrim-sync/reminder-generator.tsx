@@ -24,8 +24,6 @@ import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '../ui/separator';
-import { useFunctions } from '@/firebase';
-import { httpsCallable } from 'firebase/functions';
 
 type ReminderGeneratorProps = {
   events: ScheduleEvent[] | null;
@@ -90,6 +88,7 @@ export function ReminderGenerator({ events, allVotes, allProfiles }: ReminderGen
     const unavailableList = unavailablePlayers.length > 0 ? unavailablePlayers.map(p => `- ${p}`).join('\n') : '> - *Everyone is available!*';
     
     const neededText = `🔥 **Players Needed: ${neededPlayers}**`;
+    const imageLine = event.imageURL ? `\n${event.imageURL}` : '';
     const footer = `\n---\nVote or update your availability:\nhttps://scrimsync.vercel.app/`;
 
     const fullMessage = [
@@ -104,6 +103,7 @@ export function ReminderGenerator({ events, allVotes, allProfiles }: ReminderGen
       unavailableHeader,
       unavailableList,
       footer,
+      imageLine,
     ].join('\n');
     
     setReminderMessage(fullMessage);

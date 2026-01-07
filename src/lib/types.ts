@@ -6,6 +6,7 @@ export type ScheduleEvent = {
   time: string;
   creatorId: string;
   isRecurring?: boolean;
+  imageURL?: string;
 };
 
 export type FirestoreScheduleEvent = Omit<ScheduleEvent, 'date'> & {

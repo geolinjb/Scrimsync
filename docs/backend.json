@@ -112,6 +112,10 @@
         "isRecurring": {
           "type": "boolean",
           "description": "Indicates if the event is part of a weekly recurring series."
+        },
+        "imageURL": {
+          "type": "string",
+          "description": "URL for an optional image or screenshot for the event."
         }
       },
       "required": [

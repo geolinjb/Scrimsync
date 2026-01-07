@@ -365,54 +365,22 @@ const hasLastWeekVotes = React.useMemo(() => {
     });
 }, [allVotesData, authUser.uid, weekStart]);
 
-  const handleAddEvent = (data: { type: 'Training' | 'Tournament'; date: Date; time: string, repeatWeekly?: boolean; }) => {
+  const handleAddEvent = (data: { type: 'Training' | 'Tournament'; date: Date; time: string; }) => {
     if (!firestore) return;
 
-    if (data.repeatWeekly) {
-        const batch = writeBatch(firestore);
-        const eventsRef = collection(firestore, 'scheduledEvents');
-
-        for (let i = 0; i < 4; i++) {
-            const eventDate = addWeeks(data.date, i);
-            const newEvent: Omit<FirestoreScheduleEvent, 'id'> = {
-                type: data.type,
-                date: format(eventDate, 'yyyy-MM-dd'),
-                time: data.time,
-                creatorId: authUser.uid,
-                isRecurring: true,
-            };
-            const docRef = doc(eventsRef); 
-            batch.set(docRef, newEvent);
-        }
-
-        batch.commit().then(() => {
-            toast({
-                title: 'Recurring Event Scheduled!',
-                description: `${data.type} has been scheduled for the next 4 weeks.`,
-            });
-        }).catch(e => {
-            const permissionError = new FirestorePermissionError({
-                path: 'scheduledEvents',
-                operation: 'create',
-            });
-            errorEmitter.emit('permission-error', permissionError);
-        });
-
-    } else {
-        const newEvent: Omit<FirestoreScheduleEvent, 'id'> = {
-          type: data.type,
-          date: format(data.date, 'yyyy-MM-dd'),
-          time: data.time,
-          creatorId: authUser.uid,
-          isRecurring: false,
-        };
-        const eventsRef = collection(firestore, 'scheduledEvents');
-        addDocumentNonBlocking(eventsRef, newEvent);
-        toast({
-          title: 'Event Scheduled!',
-          description: `${data.type} on ${format(data.date, 'd MMM, yyyy')} at ${data.time} has been added.`,
-        });
-    }
+    const newEvent: Omit<FirestoreScheduleEvent, 'id'> = {
+      type: data.type,
+      date: format(data.date, 'yyyy-MM-dd'),
+      time: data.time,
+      creatorId: authUser.uid,
+      isRecurring: false,
+    };
+    const eventsRef = collection(firestore, 'scheduledEvents');
+    addDocumentNonBlocking(eventsRef, newEvent);
+    toast({
+      title: 'Event Scheduled!',
+      description: `${data.type} on ${format(data.date, 'd MMM, yyyy')} at ${data.time} has been added.`,
+    });
   };
 
   const handleRemoveEvent = (eventId: string) => {
