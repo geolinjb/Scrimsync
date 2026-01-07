@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { User, Loader, Save, Shield, Swords, UploadCloud } from 'lucide-react';
+import { User, Loader, Save, Shield, Swords, UploadCloud, Image as ImageIcon } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Skeleton } from '../ui/skeleton';
 import { Badge } from '../ui/badge';
@@ -28,24 +28,35 @@ import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { useFunctions, useAuth } from '@/firebase';
 import { httpsCallable } from 'firebase/functions';
 import { useToast } from '@/hooks/use-toast';
-import { Progress } from '../ui/progress';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { ScrollArea } from '../ui/scroll-area';
+import { Separator } from '../ui/separator';
 
 type PlayerProfileProps = {
-  initialProfile: PlayerProfileData & { photoURL?: string | null, email?: string | null };
+  initialProfile: PlayerProfileData & { email?: string | null };
   onSave: (profile: PlayerProfileData) => void;
   isSaving: boolean;
   isLoading: boolean;
 };
 
+const preMadeAvatars = Array.from({ length: 20 }, (_, i) => `https://api.dicebear.com/8.x/pixel-art/svg?seed=${i+1}`);
+
+
 export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: PlayerProfileProps) {
   const [profile, setProfile] = React.useState(initialProfile);
   const [hasChanges, setHasChanges] = React.useState(false);
   const [isUploading, setIsUploading] = React.useState(false);
-  const [uploadProgress, setUploadProgress] = React.useState(0); // This is now for visual feedback only
   const fileInputRef = React.useRef<HTMLInputElement>(null);
-  
+  const [isAvatarDialogOpen, setIsAvatarDialogOpen] = React.useState(false);
+
   const functions = useFunctions();
-  const auth = useAuth();
   const { toast } = useToast();
 
   React.useEffect(() => {
@@ -53,16 +64,22 @@ export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: P
   }, [initialProfile]);
   
   const handleInputChange = (field: keyof PlayerProfileData, value: string | string[]) => {
-    setProfile({ ...profile, [field]: value });
+    setProfile(prev => ({ ...prev, [field]: value }));
     if (!hasChanges) setHasChanges(true);
   };
+
+  const handleAvatarSelect = (url: string) => {
+    setProfile(prev => ({ ...prev, photoURL: url }));
+    if (!hasChanges) setHasChanges(true);
+    setIsAvatarDialogOpen(false);
+  }
 
   const handleSave = () => {
     onSave(profile);
     setHasChanges(false);
   }
 
-  const handleAvatarClick = () => {
+  const handleAvatarUploadClick = () => {
     fileInputRef.current?.click();
   };
 
@@ -87,36 +104,29 @@ export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: P
     }
 
     setIsUploading(true);
-    setUploadProgress(50); // Visual cue that upload has started
 
     try {
-      // Convert file to Base64
       const reader = new FileReader();
       reader.readAsDataURL(file);
       reader.onload = async () => {
         const fileDataUrl = reader.result as string;
-        
-        // Call the Cloud Function
         const uploadProfilePicture = httpsCallable(functions, 'uploadProfilePicture');
         const result = await uploadProfilePicture({ fileDataUrl, fileName: file.name });
         
         const newPhotoURL = (result.data as { photoURL: string }).photoURL;
 
-        setProfile(prev => ({...prev, photoURL: newPhotoURL}));
+        handleAvatarSelect(newPhotoURL);
         
-        // The function handles updating Auth and Firestore, so we just update the UI.
         toast({
-          title: 'Avatar Updated!',
-          description: 'Your new profile picture has been saved.',
+          title: 'Avatar Uploaded!',
+          description: 'Your new profile picture has been saved. Click "Save Profile" to apply.',
         });
-        setUploadProgress(100);
-        setTimeout(() => setIsUploading(false), 1000);
+        setIsAvatarDialogOpen(false);
       };
 
       reader.onerror = (error) => {
         throw new Error("Failed to read file.");
       }
-
     } catch (error) {
       console.error("Error calling upload function:", error);
       toast({
@@ -124,7 +134,8 @@ export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: P
         title: 'Upload Failed',
         description: 'There was an error uploading your avatar. Please try again.',
       });
-      setIsUploading(false);
+    } finally {
+        setIsUploading(false);
     }
   };
 
@@ -160,26 +171,53 @@ export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: P
   return (
     <Card>
       <CardHeader className="items-center">
-        <div className="relative group">
-          <Avatar className="w-24 h-24 border-2 border-primary/50 cursor-pointer" onClick={handleAvatarClick}>
-            <AvatarImage src={profile.photoURL ?? `https://api.dicebear.com/8.x/pixel-art/svg?seed=${profile.id}`} alt={profile.username} />
-            <AvatarFallback>{profile.username?.charAt(0).toUpperCase()}</AvatarFallback>
-          </Avatar>
-          <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer" onClick={handleAvatarClick}>
-            {isUploading ? <Loader className="w-8 h-8 text-white animate-spin" /> : <UploadCloud className="w-8 h-8 text-white" />}
-          </div>
-        </div>
-        <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/png, image/jpeg, image/gif" className="hidden" />
-        {isUploading && (
-          <div className="w-full px-8 pt-2 text-center">
-             <Progress value={uploadProgress} className="h-2" />
-             <p className="text-xs text-muted-foreground mt-1">
-                Uploading...
-             </p>
-          </div>
-        )}
+        <Avatar className="w-24 h-24 border-2 border-primary/50">
+          <AvatarImage src={profile.photoURL ?? `https://api.dicebear.com/8.x/pixel-art/svg?seed=${profile.id}`} alt={profile.username} />
+          <AvatarFallback>{profile.username?.charAt(0).toUpperCase()}</AvatarFallback>
+        </Avatar>
+        
+        <Dialog open={isAvatarDialogOpen} onOpenChange={setIsAvatarDialogOpen}>
+          <DialogTrigger asChild>
+            <Button variant="link" className="text-sm">Change Avatar</Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[480px]">
+            <DialogHeader>
+              <DialogTitle>Choose Your Avatar</DialogTitle>
+              <DialogDescription>
+                Select a pre-made avatar or upload your own picture.
+              </DialogDescription>
+            </DialogHeader>
+            <div className='space-y-4'>
+                <Button onClick={handleAvatarUploadClick} disabled={isUploading} className='w-full'>
+                    {isUploading ? <Loader className='w-4 h-4 animate-spin mr-2' /> : <UploadCloud className='w-4 h-4 mr-2'/>}
+                    {isUploading ? 'Uploading...' : 'Upload Your Own'}
+                </Button>
+                <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/png, image/jpeg, image/gif" className="hidden" />
+
+                <div className='flex items-center gap-2'>
+                    <Separator className='flex-1'/>
+                    <span className='text-xs text-muted-foreground'>OR</span>
+                    <Separator className='flex-1'/>
+                </div>
+
+                <ScrollArea className='h-64'>
+                    <div className='grid grid-cols-4 gap-4 p-1'>
+                        {preMadeAvatars.map((url) => (
+                            <button key={url} onClick={() => handleAvatarSelect(url)} className={cn('rounded-full ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2', profile.photoURL === url && 'ring-2 ring-primary')}>
+                                <Avatar className='w-full h-auto'>
+                                    <AvatarImage src={url} alt="Pre-made avatar" />
+                                    <AvatarFallback>AV</AvatarFallback>
+                                </Avatar>
+                            </button>
+                        ))}
+                    </div>
+                </ScrollArea>
+            </div>
+          </DialogContent>
+        </Dialog>
+        
         <div className='text-center'>
-            <CardTitle className='mt-4'>{profile.username}</CardTitle>
+            <CardTitle className='mt-2'>{profile.username}</CardTitle>
             <CardDescription>{profile.email}</CardDescription>
         </div>
       </CardHeader>
