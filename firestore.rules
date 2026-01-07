@@ -70,7 +70,7 @@ service cloud.firestore {
       allow read: if isSignedIn();
       // Any authenticated user can create events.
       allow create: if isSignedIn();
-      // Users can only update/delete events they created, unless they are an admin.
+      // Users can only update/delete events they created, unless they are an admin or super admin.
       allow update, delete: if isSignedIn() && (isOwner(resource.data.creatorId) || isAdmin() || request.auth.uid == ADMIN_UID());
     }
   }
