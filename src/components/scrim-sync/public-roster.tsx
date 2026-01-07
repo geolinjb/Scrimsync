@@ -1,12 +1,13 @@
 'use client';
 
 import * as React from 'react';
+import Image from 'next/image';
 import { collection } from 'firebase/firestore';
-import { Shield, Swords, Users, Loader } from 'lucide-react';
+import { Shield, Users, Loader } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import type { PlayerProfileData } from '@/lib/types';
+import type { PlayerProfileData, playstyleTags } from '@/lib/types';
 import {
   Card,
   CardContent,
@@ -19,6 +20,19 @@ import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Badge } from '../ui/badge';
 import { cn } from '@/lib/utils';
 import { Separator } from '../ui/separator';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+
+const playstyleTagIcons: Record<(typeof playstyleTags)[number], string> = {
+  Assaulter: '/icons/assaulter.svg',
+  Defender: '/icons/defender.svg',
+  LT: '/icons/light-tank.svg',
+  Harvester: '/icons/harvester.svg',
+};
 
 export function PublicRoster() {
   const firestore = useFirestore();
@@ -91,62 +105,76 @@ export function PublicRoster() {
   }
 
   return (
-    <div>
-        <CardHeader className='px-0'>
-            <CardTitle className='text-3xl'>Team Roster</CardTitle>
-            <CardDescription>Meet the members of the team.</CardDescription>
-        </CardHeader>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {sortedProfiles.map((profile, index) => (
-                 <motion.div
-                    key={profile.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.05 }}
-                 >
-                    <Card className='h-full flex flex-col'>
-                        <CardHeader className='items-center text-center'>
-                            <Avatar className='w-20 h-20 border-2 border-primary/50'>
-                                <AvatarImage src={profile.photoURL ?? `https://api.dicebear.com/8.x/pixel-art/svg?seed=${profile.id}`} />
-                                <AvatarFallback>{profile.username.charAt(0).toUpperCase()}</AvatarFallback>
-                            </Avatar>
-                            <CardTitle className='pt-4'>{profile.username}</CardTitle>
-                        </CardHeader>
-                        <CardContent className='flex-grow flex flex-col justify-center'>
-                            <div className='space-y-4'>
-                                <div className='space-y-2 text-center'>
-                                     <h4 className='text-sm font-semibold text-muted-foreground'>Status</h4>
-                                    {profile.rosterStatus ? (
-                                        <Badge variant={profile.rosterStatus === 'Main Roster' ? 'default' : 'secondary'} className={cn('text-sm', profile.rosterStatus === 'Main Roster' && 'bg-gold text-black hover:bg-gold/90')}>
-                                        <Shield className="w-3 h-3 mr-1.5" />
-                                        {profile.rosterStatus}
-                                        </Badge>
-                                    ) : (
-                                        <span className="text-sm text-muted-foreground/80 italic">Not Assigned</span>
-                                    )}
-                                </div>
-                                <Separator />
-                                <div className='space-y-2 text-center'>
-                                    <h4 className='text-sm font-semibold text-muted-foreground'>Playstyle</h4>
-                                    <div className="flex flex-wrap gap-2 justify-center min-h-[26px]">
-                                        {profile.playstyleTags && profile.playstyleTags.length > 0 ? (
-                                            profile.playstyleTags.map(tag => (
-                                                <Badge key={tag} variant="outline" className="text-sm">
-                                                <Swords className="w-3 h-3 mr-1.5" />
-                                                {tag}
-                                                </Badge>
-                                            ))
-                                        ) : (
-                                            <span className="text-sm text-muted-foreground/80 italic">Not Assigned</span>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </motion.div>
-            ))}
-        </div>
-    </div>
+    <TooltipProvider>
+      <div>
+          <CardHeader className='px-0'>
+              <CardTitle className='text-3xl'>Team Roster</CardTitle>
+              <CardDescription>Meet the members of the team.</CardDescription>
+          </CardHeader>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              {sortedProfiles.map((profile, index) => (
+                   <motion.div
+                      key={profile.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                   >
+                      <Card className='h-full flex flex-col'>
+                          <CardHeader className='items-center text-center'>
+                              <Avatar className='w-20 h-20 border-2 border-primary/50'>
+                                  <AvatarImage src={profile.photoURL ?? `https://api.dicebear.com/8.x/pixel-art/svg?seed=${profile.id}`} />
+                                  <AvatarFallback>{profile.username.charAt(0).toUpperCase()}</AvatarFallback>
+                              </Avatar>
+                              <CardTitle className='pt-4'>{profile.username}</CardTitle>
+                          </CardHeader>
+                          <CardContent className='flex-grow flex flex-col justify-center'>
+                              <div className='space-y-4'>
+                                  <div className='space-y-2 text-center'>
+                                       <h4 className='text-sm font-semibold text-muted-foreground'>Status</h4>
+                                      {profile.rosterStatus ? (
+                                          <Badge variant={profile.rosterStatus === 'Main Roster' ? 'default' : 'secondary'} className={cn('text-sm', profile.rosterStatus === 'Main Roster' && 'bg-gold text-black hover:bg-gold/90')}>
+                                          <Shield className="w-3 h-3 mr-1.5" />
+                                          {profile.rosterStatus}
+                                          </Badge>
+                                      ) : (
+                                          <span className="text-sm text-muted-foreground/80 italic">Not Assigned</span>
+                                      )}
+                                  </div>
+                                  <Separator />
+                                  <div className='space-y-2 text-center'>
+                                      <h4 className='text-sm font-semibold text-muted-foreground'>Playstyle</h4>
+                                      <div className="flex flex-wrap gap-2 justify-center min-h-[36px]">
+                                          {profile.playstyleTags && profile.playstyleTags.length > 0 ? (
+                                              profile.playstyleTags.map(tag => (
+                                                <Tooltip key={tag}>
+                                                  <TooltipTrigger asChild>
+                                                      <div className="flex items-center justify-center h-9 w-9 rounded-md bg-accent/50 border border-border">
+                                                        <Image
+                                                            src={playstyleTagIcons[tag]}
+                                                            alt={tag}
+                                                            width={20}
+                                                            height={20}
+                                                            className='saturate-150'
+                                                        />
+                                                      </div>
+                                                  </TooltipTrigger>
+                                                  <TooltipContent>
+                                                      <p>{tag}</p>
+                                                  </TooltipContent>
+                                                </Tooltip>
+                                              ))
+                                          ) : (
+                                              <span className="text-sm text-muted-foreground/80 italic">Not Assigned</span>
+                                          )}
+                                      </div>
+                                  </div>
+                              </div>
+                          </CardContent>
+                      </Card>
+                  </motion.div>
+              ))}
+          </div>
+      </div>
+    </TooltipProvider>
   );
 }
