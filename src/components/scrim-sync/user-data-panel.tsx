@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/table";
 import { Skeleton } from '../ui/skeleton';
 import type { PlayerProfileData, Vote, ScheduleEvent, AllVotes } from '@/lib/types';
-import { timeSlots, MINIMUM_PLAYERS, rosterStatuses, playstyleTags } from '@/lib/types';
+import { timeSlots, MINIMUM_PLAYERS, rosterStatuses } from '@/lib/types';
 import { Button } from '../ui/button';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -47,7 +47,6 @@ import { ScrollArea } from '../ui/scroll-area';
 import { ReminderGenerator } from './reminder-generator';
 import type { User as AuthUser } from 'firebase/auth';
 import { AdminManagementPanel } from './admin-management-panel';
-import { MultiSelect, Option } from '../ui/multi-select';
 
 
 type UserDataPanelProps = {
@@ -58,8 +57,6 @@ type UserDataPanelProps = {
   allVotesData: Vote[] | null;
   currentUser: AuthUser | null;
 };
-
-const playstyleOptions: Option[] = playstyleTags.map(tag => ({ value: tag, label: tag }));
 
 export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent, allVotesData, currentUser }: UserDataPanelProps) {
   const { toast } = useToast();
@@ -122,26 +119,26 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent, a
     }, {} as AllVotes);
   }, [allVotesData, allProfiles]);
 
-  const handleTagChange = async (userId: string, field: 'rosterStatus' | 'playstyleTags', value: any) => {
+  const handleStatusChange = async (userId: string, value: any) => {
     if (!firestore) return;
     const userDocRef = doc(firestore, 'users', userId);
     try {
-      await updateDoc(userDocRef, { [field]: value });
+      await updateDoc(userDocRef, { rosterStatus: value });
       toast({
-        title: 'Tag Updated',
-        description: `Player's ${field === 'rosterStatus' ? 'roster status' : 'playstyle tags'} has been updated.`,
+        title: 'Status Updated',
+        description: `Player's roster status has been updated.`,
       });
     } catch (error) {
-      console.error('Error updating player tag:', error);
+      console.error('Error updating player status:', error);
       toast({
         variant: 'destructive',
         title: 'Update Failed',
-        description: 'Could not update the player tags.',
+        description: 'Could not update the player status.',
       });
       const permissionError = new FirestorePermissionError({
         path: userDocRef.path,
         operation: 'update',
-        requestResourceData: { [field]: value }
+        requestResourceData: { rosterStatus: value }
       });
       errorEmitter.emit('permission-error', permissionError);
     }
@@ -408,7 +405,6 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent, a
                         <TableRow>
                             <TableHead className='min-w-[150px]'>Username</TableHead>
                             <TableHead className='min-w-[180px]'>Roster Status</TableHead>
-                            <TableHead className='min-w-[250px]'>Playstyle Tags</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -423,7 +419,7 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent, a
                             <TableCell>
                                 <Select
                                     value={profile.rosterStatus}
-                                    onValueChange={(value) => handleTagChange(profile.id, 'rosterStatus', value)}
+                                    onValueChange={(value) => handleStatusChange(profile.id, value)}
                                 >
                                     <SelectTrigger>
                                         <SelectValue placeholder="Assign Status" />
@@ -436,14 +432,6 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent, a
                                         ))}
                                     </SelectContent>
                                 </Select>
-                            </TableCell>
-                            <TableCell>
-                                <MultiSelect
-                                    options={playstyleOptions}
-                                    value={(profile.playstyleTags || []).map(tag => ({ value: tag, label: tag }))}
-                                    onValueChange={(selectedOptions) => handleTagChange(profile.id, 'playstyleTags', selectedOptions.map(opt => opt.value))}
-                                    placeholder="Select tags..."
-                                />
                             </TableCell>
                         </TableRow>
                         ))}

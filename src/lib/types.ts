@@ -17,7 +17,6 @@ export type PlayerProfileData = {
   favoriteTank: string;
   role: (typeof gameRoles)[number] | '';
   rosterStatus?: (typeof rosterStatuses)[number];
-  playstyleTags?: (typeof playstyleTags)[number][];
 };
 
 export type Vote = {
@@ -30,7 +29,6 @@ export type Vote = {
 export const gameRoles = ['Tank Destroyer', 'Medium Tank', 'Heavy Tank', 'Assaulter', 'Defender', 'Light Tank'] as const;
 
 export const rosterStatuses = ["Main Roster", "Standby Player"] as const;
-export const playstyleTags = ["Assaulter", "Defender", "LT", "Harvester"] as const;
 
 export const timeSlots = [
   "4:30 PM", "5:00 PM", "5:30 PM", "6:00 PM", "6:30 PM", "7:00 PM",
