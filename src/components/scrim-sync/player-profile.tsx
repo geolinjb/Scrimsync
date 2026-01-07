@@ -26,7 +26,7 @@ import { Badge } from '../ui/badge';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL, UploadTask } from "firebase/storage";
-import { useFirebaseApp, useUser } from '@/firebase';
+import { useFirebaseApp, useUser, useAuth } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { updateProfile } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
@@ -48,6 +48,7 @@ export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: P
   const [totalBytes, setTotalBytes] = React.useState(0);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const firebaseApp = useFirebaseApp();
+  const auth = useAuth();
   const { user } = useUser();
   const { toast } = useToast();
 
@@ -112,9 +113,14 @@ export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: P
           setIsUploading(false);
         },
         async () => {
+          if (!auth.currentUser) {
+            toast({ variant: 'destructive', title: 'Not Authenticated', description: 'Cannot update profile.' });
+            setIsUploading(false);
+            return;
+          }
           const photoURL = await getDownloadURL(uploadTask.snapshot.ref);
           
-          await updateProfile(user, { photoURL });
+          await updateProfile(auth.currentUser, { photoURL });
           
           const updatedProfile = { ...profile, photoURL };
           
