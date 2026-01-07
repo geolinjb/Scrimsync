@@ -531,7 +531,16 @@ const hasLastWeekVotes = React.useMemo(() => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-1 space-y-8">
                 <PlayerProfile 
-                    initialProfile={profile ?? { id: authUser.uid, username: authUser.displayName || '', favoriteTank: '', role: '' }} 
+                    initialProfile={{ 
+                        id: authUser.uid, 
+                        username: profile?.username ?? authUser.displayName ?? '', 
+                        photoURL: profile?.photoURL ?? authUser.photoURL,
+                        email: authUser.email,
+                        favoriteTank: profile?.favoriteTank ?? '', 
+                        role: profile?.role ?? '',
+                        rosterStatus: profile?.rosterStatus,
+                        playstyleTags: profile?.playstyleTags
+                    }} 
                     onSave={handleProfileSave}
                     isSaving={isSavingProfile}
                     isLoading={isProfileLoading}
@@ -592,5 +601,3 @@ const hasLastWeekVotes = React.useMemo(() => {
     </div>
   );
 }
-
-    

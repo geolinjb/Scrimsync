@@ -14,6 +14,10 @@
           "type": "string",
           "description": "The user's chosen username."
         },
+        "photoURL": {
+          "type": "string",
+          "description": "URL of the user's profile picture."
+        },
         "favoriteTank": {
           "type": "string",
           "description": "The user's favorite tank."

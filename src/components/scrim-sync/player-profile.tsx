@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { PlayerProfileData, gameRoles, rosterStatuses, playstyleTags } from '@/lib/types';
+import { PlayerProfileData, gameRoles } from '@/lib/types';
 import {
   Card,
   CardContent,
@@ -19,22 +19,32 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { User, Loader, Save, Shield, Swords } from 'lucide-react';
+import { User, Loader, Save, Shield, Swords, UploadCloud } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Skeleton } from '../ui/skeleton';
 import { Badge } from '../ui/badge';
 import { cn } from '@/lib/utils';
+import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
+import { useFirebaseApp } from '@/firebase';
+import { useToast } from '@/hooks/use-toast';
+import { updateProfile } from 'firebase/auth';
 
 type PlayerProfileProps = {
-  initialProfile: PlayerProfileData;
+  initialProfile: PlayerProfileData & { photoURL?: string | null, email?: string | null };
   onSave: (profile: PlayerProfileData) => void;
   isSaving: boolean;
   isLoading: boolean;
 };
 
 export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: PlayerProfileProps) {
-  const [profile, setProfile] = React.useState<PlayerProfileData>(initialProfile);
+  const [profile, setProfile] = React.useState(initialProfile);
   const [hasChanges, setHasChanges] = React.useState(false);
+  const [isUploading, setIsUploading] = React.useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const firebaseApp = useFirebaseApp();
+  const { toast } = useToast();
+
 
   React.useEffect(() => {
     setProfile(initialProfile);
@@ -50,12 +60,68 @@ export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: P
     setHasChanges(false);
   }
 
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !firebaseApp) return;
+
+    if (file.size > 5 * 1024 * 1024) { // 5MB limit
+      toast({
+        variant: 'destructive',
+        title: 'File Too Large',
+        description: 'Please select an image smaller than 5MB.',
+      });
+      return;
+    }
+
+    setIsUploading(true);
+
+    try {
+      const storage = getStorage(firebaseApp);
+      const filePath = `avatars/${profile.id}/${file.name}`;
+      const fileRef = storageRef(storage, filePath);
+      
+      const snapshot = await uploadBytes(fileRef, file);
+      const photoURL = await getDownloadURL(snapshot.ref);
+
+      // Also update the auth user profile if possible
+      const auth = (await import('firebase/auth')).getAuth(firebaseApp);
+      if (auth.currentUser) {
+        await updateProfile(auth.currentUser, { photoURL });
+      }
+
+      handleInputChange('photoURL', photoURL);
+      // Automatically save the profile after successful upload
+      onSave({ ...profile, photoURL });
+      setHasChanges(false);
+
+      toast({
+        title: 'Avatar Updated!',
+        description: 'Your new profile picture has been saved.',
+      });
+
+    } catch (error) {
+      console.error("Error uploading file:", error);
+      toast({
+        variant: 'destructive',
+        title: 'Upload Failed',
+        description: 'There was an error uploading your avatar. Please try again.',
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   if (isLoading) {
     return (
         <Card>
-            <CardHeader>
-                <Skeleton className="h-8 w-3/4" />
-                <Skeleton className="h-4 w-full" />
+            <CardHeader className="items-center">
+                <Skeleton className="h-24 w-24 rounded-full" />
+                <Skeleton className="h-6 w-3/4 mt-4" />
+                <Skeleton className="h-4 w-1/2" />
             </CardHeader>
             <CardContent className="space-y-4">
                 <div className="space-y-2">
@@ -80,14 +146,22 @@ export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: P
 
   return (
     <Card>
-      <CardHeader>
-        <div className="flex items-center gap-3">
-            <User className="w-6 h-6 text-gold" />
-            <CardTitle>Player Profile</CardTitle>
+      <CardHeader className="items-center">
+        <div className="relative group">
+          <Avatar className="w-24 h-24 border-2 border-primary/50 cursor-pointer" onClick={handleAvatarClick}>
+            <AvatarImage src={profile.photoURL ?? `https://api.dicebear.com/8.x/pixel-art/svg?seed=${profile.id}`} alt={profile.username} />
+            <AvatarFallback>{profile.username?.charAt(0).toUpperCase()}</AvatarFallback>
+          </Avatar>
+          <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer" onClick={handleAvatarClick}>
+            {isUploading ? <Loader className="w-8 h-8 text-white animate-spin" /> : <UploadCloud className="w-8 h-8 text-white" />}
+          </div>
         </div>
-        <CardDescription>
-          Set your name, favorite tank, and preferred role. Your assigned status and tags are managed by admins.
-        </CardDescription>
+        <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/png, image/jpeg, image/gif" className="hidden" />
+        
+        <div className='text-center'>
+            <CardTitle className='mt-4'>{profile.username}</CardTitle>
+            <CardDescription>{profile.email}</CardDescription>
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
@@ -140,9 +214,7 @@ export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: P
                   <Shield className="w-3 h-3 mr-1.5" />
                   {profile.rosterStatus}
                 </Badge>
-              ) : (
-                 <span className="text-sm text-muted-foreground px-1">No roster status assigned.</span>
-              )}
+              ) : null}
                {profile.playstyleTags && profile.playstyleTags.map(tag => (
                 <Badge key={tag} variant="outline" className="text-sm">
                   <Swords className="w-3 h-3 mr-1.5" />
@@ -156,7 +228,7 @@ export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: P
           </div>
       </CardContent>
       <CardFooter>
-        <Button onClick={handleSave} disabled={isSaving || !hasChanges} className='w-full'>
+        <Button onClick={handleSave} disabled={isSaving || !hasChanges || isUploading} className='w-full'>
             {isSaving ? <Loader className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
             {isSaving ? 'Saving...' : 'Save Profile'}
         </Button>
