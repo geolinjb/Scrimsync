@@ -181,6 +181,7 @@ export function ScheduledEvents({ events, votes, allPlayerNames, onRemoveEvent, 
                     <Accordion type="single" collapsible className="w-full">
                         {upcomingEvents.map((event) => {
                         const availablePlayers = getAvailablePlayers(event);
+                        const canDelete = isAdmin || (currentUser && currentUser.uid === event.creatorId);
 
                         return (
                             <AccordionItem key={event.id} value={event.id}>
@@ -237,7 +238,7 @@ export function ScheduledEvents({ events, votes, allPlayerNames, onRemoveEvent, 
                                         )}
                                     </div>
                                     <div className="flex flex-col items-center gap-2 shrink-0">
-                                        {isAdmin && (
+                                        {canDelete && (
                                             <AlertDialog>
                                                 <AlertDialogTrigger asChild>
                                                     <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive h-8 w-8">
