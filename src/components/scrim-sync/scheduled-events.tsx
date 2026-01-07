@@ -89,7 +89,10 @@ export function ScheduledEvents({ events, votes, allPlayerNames, onRemoveEvent, 
 
     const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
-        if (!file || !firebaseApp || !currentUser || !selectedEventIdForUpload) return;
+        if (!file || !firebaseApp || !currentUser || !selectedEventIdForUpload || !firestore) {
+            toast({ variant: 'destructive', title: 'Upload Error', description: 'Could not start upload.' });
+            return;
+        }
         
         const eventId = selectedEventIdForUpload;
 
@@ -115,7 +118,6 @@ export function ScheduledEvents({ events, votes, allPlayerNames, onRemoveEvent, 
             
             await uploadTask;
 
-            if (!firestore) return;
             const imageURL = await getDownloadURL(uploadTask.snapshot.ref);
             const eventDocRef = doc(firestore, 'scheduledEvents', eventId);
             await updateDoc(eventDocRef, { imageURL });
@@ -233,7 +235,7 @@ export function ScheduledEvents({ events, votes, allPlayerNames, onRemoveEvent, 
                                             <div className='space-y-4'>
                                                 {event.imageURL && (
                                                     <div className="relative aspect-video w-full rounded-md overflow-hidden border">
-                                                        <Image src={event.imageURL} alt={`Screenshot for ${event.type}`} layout='fill' objectFit='cover' />
+                                                        <Image src={event.imageURL} alt={`Screenshot for ${event.type}`} fill objectFit='cover' />
                                                     </div>
                                                 )}
 

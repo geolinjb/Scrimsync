@@ -25,7 +25,7 @@ import { Skeleton } from '../ui/skeleton';
 import { Badge } from '../ui/badge';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
-import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL, UploadTask, updateMetadata } from "firebase/storage";
+import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL, UploadTask } from "firebase/storage";
 import { useFirebaseApp, useAuth, useFirestore, useUser } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { updateProfile } from 'firebase/auth';
@@ -47,10 +47,10 @@ export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: P
   const [bytesTransferred, setBytesTransferred] = React.useState(0);
   const [totalBytes, setTotalBytes] = React.useState(0);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  
   const firebaseApp = useFirebaseApp();
   const firestore = useFirestore();
   const auth = useAuth();
-  const { user } = useUser();
   const { toast } = useToast();
 
 
@@ -74,7 +74,14 @@ export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: P
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file || !firebaseApp || !auth.currentUser) return;
+    if (!file || !firebaseApp || !auth.currentUser || !firestore) {
+      toast({
+        variant: 'destructive',
+        title: 'Upload Error',
+        description: 'Could not start upload. Please try again.',
+      });
+      return;
+    }
 
     if (file.size > 5 * 1024 * 1024) { // 5MB limit
       toast({
@@ -94,8 +101,9 @@ export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: P
       const storage = getStorage(firebaseApp);
       const filePath = `avatars/${auth.currentUser.uid}/${file.name}`;
       const fileRef = storageRef(storage, filePath);
-      const uploadTask: UploadTask = uploadBytesResumable(fileRef, file);
+      const uploadTask = uploadBytesResumable(fileRef, file);
 
+      // Set up the progress listener
       uploadTask.on('state_changed',
         (snapshot) => {
           const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
@@ -105,15 +113,18 @@ export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: P
         }
       );
 
+      // Wait for the upload to complete
       await uploadTask;
 
-      if (!auth.currentUser) {
-        throw new Error('Not authenticated.');
-      }
+      // Get the download URL
       const photoURL = await getDownloadURL(uploadTask.snapshot.ref);
 
       // Update Firebase Auth profile
-      await updateProfile(auth.currentUser, { photoURL });
+      if (auth.currentUser) {
+        await updateProfile(auth.currentUser, { photoURL });
+      } else {
+        throw new Error('User not authenticated.');
+      }
       
       // Update Firestore profile document
       const profileDocRef = doc(firestore, 'users', auth.currentUser.uid);
