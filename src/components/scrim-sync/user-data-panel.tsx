@@ -263,7 +263,7 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent, a
   };
 
   const goToNextWeek = () => {
-    setSelectedDate(prev => addDays(prev, -7));
+    setSelectedDate(prev => addDays(prev, 7));
   };
 
   const handleCopyRoster = () => {
