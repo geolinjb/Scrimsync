@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/table";
 import { Skeleton } from '../ui/skeleton';
 import type { PlayerProfileData, Vote, ScheduleEvent, AllVotes } from '@/lib/types';
-import { timeSlots, MINIMUM_PLAYERS, rosterStatuses } from '@/lib/types';
+import { timeSlots, MINIMUM_PLAYERS, rosterStatuses, playstyleTags } from '@/lib/types';
 import { Button } from '../ui/button';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -47,6 +47,7 @@ import { ScrollArea } from '../ui/scroll-area';
 import { ReminderGenerator } from './reminder-generator';
 import type { User as AuthUser } from 'firebase/auth';
 import { AdminManagementPanel } from './admin-management-panel';
+import { MultiSelect } from '../ui/multi-select';
 
 
 type UserDataPanelProps = {
@@ -119,26 +120,26 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent, a
     }, {} as AllVotes);
   }, [allVotesData, allProfiles]);
 
-  const handleStatusChange = async (userId: string, value: any) => {
+  const handleTagChange = async (userId: string, field: 'rosterStatus' | 'playstyleTags', value: any) => {
     if (!firestore) return;
     const userDocRef = doc(firestore, 'users', userId);
     try {
-      await updateDoc(userDocRef, { rosterStatus: value });
+      await updateDoc(userDocRef, { [field]: value });
       toast({
-        title: 'Status Updated',
-        description: `Player's roster status has been updated.`,
+        title: 'Player Updated',
+        description: `Player's ${field === 'rosterStatus' ? 'roster status' : 'tags'} have been updated.`,
       });
     } catch (error) {
-      console.error('Error updating player status:', error);
+      console.error('Error updating player tags:', error);
       toast({
         variant: 'destructive',
         title: 'Update Failed',
-        description: 'Could not update the player status.',
+        description: 'Could not update the player tags.',
       });
       const permissionError = new FirestorePermissionError({
         path: userDocRef.path,
         operation: 'update',
-        requestResourceData: { rosterStatus: value }
+        requestResourceData: { [field]: value }
       });
       errorEmitter.emit('permission-error', permissionError);
     }
@@ -383,6 +384,8 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent, a
     );
   }
 
+  const playstyleOptions = playstyleTags.map(tag => ({ label: tag, value: tag }));
+
   return (
     <div className='space-y-8'>
         <AdminManagementPanel />
@@ -405,6 +408,7 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent, a
                         <TableRow>
                             <TableHead className='min-w-[150px]'>Username</TableHead>
                             <TableHead className='min-w-[180px]'>Roster Status</TableHead>
+                            <TableHead className='min-w-[220px]'>Playstyle Tags</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -419,7 +423,7 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent, a
                             <TableCell>
                                 <Select
                                     value={profile.rosterStatus}
-                                    onValueChange={(value) => handleStatusChange(profile.id, value)}
+                                    onValueChange={(value) => handleTagChange(profile.id, 'rosterStatus', value)}
                                 >
                                     <SelectTrigger>
                                         <SelectValue placeholder="Assign Status" />
@@ -432,6 +436,16 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent, a
                                         ))}
                                     </SelectContent>
                                 </Select>
+                            </TableCell>
+                             <TableCell>
+                                <MultiSelect
+                                    options={playstyleOptions}
+                                    onValueChange={(value) => handleTagChange(profile.id, 'playstyleTags', value)}
+                                    defaultValue={profile.playstyleTags || []}
+                                    placeholder="Assign tags..."
+                                    variant="ghost"
+                                    animation={0}
+                                />
                             </TableCell>
                         </TableRow>
                         ))}

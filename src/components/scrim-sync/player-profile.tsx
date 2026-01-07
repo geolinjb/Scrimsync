@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { PlayerProfileData, gameRoles } from '@/lib/types';
+import { PlayerProfileData, gameRoles, playstyleTags } from '@/lib/types';
 import {
   Card,
   CardContent,
@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { User, Loader, Save, Shield } from 'lucide-react';
+import { User, Loader, Save, Shield, Swords } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Skeleton } from '../ui/skeleton';
 import { Badge } from '../ui/badge';
@@ -86,7 +86,7 @@ export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: P
             <CardTitle>Player Profile</CardTitle>
         </div>
         <CardDescription>
-          Set your name, favorite tank, and preferred role. Your assigned status is managed by admins.
+          Set your name, favorite tank, and preferred role. Your assigned status and tags are managed by admins.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -133,7 +133,7 @@ export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: P
           </Select>
         </div>
          <div className="space-y-2">
-            <Label>Your Status</Label>
+            <Label>Your Status & Tags</Label>
             <div className="flex flex-wrap gap-2 rounded-md border bg-muted min-h-[40px] p-2 items-center">
               {profile.rosterStatus ? (
                 <Badge variant={profile.rosterStatus === 'Main Roster' ? 'default' : 'secondary'} className={cn('text-sm', profile.rosterStatus === 'Main Roster' && 'bg-gold text-black hover:bg-gold/90')}>
@@ -142,6 +142,15 @@ export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: P
                 </Badge>
               ) : (
                  <span className="text-sm text-muted-foreground px-1">No roster status assigned.</span>
+              )}
+               {profile.playstyleTags && profile.playstyleTags.map(tag => (
+                <Badge key={tag} variant="outline" className="text-sm">
+                  <Swords className="w-3 h-3 mr-1.5" />
+                  {tag}
+                </Badge>
+              ))}
+              {profile.playstyleTags?.length === 0 && (
+                <span className="text-sm text-muted-foreground px-1">No playstyle tags assigned.</span>
               )}
             </div>
           </div>

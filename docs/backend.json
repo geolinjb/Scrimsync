@@ -29,6 +29,19 @@
             "Main Roster",
             "Standby Player"
           ]
+        },
+        "playstyleTags": {
+          "type": "array",
+          "description": "A list of tags describing the user's preferred playstyle.",
+          "items": {
+            "type": "string",
+            "enum": [
+              "Assaulter",
+              "Defender",
+              "LT",
+              "Harvester"
+            ]
+          }
         }
       },
       "required": [
