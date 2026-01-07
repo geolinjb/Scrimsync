@@ -4,7 +4,7 @@ import * as React from 'react';
 import { TeamSyncDashboard } from '@/components/scrim-sync/scrim-sync-dashboard';
 import { useAuth, useUser } from '@/firebase';
 import { Button } from '@/components/ui/button';
-import { Loader, Chrome, Info } from 'lucide-react';
+import { Loader, Chrome, Info, Users } from 'lucide-react';
 import { GoogleAuthProvider, signInWithPopup, type FirebaseError } from 'firebase/auth';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
@@ -12,6 +12,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
+import Link from 'next/link';
 
 export default function Home() {
   const { user, isUserLoading } = useUser();
@@ -99,7 +100,7 @@ export default function Home() {
                     >
                         Coordinate your team's practice schedules and availability, effortlessly.
                     </motion.p>
-                    <motion.div variants={FADE_IN_VARIANTS}>
+                    <motion.div variants={FADE_IN_VARIANTS} className="flex flex-col sm:flex-row gap-4">
                         <Button onClick={handleLogin} size="lg" disabled={!auth || isLoggingIn}>
                         {isLoggingIn ? (
                             <Loader className="mr-2 h-5 w-5 animate-spin" />
@@ -107,6 +108,12 @@ export default function Home() {
                             <Chrome className="mr-2 h-5 w-5" />
                         )}
                         {isLoggingIn ? 'Signing in...' : 'Sign in with Google'}
+                        </Button>
+                        <Button asChild variant="outline" size="lg">
+                            <Link href="/roster">
+                                <Users className="mr-2 h-5 w-5" />
+                                View Public Roster
+                            </Link>
                         </Button>
                     </motion.div>
                 </motion.div>

@@ -26,8 +26,8 @@ service cloud.firestore {
      * @path /users/{userId}
      */
     match /users/{userId} {
-      // Any signed-in user can read profiles.
-      allow read: if isSignedIn();
+      // Any user (authenticated or not) can read profiles for the public roster.
+      allow read: if true;
 
       // Users can create/update their own profile. Admins and the Super Admin can update any profile.
       allow write: if isOwner(userId) || isAdmin() || request.auth.uid == ADMIN_UID();
