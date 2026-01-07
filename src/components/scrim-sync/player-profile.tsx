@@ -25,11 +25,9 @@ import { Skeleton } from '../ui/skeleton';
 import { Badge } from '../ui/badge';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
-import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL, UploadTask } from "firebase/storage";
-import { useFirebaseApp, useAuth, useFirestore, useUser } from '@/firebase';
+import { useFunctions, useAuth } from '@/firebase';
+import { httpsCallable } from 'firebase/functions';
 import { useToast } from '@/hooks/use-toast';
-import { updateProfile } from 'firebase/auth';
-import { doc, updateDoc } from 'firebase/firestore';
 import { Progress } from '../ui/progress';
 
 type PlayerProfileProps = {
@@ -43,16 +41,12 @@ export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: P
   const [profile, setProfile] = React.useState(initialProfile);
   const [hasChanges, setHasChanges] = React.useState(false);
   const [isUploading, setIsUploading] = React.useState(false);
-  const [uploadProgress, setUploadProgress] = React.useState(0);
-  const [bytesTransferred, setBytesTransferred] = React.useState(0);
-  const [totalBytes, setTotalBytes] = React.useState(0);
+  const [uploadProgress, setUploadProgress] = React.useState(0); // This is now for visual feedback only
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   
-  const firebaseApp = useFirebaseApp();
-  const firestore = useFirestore();
+  const functions = useFunctions();
   const auth = useAuth();
   const { toast } = useToast();
-
 
   React.useEffect(() => {
     setProfile(initialProfile);
@@ -74,11 +68,11 @@ export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: P
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file || !firebaseApp || !auth.currentUser || !firestore) {
+    if (!file || !functions) {
       toast({
         variant: 'destructive',
         title: 'Upload Error',
-        description: 'Could not start upload. Please try again.',
+        description: 'No file selected or backend service unavailable.',
       });
       return;
     }
@@ -93,75 +87,46 @@ export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: P
     }
 
     setIsUploading(true);
-    setUploadProgress(0);
-    setBytesTransferred(0);
-    setTotalBytes(0);
-    
+    setUploadProgress(50); // Visual cue that upload has started
+
     try {
-      const storage = getStorage(firebaseApp);
-      const filePath = `avatars/${auth.currentUser.uid}/${file.name}`;
-      const fileRef = storageRef(storage, filePath);
-      const uploadTask = uploadBytesResumable(fileRef, file);
+      // Convert file to Base64
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = async () => {
+        const fileDataUrl = reader.result as string;
+        
+        // Call the Cloud Function
+        const uploadProfilePicture = httpsCallable(functions, 'uploadProfilePicture');
+        const result = await uploadProfilePicture({ fileDataUrl, fileName: file.name });
+        
+        const newPhotoURL = (result.data as { photoURL: string }).photoURL;
 
-      // Set up the progress listener
-      uploadTask.on('state_changed',
-        (snapshot) => {
-          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-          setUploadProgress(progress);
-          setBytesTransferred(snapshot.bytesTransferred);
-          setTotalBytes(snapshot.totalBytes);
-        }
-      );
+        setProfile(prev => ({...prev, photoURL: newPhotoURL}));
+        
+        // The function handles updating Auth and Firestore, so we just update the UI.
+        toast({
+          title: 'Avatar Updated!',
+          description: 'Your new profile picture has been saved.',
+        });
+        setUploadProgress(100);
+        setTimeout(() => setIsUploading(false), 1000);
+      };
 
-      // Wait for the upload to complete
-      await uploadTask;
-
-      // Get the download URL
-      const photoURL = await getDownloadURL(uploadTask.snapshot.ref);
-
-      // Update Firebase Auth profile
-      if (auth.currentUser) {
-        await updateProfile(auth.currentUser, { photoURL });
-      } else {
-        throw new Error('User not authenticated.');
+      reader.onerror = (error) => {
+        throw new Error("Failed to read file.");
       }
-      
-      // Update Firestore profile document
-      const profileDocRef = doc(firestore, 'users', auth.currentUser.uid);
-      await updateDoc(profileDocRef, { photoURL });
-
-      // Update local state to reflect the change immediately
-      setProfile(prev => ({...prev, photoURL}));
-
-      toast({
-        title: 'Avatar Updated!',
-        description: 'Your new profile picture has been saved.',
-      });
 
     } catch (error) {
-      console.error("Error uploading file:", error);
+      console.error("Error calling upload function:", error);
       toast({
         variant: 'destructive',
         title: 'Upload Failed',
         description: 'There was an error uploading your avatar. Please try again.',
       });
-    } finally {
       setIsUploading(false);
-      // Reset file input so user can re-select same file if needed
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
     }
   };
-
-  const formatBytes = (bytes: number) => {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  }
-
 
   if (isLoading) {
     return (
@@ -209,7 +174,7 @@ export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: P
           <div className="w-full px-8 pt-2 text-center">
              <Progress value={uploadProgress} className="h-2" />
              <p className="text-xs text-muted-foreground mt-1">
-                Uploading: {formatBytes(bytesTransferred)} / {formatBytes(totalBytes)}
+                Uploading...
              </p>
           </div>
         )}
