@@ -26,9 +26,10 @@ import { Badge } from '../ui/badge';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL, UploadTask } from "firebase/storage";
-import { useFirebaseApp } from '@/firebase';
+import { useFirebaseApp, useUser } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { updateProfile } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
 import { Progress } from '../ui/progress';
 
 type PlayerProfileProps = {
@@ -47,6 +48,7 @@ export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: P
   const [totalBytes, setTotalBytes] = React.useState(0);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const firebaseApp = useFirebaseApp();
+  const { user } = useUser();
   const { toast } = useToast();
 
 
@@ -70,7 +72,7 @@ export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: P
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file || !firebaseApp) return;
+    if (!file || !firebaseApp || !user) return;
 
     if (file.size > 5 * 1024 * 1024) { // 5MB limit
       toast({
@@ -108,20 +110,19 @@ export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: P
             description: 'There was an error uploading your avatar. Please try again.',
           });
           setIsUploading(false);
-          setUploadProgress(0);
         },
         async () => {
           const photoURL = await getDownloadURL(uploadTask.snapshot.ref);
           
-          // Also update the auth user profile if possible
-          const auth = (await import('firebase/auth')).getAuth(firebaseApp);
-          if (auth.currentUser) {
-            await updateProfile(auth.currentUser, { photoURL });
-          }
+          await updateProfile(user, { photoURL });
+          
+          const updatedProfile = { ...profile, photoURL };
+          
+          const firestore = (await import('firebase/firestore')).getFirestore(firebaseApp);
+          const profileDocRef = doc(firestore, 'users', profile.id);
+          await setDoc(profileDocRef, updatedProfile, { merge: true });
 
-          handleInputChange('photoURL', photoURL);
-          // Automatically save the profile after successful upload
-          onSave({ ...profile, photoURL });
+          setProfile(updatedProfile);
           setHasChanges(false);
 
           toast({
@@ -130,7 +131,6 @@ export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: P
           });
 
           setIsUploading(false);
-          setUploadProgress(0);
         }
       );
     } catch (error) {
@@ -141,7 +141,6 @@ export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: P
         description: 'Could not start the upload process. Please try again.',
       });
       setIsUploading(false);
-      setUploadProgress(0);
     }
   };
 
