@@ -545,7 +545,7 @@ const hasLastWeekVotes = React.useMemo(() => {
                     isSaving={isSavingProfile}
                     isLoading={isProfileLoading}
                 />
-                 {canSeeAdminPanel && <ScheduleForm onAddEvent={handleAddEvent} currentDate={currentDate} />}
+                 <ScheduleForm onAddEvent={handleAddEvent} currentDate={currentDate} />
             </div>
             <div className="lg:col-span-2 space-y-8">
                 <ScheduledEvents 
@@ -554,7 +554,7 @@ const hasLastWeekVotes = React.useMemo(() => {
                     allPlayerNames={allPlayerNames}
                     onRemoveEvent={handleRemoveEvent}
                     currentUser={authUser}
-                    isAdmin={isAdmin}
+                    isAdmin={canSeeAdminPanel}
                 />
             </div>
         </div>

@@ -41,7 +41,10 @@ service cloud.firestore {
 
       // Helper function to check if a non-admin is trying to modify restricted fields.
       function isChangingRestrictedFields() {
-        return request.resource.data.keys().hasAny(['rosterStatus', 'playstyleTags']);
+        // This function now returns false if the user is an admin or super admin, allowing them to change these fields.
+        let isRestrictedUpdater = !isAdmin() && request.auth.uid != ADMIN_UID();
+        let isChangingFields = request.resource.data.keys().hasAny(['rosterStatus', 'playstyleTags']);
+        return isRestrictedUpdater && isChangingFields;
       }
     }
     
@@ -65,8 +68,8 @@ service cloud.firestore {
     match /scheduledEvents/{eventId} {
       // Any authenticated user can read events.
       allow read: if isSignedIn();
-      // Only an admin OR the super admin can create, update, or delete events.
-      allow write: if isAdmin() || request.auth.uid == ADMIN_UID();
+      // Any authenticated user can create, update, or delete events.
+      allow write: if isSignedIn();
     }
   }
 }
