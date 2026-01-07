@@ -1,23 +1,24 @@
-<svg width="100" height="40" viewBox="0 0 100 40" xmlns="http://www.w3.org/2000/svg">
+<svg width="120" height="40" viewBox="0 0 120 40" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
   <defs>
-    <linearGradient id="harvester-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+    <linearGradient id="grad-harvester" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" style="stop-color:#4A5568;stop-opacity:1" />
       <stop offset="100%" style="stop-color:#2D3748;stop-opacity:1" />
     </linearGradient>
-     <filter id="glow-harvester">
-      <feGaussianBlur stdDeviation="1" result="coloredBlur"/>
+     <filter id="glow-harvester" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
       <feMerge>
         <feMergeNode in="coloredBlur"/>
         <feMergeNode in="SourceGraphic"/>
       </feMerge>
     </filter>
   </defs>
-  <path d="M5 0 H95 L100 5 V35 L95 40 H5 L0 35 V5 L5 0 Z" fill="url(#harvester-grad)" stroke="#F6E05E" stroke-width="1.5"/>
-  
-  <circle cx="18" cy="20" r="6" fill="none" stroke="#F6E05E" stroke-width="2" filter="url(#glow-harvester)"/>
-  <path d="M18 14 V10 M18 26 V30 M12 17 H8 M24 17 H28 M14 14 L11 11 M22 14 L25 11 M14 26 L11 29 M22 26 L25 29" stroke="#F6E05E" stroke-width="2" stroke-linecap="round" filter="url(#glow-harvester)"/>
+  <rect width="120" height="40" rx="8" fill="url(#grad-harvester)" stroke="#718096" stroke-width="1"/>
 
-  <text x="35" y="25" font-family="Inter, system-ui, sans-serif" font-size="12" font-weight="bold" fill="#F7FAFC">
-    Harvester
+  <path d="M15 20 L20 15 L25 20 L30 15 L35 20 L35 25 L15 25 Z" fill="#F6E05E" filter="url(#glow-harvester)">
+     <animate attributeName="fill" values="#F6E05E;#FAF089;#F6E05E" dur="2s" repeatCount="indefinite" />
+  </path>
+
+  <text x="73" y="25" font-family="'IBM Plex Mono', monospace" font-size="14" fill="#E2E8F0" font-weight="bold" text-anchor="middle" letter-spacing="0.5">
+    HARVESTER
   </text>
 </svg>

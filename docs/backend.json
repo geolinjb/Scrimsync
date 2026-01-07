@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "UserProfile": {
@@ -42,7 +43,7 @@
             "enum": [
               "Assaulter",
               "Defender",
-              "LT",
+              "Scout",
               "Harvester"
             ]
           }

@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -24,7 +25,7 @@ import { Separator } from '../ui/separator';
 const playstyleTagIcons: Record<(typeof playstyleTags)[number], string> = {
   Assaulter: '/icons/assaulter.svg',
   Defender: '/icons/defender.svg',
-  LT: '/icons/light-tank.svg',
+  Scout: '/icons/scout.svg',
   Harvester: '/icons/harvester.svg',
 };
 
