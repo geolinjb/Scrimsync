@@ -580,7 +580,7 @@ const hasLastWeekVotes = React.useMemo(() => {
                 allVotes={allVotes}
                 scheduledEvents={scheduledEvents}
                 currentDate={currentDate}
-                allPlayerNames={allPlayerNames}
+                allProfiles={allProfiles}
                 />
             )}
             </TabsContent>

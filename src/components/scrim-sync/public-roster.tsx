@@ -107,7 +107,7 @@ export function PublicRoster() {
                     <Card className='h-full flex flex-col'>
                         <CardHeader className='items-center text-center'>
                             <Avatar className='w-20 h-20 border-2 border-primary/50'>
-                                <AvatarImage src={`https://api.dicebear.com/8.x/pixel-art/svg?seed=${profile.id}`} />
+                                <AvatarImage src={profile.photoURL ?? `https://api.dicebear.com/8.x/pixel-art/svg?seed=${profile.id}`} />
                                 <AvatarFallback>{profile.username.charAt(0).toUpperCase()}</AvatarFallback>
                             </Avatar>
                             <CardTitle className='pt-4'>{profile.username}</CardTitle>

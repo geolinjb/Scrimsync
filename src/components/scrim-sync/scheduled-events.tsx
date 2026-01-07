@@ -5,7 +5,7 @@ import { format, startOfToday, differenceInMinutes, isToday } from 'date-fns';
 import { CalendarCheck, Users, Trash2, Copy, Trophy } from 'lucide-react';
 import type { User } from 'firebase/auth';
 
-import type { AllVotes, ScheduleEvent } from '@/lib/types';
+import type { AllVotes, ScheduleEvent, PlayerProfileData } from '@/lib/types';
 import { MINIMUM_PLAYERS } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -37,6 +37,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { ScrollArea } from '../ui/scroll-area';
 import { cn } from '@/lib/utils';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 
 type ScheduledEventsProps = {
   events: ScheduleEvent[];
@@ -50,6 +51,19 @@ type ScheduledEventsProps = {
 export function ScheduledEvents({ events, votes, allPlayerNames, onRemoveEvent, currentUser, isAdmin }: ScheduledEventsProps) {
     const { toast } = useToast();
     const [now, setNow] = React.useState(new Date());
+    const firestore = useFirestore();
+
+    const profilesRef = useMemoFirebase(() => {
+        if (!firestore) return null;
+        return collection(firestore, 'users');
+    }, [firestore]);
+
+    const { data: profiles } = useCollection<PlayerProfileData>(profilesRef);
+
+    const profileMap = React.useMemo(() => {
+        if (!profiles) return new Map();
+        return new Map(profiles.map(p => [p.username, p]));
+    }, [profiles]);
 
     React.useEffect(() => {
         const timer = setInterval(() => {
@@ -195,19 +209,22 @@ export function ScheduledEvents({ events, votes, allPlayerNames, onRemoveEvent, 
                                         </div>
                                         {availablePlayers.length > 0 ? (
                                         <ul className="space-y-3">
-                                            {availablePlayers.map((player) => (
-                                            <li key={player} className="flex items-center gap-3">
-                                                <Avatar className="h-8 w-8">
-                                                <AvatarImage
-                                                    src={`https://api.dicebear.com/8.x/pixel-art/svg?seed=${player}`}
-                                                />
-                                                <AvatarFallback>
-                                                    {player.charAt(0).toUpperCase()}
-                                                </AvatarFallback>
-                                                </Avatar>
-                                                <span className="font-medium">{player}</span>
-                                            </li>
-                                            ))}
+                                            {availablePlayers.map((player) => {
+                                                const profile = profileMap.get(player);
+                                                return (
+                                                    <li key={player} className="flex items-center gap-3">
+                                                        <Avatar className="h-8 w-8">
+                                                        <AvatarImage
+                                                            src={profile?.photoURL ?? `https://api.dicebear.com/8.x/pixel-art/svg?seed=${profile?.id || player}`}
+                                                        />
+                                                        <AvatarFallback>
+                                                            {player.charAt(0).toUpperCase()}
+                                                        </AvatarFallback>
+                                                        </Avatar>
+                                                        <span className="font-medium">{player}</span>
+                                                    </li>
+                                                )
+                                            })}
                                         </ul>
                                         ) : (
                                         <div className="flex flex-col items-center justify-center text-center py-6">

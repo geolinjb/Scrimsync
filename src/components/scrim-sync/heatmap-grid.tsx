@@ -4,7 +4,7 @@ import * as React from 'react';
 import { Swords, Trophy, Vote, Users, Copy } from 'lucide-react';
 import { format, startOfWeek, addDays, isSameDay, isToday } from 'date-fns';
 
-import type { ScheduleEvent, AllVotes } from '@/lib/types';
+import type { ScheduleEvent, AllVotes, PlayerProfileData } from '@/lib/types';
 import { timeSlots, MINIMUM_PLAYERS } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import {
@@ -45,13 +45,13 @@ type HeatmapGridProps = {
   allVotes: AllVotes;
   scheduledEvents: ScheduleEvent[];
   currentDate: Date;
-  allPlayerNames: string[];
+  allProfiles: PlayerProfileData[] | null;
 };
 
 type SelectedSlot = {
     date: Date;
     slot: string;
-    players: string[];
+    players: {id: string, name: string, photoURL?: string | null}[];
 } | null;
 
 const heatmapColors = [
@@ -67,10 +67,20 @@ export function HeatmapGrid({
   allVotes,
   scheduledEvents,
   currentDate,
-  allPlayerNames
+  allProfiles
 }: HeatmapGridProps) {
   const [selectedSlot, setSelectedSlot] = React.useState<SelectedSlot>(null);
   const { toast } = useToast();
+
+  const profileMap = React.useMemo(() => {
+    if (!allProfiles) return new Map();
+    return new Map(allProfiles.map(p => [p.username, p]));
+  }, [allProfiles]);
+
+  const allPlayerNames = React.useMemo(() => {
+    if (!allProfiles) return [];
+    return allProfiles.map(p => p.username).filter(Boolean) as string[];
+  }, [allProfiles]);
 
   const weekDates = React.useMemo(() => {
     const start = startOfWeek(currentDate, { weekStartsOn: 1 });
@@ -98,13 +108,22 @@ export function HeatmapGrid({
   };
 
   const handleSlotClick = (date: Date, slot: string, players: string[]) => {
-    setSelectedSlot({date, slot, players});
+    const detailedPlayers = players.map(name => {
+      const profile = profileMap.get(name);
+      return { 
+        id: profile?.id || name, 
+        name, 
+        photoURL: profile?.photoURL 
+      };
+    })
+    setSelectedSlot({date, slot, players: detailedPlayers});
   };
 
   const handleCopyList = () => {
     if (!selectedSlot) return;
 
-    const { date, slot, players: availablePlayers } = selectedSlot;
+    const { date, slot, players: availablePlayersWithDetails } = selectedSlot;
+    const availablePlayers = availablePlayersWithDetails.map(p => p.name);
     
     const unavailablePlayers = allPlayerNames.filter(p => !availablePlayers.includes(p));
     const neededPlayers = Math.max(0, MINIMUM_PLAYERS - availablePlayers.length);
@@ -149,7 +168,9 @@ export function HeatmapGrid({
     });
   };
 
-  const unavailablePlayers = selectedSlot ? allPlayerNames.filter(p => !selectedSlot.players.includes(p)) : [];
+  const unavailablePlayers = selectedSlot ? allPlayerNames
+    .map(name => profileMap.get(name))
+    .filter(profile => profile && !selectedSlot.players.some(p => p.id === profile.id)) : [];
 
   return (
     <Card>
@@ -253,12 +274,12 @@ export function HeatmapGrid({
                                 {selectedSlot.players.length > 0 ? (
                                     <ul className='space-y-2'>
                                     {selectedSlot.players.map(player => (
-                                        <li key={player} className='flex items-center gap-3 text-sm'>
+                                        <li key={player.id} className='flex items-center gap-3 text-sm'>
                                             <Avatar className='h-6 w-6'>
-                                                <AvatarImage src={`https://api.dicebear.com/8.x/pixel-art/svg?seed=${player}`} />
-                                                <AvatarFallback>{player.charAt(0).toUpperCase()}</AvatarFallback>
+                                                <AvatarImage src={player.photoURL ?? `https://api.dicebear.com/8.x/pixel-art/svg?seed=${player.id}`} />
+                                                <AvatarFallback>{player.name.charAt(0).toUpperCase()}</AvatarFallback>
                                             </Avatar>
-                                            <span className='font-medium'>{player}</span>
+                                            <span className='font-medium'>{player.name}</span>
                                         </li>
                                     ))}
                                     </ul>
@@ -271,13 +292,13 @@ export function HeatmapGrid({
                                 <h4 className='font-semibold mb-2 text-sm'>❌ Unavailable ({unavailablePlayers.length})</h4>
                                 {unavailablePlayers.length > 0 ? (
                                     <ul className='space-y-2'>
-                                    {unavailablePlayers.map(player => (
-                                        <li key={player} className='flex items-center gap-3 text-sm text-muted-foreground'>
+                                    {unavailablePlayers.map(player => player && (
+                                        <li key={player.id} className='flex items-center gap-3 text-sm text-muted-foreground'>
                                             <Avatar className='h-6 w-6'>
-                                                <AvatarImage src={`https://api.dicebear.com/8.x/pixel-art/svg?seed=${player}`} />
-                                                <AvatarFallback>{player.charAt(0).toUpperCase()}</AvatarFallback>
+                                                <AvatarImage src={player.photoURL ?? `https://api.dicebear.com/8.x/pixel-art/svg?seed=${player.id}`} />
+                                                <AvatarFallback>{player.username.charAt(0).toUpperCase()}</AvatarFallback>
                                             </Avatar>
-                                            <span>{player}</span>
+                                            <span>{player.username}</span>
                                         </li>
                                     ))}
                                     </ul>
