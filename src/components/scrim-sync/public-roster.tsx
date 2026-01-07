@@ -139,7 +139,9 @@ export function PublicRoster() {
                                       <h4 className='text-sm font-semibold text-muted-foreground'>Playstyle</h4>
                                       <div className="flex flex-col items-center gap-2 min-h-[36px]">
                                           {profile.playstyleTags && profile.playstyleTags.length > 0 ? (
-                                              profile.playstyleTags.map(tag => (
+                                              profile.playstyleTags
+                                                .filter(tag => playstyleTagIcons[tag])
+                                                .map(tag => (
                                                 <Image
                                                     key={tag}
                                                     src={playstyleTagIcons[tag]}
@@ -163,3 +165,4 @@ export function PublicRoster() {
       </div>
   );
 }
+
