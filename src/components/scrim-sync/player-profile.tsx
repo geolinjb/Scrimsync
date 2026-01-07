@@ -43,6 +43,8 @@ export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: P
   const [hasChanges, setHasChanges] = React.useState(false);
   const [isUploading, setIsUploading] = React.useState(false);
   const [uploadProgress, setUploadProgress] = React.useState(0);
+  const [bytesTransferred, setBytesTransferred] = React.useState(0);
+  const [totalBytes, setTotalBytes] = React.useState(0);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const firebaseApp = useFirebaseApp();
   const { toast } = useToast();
@@ -81,6 +83,8 @@ export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: P
 
     setIsUploading(true);
     setUploadProgress(0);
+    setBytesTransferred(0);
+    setTotalBytes(0);
 
     try {
       const storage = getStorage(firebaseApp);
@@ -93,6 +97,8 @@ export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: P
         (snapshot) => {
           const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
           setUploadProgress(progress);
+          setBytesTransferred(snapshot.bytesTransferred);
+          setTotalBytes(snapshot.totalBytes);
         },
         (error) => {
           console.error("Error uploading file:", error);
@@ -139,6 +145,15 @@ export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: P
     }
   };
 
+  const formatBytes = (bytes: number) => {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  }
+
+
   if (isLoading) {
     return (
         <Card>
@@ -182,8 +197,11 @@ export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: P
         </div>
         <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/png, image/jpeg, image/gif" className="hidden" />
         {isUploading && (
-          <div className="w-full px-8 pt-2">
+          <div className="w-full px-8 pt-2 text-center">
              <Progress value={uploadProgress} className="h-2" />
+             <p className="text-xs text-muted-foreground mt-1">
+                Uploading: {formatBytes(bytesTransferred)} / {formatBytes(totalBytes)}
+             </p>
           </div>
         )}
         <div className='text-center'>
