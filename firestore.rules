@@ -29,14 +29,20 @@ service cloud.firestore {
       // Any user (authenticated or not) can read profiles for the public roster.
       allow read;
 
-      // Users can create/update their own profile. Admins and the Super Admin can update any profile.
-      allow create: if isOwner(userId) || isAdmin() || request.auth.uid == ADMIN_UID();
-      allow update: if (isOwner(userId) || isAdmin() || request.auth.uid == ADMIN_UID()) && 
-                       // Disallow non-admins from changing their roster status or tags
-                       (!request.resource.data.keys().hasAll(['rosterStatus', 'playstyleTags']) || isAdmin());
+      // Users can create their own profile.
+      allow create: if isOwner(userId);
+      
+      // Users can update their own profile, but only admins can change roster status or tags.
+      // Super Admin can also update anything.
+      allow update: if (isOwner(userId) && !isChangingRestrictedFields()) || isAdmin() || request.auth.uid == ADMIN_UID();
       
       // Only an admin can delete a user profile.
       allow delete: if isAdmin();
+
+      // Helper function to check if a non-admin is trying to modify restricted fields.
+      function isChangingRestrictedFields() {
+        return request.resource.data.keys().hasAny(['rosterStatus', 'playstyleTags']);
+      }
     }
     
     /**
