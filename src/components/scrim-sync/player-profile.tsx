@@ -23,6 +23,7 @@ import { User, Loader, Save, Shield, Star, Swords } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Skeleton } from '../ui/skeleton';
 import { Badge } from '../ui/badge';
+import { cn } from '@/lib/utils';
 
 type PlayerProfileProps = {
   initialProfile: PlayerProfileData;
@@ -135,7 +136,7 @@ export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: P
             <Label>Your Tags</Label>
             <div className="flex flex-wrap gap-2 rounded-md border bg-muted min-h-[40px] p-2 items-center">
               {profile.rosterStatus ? (
-                <Badge variant={profile.rosterStatus === 'Main Roster' ? 'default' : 'secondary'} className='text-sm'>
+                <Badge variant={profile.rosterStatus === 'Main Roster' ? 'default' : 'secondary'} className={cn('text-sm', profile.rosterStatus === 'Main Roster' && 'bg-gold text-black hover:bg-gold/90')}>
                   <Shield className="w-3 h-3 mr-1.5" />
                   {profile.rosterStatus}
                 </Badge>
