@@ -26,10 +26,10 @@ import { Badge } from '../ui/badge';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL, UploadTask } from "firebase/storage";
-import { useFirebaseApp, useUser, useAuth, useFirestore } from '@/firebase';
+import { useFirebaseApp, useAuth, useFirestore } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { updateProfile } from 'firebase/auth';
-import { doc, setDoc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc } from 'firebase/firestore';
 import { Progress } from '../ui/progress';
 
 type PlayerProfileProps = {
@@ -50,7 +50,6 @@ export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: P
   const firebaseApp = useFirebaseApp();
   const firestore = useFirestore();
   const auth = useAuth();
-  const { user } = useUser();
   const { toast } = useToast();
 
 
@@ -74,7 +73,7 @@ export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: P
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file || !firebaseApp || !user) return;
+    if (!file || !firebaseApp || !auth.currentUser) return;
 
     if (file.size > 5 * 1024 * 1024) { // 5MB limit
       toast({
@@ -92,7 +91,7 @@ export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: P
 
     try {
       const storage = getStorage(firebaseApp);
-      const filePath = `avatars/${profile.id}/${file.name}`;
+      const filePath = `avatars/${auth.currentUser.uid}/${file.name}`;
       const fileRef = storageRef(storage, filePath);
       
       const uploadTask: UploadTask = uploadBytesResumable(fileRef, file);
@@ -121,11 +120,14 @@ export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: P
           }
           const photoURL = await getDownloadURL(uploadTask.snapshot.ref);
           
+          // Update Firebase Auth profile
           await updateProfile(auth.currentUser, { photoURL });
           
-          const profileDocRef = doc(firestore, 'users', profile.id);
+          // Update Firestore profile document
+          const profileDocRef = doc(firestore, 'users', auth.currentUser.uid);
           await updateDoc(profileDocRef, { photoURL });
 
+          // Update local state to reflect the change immediately
           setProfile(prev => ({...prev, photoURL}));
 
           toast({
@@ -284,3 +286,5 @@ export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: P
     </Card>
   );
 }
+
+    
