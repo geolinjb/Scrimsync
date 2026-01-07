@@ -20,12 +20,6 @@ import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Badge } from '../ui/badge';
 import { cn } from '@/lib/utils';
 import { Separator } from '../ui/separator';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
 
 const playstyleTagIcons: Record<(typeof playstyleTags)[number], string> = {
   Assaulter: '/icons/assaulter.svg',
@@ -105,7 +99,6 @@ export function PublicRoster() {
   }
 
   return (
-    <TooltipProvider>
       <div>
           <CardHeader className='px-0'>
               <CardTitle className='text-3xl'>Team Roster</CardTitle>
@@ -143,25 +136,17 @@ export function PublicRoster() {
                                   <Separator />
                                   <div className='space-y-2 text-center'>
                                       <h4 className='text-sm font-semibold text-muted-foreground'>Playstyle</h4>
-                                      <div className="flex flex-wrap gap-2 justify-center min-h-[36px]">
+                                      <div className="flex flex-col items-center gap-2 min-h-[36px]">
                                           {profile.playstyleTags && profile.playstyleTags.length > 0 ? (
                                               profile.playstyleTags.map(tag => (
-                                                <Tooltip key={tag}>
-                                                  <TooltipTrigger asChild>
-                                                      <div className="flex items-center justify-center h-9 w-9 rounded-md bg-accent/50 border border-border">
-                                                        <Image
-                                                            src={playstyleTagIcons[tag]}
-                                                            alt={tag}
-                                                            width={20}
-                                                            height={20}
-                                                            className='saturate-150'
-                                                        />
-                                                      </div>
-                                                  </TooltipTrigger>
-                                                  <TooltipContent>
-                                                      <p>{tag}</p>
-                                                  </TooltipContent>
-                                                </Tooltip>
+                                                <Image
+                                                    key={tag}
+                                                    src={playstyleTagIcons[tag]}
+                                                    alt={tag}
+                                                    width={100}
+                                                    height={40}
+                                                    unoptimized
+                                                />
                                               ))
                                           ) : (
                                               <span className="text-sm text-muted-foreground/80 italic">Not Assigned</span>
@@ -175,6 +160,5 @@ export function PublicRoster() {
               ))}
           </div>
       </div>
-    </TooltipProvider>
   );
 }
