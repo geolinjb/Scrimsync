@@ -26,10 +26,10 @@ import { Badge } from '../ui/badge';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL, UploadTask } from "firebase/storage";
-import { useFirebaseApp, useUser, useAuth } from '@/firebase';
+import { useFirebaseApp, useUser, useAuth, useFirestore } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { updateProfile } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, updateDoc } from 'firebase/firestore';
 import { Progress } from '../ui/progress';
 
 type PlayerProfileProps = {
@@ -48,6 +48,7 @@ export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: P
   const [totalBytes, setTotalBytes] = React.useState(0);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const firebaseApp = useFirebaseApp();
+  const firestore = useFirestore();
   const auth = useAuth();
   const { user } = useUser();
   const { toast } = useToast();
@@ -122,14 +123,10 @@ export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: P
           
           await updateProfile(auth.currentUser, { photoURL });
           
-          const updatedProfile = { ...profile, photoURL };
-          
-          const firestore = (await import('firebase/firestore')).getFirestore(firebaseApp);
           const profileDocRef = doc(firestore, 'users', profile.id);
-          await setDoc(profileDocRef, updatedProfile, { merge: true });
+          await updateDoc(profileDocRef, { photoURL });
 
-          setProfile(updatedProfile);
-          setHasChanges(false);
+          setProfile(prev => ({...prev, photoURL}));
 
           toast({
             title: 'Avatar Updated!',

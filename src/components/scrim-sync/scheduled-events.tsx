@@ -77,7 +77,7 @@ export function ScheduledEvents({ events, votes, allPlayerNames, onRemoveEvent, 
     }, [events]);
 
     const getAvailablePlayers = (event: ScheduleEvent): string[] => {
-        const dateKey = format(event.date, 'yyyy-MM-dd');
+        const dateKey = format(new Date(event.date), 'yyyy-MM-dd');
         const voteKey = `${dateKey}-${event.time}`;
         return votes[voteKey] || [];
     };
@@ -118,6 +118,7 @@ export function ScheduledEvents({ events, votes, allPlayerNames, onRemoveEvent, 
                 },
                 async () => {
                     const imageURL = await getDownloadURL(uploadTask.snapshot.ref);
+                    if (!firestore) return;
                     const eventDocRef = doc(firestore, 'scheduledEvents', eventId);
                     await updateDoc(eventDocRef, { imageURL });
 
