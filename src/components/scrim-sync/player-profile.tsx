@@ -25,10 +25,11 @@ import { Skeleton } from '../ui/skeleton';
 import { Badge } from '../ui/badge';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
-import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
+import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL, UploadTask } from "firebase/storage";
 import { useFirebaseApp } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { updateProfile } from 'firebase/auth';
+import { Progress } from '../ui/progress';
 
 type PlayerProfileProps = {
   initialProfile: PlayerProfileData & { photoURL?: string | null, email?: string | null };
@@ -41,6 +42,7 @@ export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: P
   const [profile, setProfile] = React.useState(initialProfile);
   const [hasChanges, setHasChanges] = React.useState(false);
   const [isUploading, setIsUploading] = React.useState(false);
+  const [uploadProgress, setUploadProgress] = React.useState(0);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const firebaseApp = useFirebaseApp();
   const { toast } = useToast();
@@ -78,40 +80,62 @@ export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: P
     }
 
     setIsUploading(true);
+    setUploadProgress(0);
 
     try {
       const storage = getStorage(firebaseApp);
       const filePath = `avatars/${profile.id}/${file.name}`;
       const fileRef = storageRef(storage, filePath);
       
-      const snapshot = await uploadBytes(fileRef, file);
-      const photoURL = await getDownloadURL(snapshot.ref);
+      const uploadTask: UploadTask = uploadBytesResumable(fileRef, file);
 
-      // Also update the auth user profile if possible
-      const auth = (await import('firebase/auth')).getAuth(firebaseApp);
-      if (auth.currentUser) {
-        await updateProfile(auth.currentUser, { photoURL });
-      }
+      uploadTask.on('state_changed',
+        (snapshot) => {
+          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+          setUploadProgress(progress);
+        },
+        (error) => {
+          console.error("Error uploading file:", error);
+          toast({
+            variant: 'destructive',
+            title: 'Upload Failed',
+            description: 'There was an error uploading your avatar. Please try again.',
+          });
+          setIsUploading(false);
+          setUploadProgress(0);
+        },
+        async () => {
+          const photoURL = await getDownloadURL(uploadTask.snapshot.ref);
+          
+          // Also update the auth user profile if possible
+          const auth = (await import('firebase/auth')).getAuth(firebaseApp);
+          if (auth.currentUser) {
+            await updateProfile(auth.currentUser, { photoURL });
+          }
 
-      handleInputChange('photoURL', photoURL);
-      // Automatically save the profile after successful upload
-      onSave({ ...profile, photoURL });
-      setHasChanges(false);
+          handleInputChange('photoURL', photoURL);
+          // Automatically save the profile after successful upload
+          onSave({ ...profile, photoURL });
+          setHasChanges(false);
 
-      toast({
-        title: 'Avatar Updated!',
-        description: 'Your new profile picture has been saved.',
-      });
+          toast({
+            title: 'Avatar Updated!',
+            description: 'Your new profile picture has been saved.',
+          });
 
+          setIsUploading(false);
+          setUploadProgress(0);
+        }
+      );
     } catch (error) {
-      console.error("Error uploading file:", error);
+      console.error("Error setting up upload:", error);
       toast({
         variant: 'destructive',
         title: 'Upload Failed',
-        description: 'There was an error uploading your avatar. Please try again.',
+        description: 'Could not start the upload process. Please try again.',
       });
-    } finally {
       setIsUploading(false);
+      setUploadProgress(0);
     }
   };
 
@@ -157,7 +181,11 @@ export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: P
           </div>
         </div>
         <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/png, image/jpeg, image/gif" className="hidden" />
-        
+        {isUploading && (
+          <div className="w-full px-8 pt-2">
+             <Progress value={uploadProgress} className="h-2" />
+          </div>
+        )}
         <div className='text-center'>
             <CardTitle className='mt-4'>{profile.username}</CardTitle>
             <CardDescription>{profile.email}</CardDescription>
