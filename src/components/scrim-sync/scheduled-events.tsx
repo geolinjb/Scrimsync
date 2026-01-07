@@ -4,6 +4,7 @@ import * as React from 'react';
 import { format, startOfToday, differenceInMinutes, isToday } from 'date-fns';
 import { CalendarCheck, Users, Trash2, Copy, Trophy } from 'lucide-react';
 import type { User } from 'firebase/auth';
+import { collection } from 'firebase/firestore';
 
 import type { AllVotes, ScheduleEvent, PlayerProfileData } from '@/lib/types';
 import { MINIMUM_PLAYERS } from '@/lib/types';
