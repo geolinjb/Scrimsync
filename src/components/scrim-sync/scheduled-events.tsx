@@ -110,29 +110,25 @@ export function ScheduledEvents({ events, votes, allPlayerNames, onRemoveEvent, 
                 (snapshot) => {
                     const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
                     setUploadState(prev => ({ ...prev, [eventId]: { isUploading: true, progress: progress } }));
-                },
-                (error) => {
-                    console.error("Error uploading file:", error);
-                    toast({ variant: 'destructive', title: 'Upload Failed', description: 'There was an error uploading the image.' });
-                    setUploadState(prev => ({ ...prev, [eventId]: { isUploading: false, progress: 0 } }));
-                },
-                async () => {
-                    const imageURL = await getDownloadURL(uploadTask.snapshot.ref);
-                    if (!firestore) return;
-                    const eventDocRef = doc(firestore, 'scheduledEvents', eventId);
-                    await updateDoc(eventDocRef, { imageURL });
-
-                    toast({ title: 'Image Uploaded!', description: 'The event image has been updated.' });
-                    setUploadState(prev => ({ ...prev, [eventId]: { isUploading: false, progress: 0 } }));
                 }
             );
+            
+            await uploadTask;
+
+            if (!firestore) return;
+            const imageURL = await getDownloadURL(uploadTask.snapshot.ref);
+            const eventDocRef = doc(firestore, 'scheduledEvents', eventId);
+            await updateDoc(eventDocRef, { imageURL });
+
+            toast({ title: 'Image Uploaded!', description: 'The event image has been updated.' });
+            
         } catch (error) {
-            console.error("Error setting up upload:", error);
-            toast({ variant: 'destructive', title: 'Upload Failed', description: 'Could not start the upload process.' });
-            setUploadState(prev => ({ ...prev, [eventId]: { isUploading: false, progress: 0 } }));
+            console.error("Error uploading file for event:", error);
+            toast({ variant: 'destructive', title: 'Upload Failed', description: 'There was an error uploading the image.' });
         } finally {
+            setUploadState(prev => ({ ...prev, [eventId]: { isUploading: false, progress: 0 } }));
             setSelectedEventIdForUpload(null);
-             if(fileInputRef.current) fileInputRef.current.value = "";
+            if(fileInputRef.current) fileInputRef.current.value = "";
         }
     };
 

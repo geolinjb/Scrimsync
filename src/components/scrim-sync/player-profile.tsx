@@ -25,8 +25,8 @@ import { Skeleton } from '../ui/skeleton';
 import { Badge } from '../ui/badge';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
-import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL, UploadTask } from "firebase/storage";
-import { useFirebaseApp, useAuth, useFirestore } from '@/firebase';
+import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL, UploadTask, updateMetadata } from "firebase/storage";
+import { useFirebaseApp, useAuth, useFirestore, useUser } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { updateProfile } from 'firebase/auth';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -50,6 +50,7 @@ export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: P
   const firebaseApp = useFirebaseApp();
   const firestore = useFirestore();
   const auth = useAuth();
+  const { user } = useUser();
   const { toast } = useToast();
 
 
@@ -88,12 +89,11 @@ export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: P
     setUploadProgress(0);
     setBytesTransferred(0);
     setTotalBytes(0);
-
+    
     try {
       const storage = getStorage(firebaseApp);
       const filePath = `avatars/${auth.currentUser.uid}/${file.name}`;
       const fileRef = storageRef(storage, filePath);
-      
       const uploadTask: UploadTask = uploadBytesResumable(fileRef, file);
 
       uploadTask.on('state_changed',
@@ -102,50 +102,44 @@ export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: P
           setUploadProgress(progress);
           setBytesTransferred(snapshot.bytesTransferred);
           setTotalBytes(snapshot.totalBytes);
-        },
-        (error) => {
-          console.error("Error uploading file:", error);
-          toast({
-            variant: 'destructive',
-            title: 'Upload Failed',
-            description: 'There was an error uploading your avatar. Please try again.',
-          });
-          setIsUploading(false);
-        },
-        async () => {
-          if (!auth.currentUser) {
-            toast({ variant: 'destructive', title: 'Not Authenticated', description: 'Cannot update profile.' });
-            setIsUploading(false);
-            return;
-          }
-          const photoURL = await getDownloadURL(uploadTask.snapshot.ref);
-          
-          // Update Firebase Auth profile
-          await updateProfile(auth.currentUser, { photoURL });
-          
-          // Update Firestore profile document
-          const profileDocRef = doc(firestore, 'users', auth.currentUser.uid);
-          await updateDoc(profileDocRef, { photoURL });
-
-          // Update local state to reflect the change immediately
-          setProfile(prev => ({...prev, photoURL}));
-
-          toast({
-            title: 'Avatar Updated!',
-            description: 'Your new profile picture has been saved.',
-          });
-
-          setIsUploading(false);
         }
       );
+
+      await uploadTask;
+
+      if (!auth.currentUser) {
+        throw new Error('Not authenticated.');
+      }
+      const photoURL = await getDownloadURL(uploadTask.snapshot.ref);
+
+      // Update Firebase Auth profile
+      await updateProfile(auth.currentUser, { photoURL });
+      
+      // Update Firestore profile document
+      const profileDocRef = doc(firestore, 'users', auth.currentUser.uid);
+      await updateDoc(profileDocRef, { photoURL });
+
+      // Update local state to reflect the change immediately
+      setProfile(prev => ({...prev, photoURL}));
+
+      toast({
+        title: 'Avatar Updated!',
+        description: 'Your new profile picture has been saved.',
+      });
+
     } catch (error) {
-      console.error("Error setting up upload:", error);
+      console.error("Error uploading file:", error);
       toast({
         variant: 'destructive',
         title: 'Upload Failed',
-        description: 'Could not start the upload process. Please try again.',
+        description: 'There was an error uploading your avatar. Please try again.',
       });
+    } finally {
       setIsUploading(false);
+      // Reset file input so user can re-select same file if needed
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
     }
   };
 
@@ -286,5 +280,3 @@ export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: P
     </Card>
   );
 }
-
-    
