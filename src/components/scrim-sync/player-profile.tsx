@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { PlayerProfileData, gameRoles, playstyleTags } from '@/lib/types';
+import { PlayerProfileData, gameRoles } from '@/lib/types';
 import {
   Card,
   CardContent,
@@ -40,7 +40,7 @@ export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: P
     setProfile(initialProfile);
   }, [initialProfile]);
   
-  const handleInputChange = (field: keyof PlayerProfileData, value: string) => {
+  const handleInputChange = (field: keyof PlayerProfileData, value: string | string[]) => {
     setProfile({ ...profile, [field]: value });
     if (!hasChanges) setHasChanges(true);
   };
@@ -149,8 +149,8 @@ export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: P
                   {tag}
                 </Badge>
               ))}
-              {profile.playstyleTags?.length === 0 && (
-                <span className="text-sm text-muted-foreground px-1">No playstyle tags assigned.</span>
+              {(!profile.playstyleTags || profile.playstyleTags.length === 0) && !profile.rosterStatus && (
+                 <span className="text-sm text-muted-foreground px-1">No status or tags assigned.</span>
               )}
             </div>
           </div>

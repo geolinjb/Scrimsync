@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { ShieldCheck, User, Users, Trash2, Loader, ChevronLeft, ChevronRight, Copy, ClipboardList, CalendarX2 } from 'lucide-react';
+import { ShieldCheck, User, Users, Trash2, Loader, ChevronLeft, ChevronRight, Copy, ClipboardList, CalendarX2, Save, Tags } from 'lucide-react';
 import { collection, doc, writeBatch, query, where, getDocs, updateDoc } from 'firebase/firestore';
 import { format, startOfWeek, endOfWeek, addDays, parseISO, startOfToday, isBefore } from 'date-fns';
 
@@ -48,6 +48,7 @@ import { ReminderGenerator } from './reminder-generator';
 import type { User as AuthUser } from 'firebase/auth';
 import { AdminManagementPanel } from './admin-management-panel';
 import { MultiSelect } from '../ui/multi-select';
+import { Label } from '../ui/label';
 
 
 type UserDataPanelProps = {
@@ -68,6 +69,11 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent, a
   const [selectedDate, setSelectedDate] = React.useState(() => new Date());
   const [selectedRosterDate, setSelectedRosterDate] = React.useState<string>('');
   const [selectedRosterTime, setSelectedRosterTime] = React.useState<string>('');
+  
+  // State for the new playstyle tag section
+  const [selectedPlayerForTags, setSelectedPlayerForTags] = React.useState<string>('');
+  const [currentPlaystyleTags, setCurrentPlaystyleTags] = React.useState<string[]>([]);
+  const [isSavingTags, setIsSavingTags] = React.useState(false);
 
   const weekStart = React.useMemo(() => startOfWeek(selectedDate, { weekStartsOn: 1 }), [selectedDate]);
   const weekEnd = React.useMemo(() => endOfWeek(selectedDate, { weekStartsOn: 1 }), [selectedDate]);
@@ -75,6 +81,16 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent, a
   const weekDates = React.useMemo(() => {
     return Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   }, [weekStart]);
+  
+  React.useEffect(() => {
+    if (selectedPlayerForTags && allProfiles) {
+      const player = allProfiles.find(p => p.id === selectedPlayerForTags);
+      setCurrentPlaystyleTags(player?.playstyleTags || []);
+    } else {
+      setCurrentPlaystyleTags([]);
+    }
+  }, [selectedPlayerForTags, allProfiles]);
+
 
   const votesInSelectedWeek = React.useMemo(() => {
     if (!allVotesData) return [];
@@ -120,28 +136,58 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent, a
     }, {} as AllVotes);
   }, [allVotesData, allProfiles]);
 
-  const handleTagChange = async (userId: string, field: 'rosterStatus' | 'playstyleTags', value: any) => {
+  const handleRosterStatusChange = async (userId: string, value: any) => {
     if (!firestore) return;
     const userDocRef = doc(firestore, 'users', userId);
     try {
-      await updateDoc(userDocRef, { [field]: value });
+      await updateDoc(userDocRef, { rosterStatus: value });
       toast({
         title: 'Player Updated',
-        description: `Player's ${field === 'rosterStatus' ? 'roster status' : 'tags'} have been updated.`,
+        description: `Player's roster status has been updated.`,
       });
     } catch (error) {
-      console.error('Error updating player tags:', error);
+      console.error('Error updating player status:', error);
       toast({
         variant: 'destructive',
         title: 'Update Failed',
-        description: 'Could not update the player tags.',
+        description: 'Could not update the player status.',
       });
       const permissionError = new FirestorePermissionError({
         path: userDocRef.path,
         operation: 'update',
-        requestResourceData: { [field]: value }
+        requestResourceData: { rosterStatus: value }
       });
       errorEmitter.emit('permission-error', permissionError);
+    }
+  };
+
+  const handleSavePlaystyleTags = async () => {
+    if (!firestore || !selectedPlayerForTags) {
+        toast({ variant: 'destructive', title: 'Error', description: 'No player selected.' });
+        return;
+    };
+    setIsSavingTags(true);
+    const userDocRef = doc(firestore, 'users', selectedPlayerForTags);
+    try {
+        await updateDoc(userDocRef, { playstyleTags: currentPlaystyleTags });
+        toast({
+            title: 'Tags Saved!',
+            description: "The player's playstyle tags have been updated."
+        });
+    } catch (error) {
+        toast({
+            variant: 'destructive',
+            title: 'Update Failed',
+            description: 'Could not update the playstyle tags.',
+        });
+        const permissionError = new FirestorePermissionError({
+            path: userDocRef.path,
+            operation: 'update',
+            requestResourceData: { playstyleTags: currentPlaystyleTags }
+        });
+        errorEmitter.emit('permission-error', permissionError);
+    } finally {
+        setIsSavingTags(false);
     }
   };
 
@@ -394,10 +440,10 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent, a
             <CardHeader>
                 <div className="flex items-center gap-3">
                 <ShieldCheck className="w-6 h-6 text-gold" />
-                <CardTitle>Admin Panel</CardTitle>
+                <CardTitle>Manage Player Roster</CardTitle>
                 </div>
                 <CardDescription>
-                Manage users and perform administrative actions.
+                Manage user roles and roster status.
                 </CardDescription>
             </CardHeader>
             <CardContent>
@@ -408,7 +454,7 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent, a
                         <TableRow>
                             <TableHead className='min-w-[150px]'>Username</TableHead>
                             <TableHead className='min-w-[180px]'>Roster Status</TableHead>
-                            <TableHead className='min-w-[220px]'>Playstyle Tags</TableHead>
+                            <TableHead className='text-right'>Actions</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -417,13 +463,13 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent, a
                             <TableCell className="font-medium">
                                 <div className='flex flex-col'>
                                     <span className='font-bold'>{profile.username || '(Not set)'}</span>
-                                    <span className='text-xs text-muted-foreground'>{profile.role || '(No role set)'}</span>
+                                    <span className='text-xs text-muted-foreground'>{profile.id}</span>
                                 </div>
                             </TableCell>
                             <TableCell>
                                 <Select
                                     value={profile.rosterStatus}
-                                    onValueChange={(value) => handleTagChange(profile.id, 'rosterStatus', value)}
+                                    onValueChange={(value) => handleRosterStatusChange(profile.id, value)}
                                 >
                                     <SelectTrigger>
                                         <SelectValue placeholder="Assign Status" />
@@ -437,15 +483,33 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent, a
                                     </SelectContent>
                                 </Select>
                             </TableCell>
-                             <TableCell>
-                                <MultiSelect
-                                    options={playstyleOptions}
-                                    onValueChange={(value) => handleTagChange(profile.id, 'playstyleTags', value)}
-                                    defaultValue={profile.playstyleTags || []}
-                                    placeholder="Assign tags..."
-                                    variant="ghost"
-                                    animation={0}
-                                />
+                            <TableCell className='text-right'>
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button 
+                                            variant="ghost" 
+                                            size="icon" 
+                                            className="text-destructive hover:text-destructive"
+                                            disabled={isDeleting && deletingUserId === profile.id}
+                                        >
+                                            {isDeleting && deletingUserId === profile.id ? <Loader className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                This will permanently delete the user <span className='font-bold'>{profile.username}</span> and all of their data. This action cannot be undone.
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                            <AlertDialogAction onClick={() => handleDeleteUser(profile.id, profile.username)} className="bg-destructive hover:bg-destructive/90">
+                                                Yes, Delete User
+                                            </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
                             </TableCell>
                         </TableRow>
                         ))}
@@ -459,7 +523,61 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent, a
                 </div>
                 )}
             </CardContent>
-            <CardFooter className="flex-col items-start gap-4">
+        </Card>
+
+        <Card>
+            <CardHeader>
+                <div className="flex items-center gap-3">
+                    <Tags className="w-6 h-6 text-gold" />
+                    <CardTitle>Assign Playstyle Tags</CardTitle>
+                </div>
+                <CardDescription>
+                    Select a player and assign them multiple playstyle tags.
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div className='space-y-2'>
+                    <Label htmlFor="player-select">Player</Label>
+                    <Select value={selectedPlayerForTags} onValueChange={setSelectedPlayerForTags}>
+                        <SelectTrigger id="player-select">
+                            <SelectValue placeholder="Select a player to assign tags" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {allProfiles?.map(p => (
+                                <SelectItem key={p.id} value={p.id}>{p.username}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+
+                {selectedPlayerForTags && (
+                    <div className='space-y-2'>
+                        <Label>Playstyle Tags</Label>
+                        <MultiSelect
+                            options={playstyleOptions}
+                            onValueChange={setCurrentPlaystyleTags}
+                            defaultValue={currentPlaystyleTags}
+                            placeholder="Select tags..."
+                        />
+                    </div>
+                )}
+            </CardContent>
+            {selectedPlayerForTags && (
+                <CardFooter>
+                    <Button onClick={handleSavePlaystyleTags} disabled={isSavingTags}>
+                        {isSavingTags ? <Loader className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                        Save Tags
+                    </Button>
+                </CardFooter>
+            )}
+        </Card>
+
+        <Card>
+            <CardHeader>
+                 <CardTitle>Data Management</CardTitle>
+                 <CardDescription>Generate rosters and perform data cleanup.</CardDescription>
+            </CardHeader>
+             <CardContent className="flex-col items-start gap-4">
                  <div className="w-full space-y-2">
                     <h4 className='text-sm font-medium'>Generate Roster Summary</h4>
                     <div className='flex flex-col sm:flex-row items-center gap-2 p-2 border rounded-lg'>
@@ -492,7 +610,7 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent, a
                     </div>
                 </div>
 
-                <Separator />
+                <Separator className="my-4" />
                 
                 <div className="w-full space-y-2">
                     <h4 className='text-sm font-medium'>Copy All Player Names</h4>
@@ -505,7 +623,7 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent, a
                     </div>
                 </div>
 
-                <Separator />
+                <Separator className="my-4" />
 
                 <div className="w-full space-y-2">
                     <h4 className='text-sm font-medium'>Delete Weekly Votes</h4>
@@ -545,7 +663,7 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent, a
                         </AlertDialog>
                     </div>
                 </div>
-            </CardFooter>
+            </CardContent>
         </Card>
 
         <ReminderGenerator 
