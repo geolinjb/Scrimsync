@@ -29,8 +29,8 @@ service cloud.firestore {
       // Any signed-in user can read profiles.
       allow read: if isSignedIn();
 
-      // Users can create and update their own profile, or an admin can update any profile.
-      allow write: if isOwner(userId) || isAdmin();
+      // Users can create/update their own profile. Admins and the Super Admin can update any profile.
+      allow write: if isOwner(userId) || isAdmin() || request.auth.uid == ADMIN_UID();
       
       // Only an admin can delete a user profile.
       allow delete: if isAdmin();
