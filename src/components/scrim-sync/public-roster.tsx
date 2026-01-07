@@ -2,13 +2,12 @@
 'use client';
 
 import * as React from 'react';
-import Image from 'next/image';
 import { collection } from 'firebase/firestore';
-import { Shield, Users, Loader } from 'lucide-react';
+import { Shield, Users, Swords } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import type { PlayerProfileData, playstyleTags } from '@/lib/types';
+import type { PlayerProfileData } from '@/lib/types';
 import {
   Card,
   CardContent,
@@ -21,13 +20,6 @@ import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Badge } from '../ui/badge';
 import { cn } from '@/lib/utils';
 import { Separator } from '../ui/separator';
-
-const playstyleTagIcons: Record<(typeof playstyleTags)[number], string> = {
-  Assaulter: '/icons/assaulter.svg',
-  Defender: '/icons/defender.svg',
-  Scout: '/icons/scout.svg',
-  Harvester: '/icons/harvester.svg',
-};
 
 export function PublicRoster() {
   const firestore = useFirestore();
@@ -137,19 +129,13 @@ export function PublicRoster() {
                                   <Separator />
                                   <div className='space-y-2 text-center'>
                                       <h4 className='text-sm font-semibold text-muted-foreground'>Playstyle</h4>
-                                      <div className="flex flex-col items-center gap-2 min-h-[36px]">
+                                      <div className="flex flex-wrap items-center justify-center gap-2 min-h-[36px]">
                                           {profile.playstyleTags && profile.playstyleTags.length > 0 ? (
-                                              profile.playstyleTags
-                                                .filter(tag => playstyleTagIcons[tag])
-                                                .map(tag => (
-                                                <Image
-                                                    key={tag}
-                                                    src={playstyleTagIcons[tag]}
-                                                    alt={tag}
-                                                    width={100}
-                                                    height={40}
-                                                    unoptimized
-                                                />
+                                              profile.playstyleTags.map(tag => (
+                                                <Badge key={tag} variant="outline" className="text-sm">
+                                                  <Swords className="w-3 h-3 mr-1.5" />
+                                                  {tag}
+                                                </Badge>
                                               ))
                                           ) : (
                                               <span className="text-sm text-muted-foreground/80 italic">Not Assigned</span>
@@ -165,4 +151,3 @@ export function PublicRoster() {
       </div>
   );
 }
-
