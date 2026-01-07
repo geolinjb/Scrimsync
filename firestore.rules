@@ -36,8 +36,8 @@ service cloud.firestore {
       // Super Admin can also update anything.
       allow update: if (isOwner(userId) && !isChangingRestrictedFields()) || isAdmin() || request.auth.uid == ADMIN_UID();
       
-      // Only an admin can delete a user profile.
-      allow delete: if isAdmin();
+      // Only an admin or the Super Admin can delete a user profile.
+      allow delete: if isAdmin() || request.auth.uid == ADMIN_UID();
 
       // Helper function to check if a non-admin is trying to modify restricted fields.
       function isChangingRestrictedFields() {
@@ -54,8 +54,8 @@ service cloud.firestore {
         allow read: if isSignedIn();
         // A user can create/update a vote if the data's userId matches their own.
         allow create, update: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-        // A user can delete their own vote, OR an admin can delete any vote.
-        allow delete: if isSignedIn() && (isOwner(resource.data.userId) || isAdmin());
+        // A user can delete their own vote, OR an admin/Super Admin can delete any vote.
+        allow delete: if isSignedIn() && (isOwner(resource.data.userId) || isAdmin() || request.auth.uid == ADMIN_UID());
     }
 
     /**
