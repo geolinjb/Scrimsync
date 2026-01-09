@@ -34,23 +34,17 @@ service cloud.firestore {
       
       // Users can update their own profile, but only admins can change roster status or tags.
       // Super Admin can also update anything.
-      // Users cannot directly update their photoURL; it must be done via the cloud function.
-      allow update: if (isOwner(userId) && !isChangingRestrictedFields() && !isChangingPhotoURL()) || isAdmin() || request.auth.uid == ADMIN_UID();
+      // Users cannot directly update their photoURL.
+      allow update: if (isOwner(userId) && !isChangingRestrictedFields() && request.resource.data.photoURL == resource.data.photoURL) || isAdmin() || request.auth.uid == ADMIN_UID();
       
       // Only an admin or the Super Admin can delete a user profile.
       allow delete: if isAdmin() || request.auth.uid == ADMIN_UID();
 
       // Helper function to check if a non-admin is trying to modify restricted fields.
       function isChangingRestrictedFields() {
-        // This function now returns false if the user is an admin or super admin, allowing them to change these fields.
         let isRestrictedUpdater = !isAdmin() && request.auth.uid != ADMIN_UID();
         let isChangingFields = request.resource.data.keys().hasAny(['rosterStatus', 'playstyleTags']);
         return isRestrictedUpdater && isChangingFields;
-      }
-      
-      // Helper function to check if the photoURL is being changed directly.
-      function isChangingPhotoURL() {
-        return request.resource.data.photoURL != resource.data.photoURL;
       }
     }
     
