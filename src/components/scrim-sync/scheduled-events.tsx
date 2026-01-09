@@ -83,6 +83,10 @@ export function ScheduledEvents({ events, votes, allPlayerNames, onRemoveEvent, 
     };
 
     const handleUploadClick = (eventId: string) => {
+        if (!currentUser) {
+            toast({ variant: 'destructive', title: 'Authentication Error', description: 'You must be logged in to upload an image.' });
+            return;
+        }
         setSelectedEventIdForUpload(eventId);
         fileInputRef.current?.click();
     };
@@ -120,7 +124,20 @@ export function ScheduledEvents({ events, votes, allPlayerNames, onRemoveEvent, 
 
             const imageURL = await getDownloadURL(uploadTask.snapshot.ref);
             const eventDocRef = doc(firestore, 'scheduledEvents', eventId);
-            await updateDoc(eventDocRef, { imageURL });
+            
+            updateDoc(eventDocRef, { imageURL }).catch(error => {
+                 const permissionError = new FirestorePermissionError({
+                    path: eventDocRef.path,
+                    operation: 'update',
+                    requestResourceData: { imageURL }
+                });
+                errorEmitter.emit('permission-error', permissionError);
+                 toast({
+                    variant: 'destructive',
+                    title: 'Update Failed',
+                    description: 'Could not save the image URL. You may not have permission.',
+                });
+            });
 
             toast({ title: 'Image Uploaded!', description: 'The event image has been updated.' });
             

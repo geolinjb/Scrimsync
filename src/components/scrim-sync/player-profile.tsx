@@ -90,11 +90,11 @@ export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: P
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file || !firebaseApp || !firestore) {
+    if (!file || !firebaseApp || !firestore || !profile.id) {
       toast({
         variant: 'destructive',
         title: 'Upload Error',
-        description: 'No file selected or backend service unavailable.',
+        description: 'No file selected or user/backend service unavailable.',
       });
       return;
     }
