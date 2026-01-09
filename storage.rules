@@ -2,31 +2,40 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
+
+    // Helper function to check if a user is an admin via custom claims.
+    function isAdmin() {
+      return request.auth != null && request.auth.token.admin == true;
+    }
+
+    // Helper function to get event creator's UID from Firestore.
+    function getEventCreatorId(eventId) {
+      return get(/databases/$(database)/documents/scheduledEvents/$(eventId)).data.creatorId;
+    }
+    
     // Match any file in the 'avatars/{userId}' path
     match /avatars/{userId}/{fileName} {
-      
       // Anyone can read avatars (for public profiles, etc.)
       allow read;
 
-      // Only the authenticated user can write to their own avatar path
-      allow write: if request.auth != null && request.auth.uid == userId
-                   // File must be an image
+      // Only the authenticated user can write to their own avatar path.
+      // File must be an image and less than 5MB.
+      allow write: if request.auth != null 
+                   && request.auth.uid == userId
                    && request.resource.contentType.matches('image/.*')
-                   // File size must be less than 5MB
                    && request.resource.size < 5 * 1024 * 1024;
     }
 
     // Rules for event-specific images
     match /event-images/{eventId}/{fileName} {
-      // Anyone can read event images
+      // Anyone can read event images.
       allow read;
 
-      // Allow write only if the user is an admin or the creator of the event.
+      // Allow write only if the user is an admin OR the creator of the event.
+      // File must be an image and less than 5MB.
       allow write: if request.auth != null
-                   && (request.auth.token.admin == true || request.auth.uid == get(/databases/$(database)/documents/scheduledEvents/$(eventId)).data.creatorId)
-                   // And the file is an image
+                   && (isAdmin() || request.auth.uid == getEventCreatorId(eventId))
                    && request.resource.contentType.matches('image/.*')
-                   // And the file size is less than 5MB
                    && request.resource.size < 5 * 1024 * 1024;
     }
   }
