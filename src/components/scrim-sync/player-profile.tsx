@@ -25,8 +25,10 @@ import { Skeleton } from '../ui/skeleton';
 import { Badge } from '../ui/badge';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
-import { useFunctions, useAuth } from '@/firebase';
-import { httpsCallable } from 'firebase/functions';
+import { useFirebaseApp } from '@/firebase';
+import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL, type UploadTask } from 'firebase/storage';
+import { doc, updateDoc } from 'firebase/firestore';
+import { useFirestore } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import {
   Dialog,
@@ -38,6 +40,7 @@ import {
 } from "@/components/ui/dialog"
 import { ScrollArea } from '../ui/scroll-area';
 import { Separator } from '../ui/separator';
+import { Progress } from '../ui/progress';
 
 type PlayerProfileProps = {
   initialProfile: PlayerProfileData & { email?: string | null };
@@ -52,12 +55,14 @@ const preMadeAvatars = Array.from({ length: 20 }, (_, i) => `https://api.dicebea
 export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: PlayerProfileProps) {
   const [profile, setProfile] = React.useState(initialProfile);
   const [hasChanges, setHasChanges] = React.useState(false);
-  const [isUploading, setIsUploading] = React.useState(false);
+  const [uploadProgress, setUploadProgress] = React.useState<number | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [isAvatarDialogOpen, setIsAvatarDialogOpen] = React.useState(false);
 
-  const functions = useFunctions();
+  const firebaseApp = useFirebaseApp();
+  const firestore = useFirestore();
   const { toast } = useToast();
+  const isUploading = uploadProgress !== null;
 
   React.useEffect(() => {
     setProfile(initialProfile);
@@ -85,7 +90,7 @@ export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: P
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file || !functions) {
+    if (!file || !firebaseApp || !firestore) {
       toast({
         variant: 'destructive',
         title: 'Upload Error',
@@ -103,39 +108,42 @@ export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: P
       return;
     }
 
-    setIsUploading(true);
+    setUploadProgress(0);
 
     try {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = async () => {
-        const fileDataUrl = reader.result as string;
-        const uploadProfilePicture = httpsCallable(functions, 'uploadProfilePicture');
-        const result = await uploadProfilePicture({ fileDataUrl, fileName: file.name });
+        const storage = getStorage(firebaseApp);
+        const filePath = `avatars/${profile.id}/${file.name}`;
+        const fileRef = storageRef(storage, filePath);
+        const uploadTask: UploadTask = uploadBytesResumable(fileRef, file);
+
+        uploadTask.on('state_changed',
+            (snapshot) => {
+                const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                setUploadProgress(progress);
+            }
+        );
         
-        const newPhotoURL = (result.data as { photoURL: string }).photoURL;
+        await uploadTask;
+
+        const newPhotoURL = await getDownloadURL(uploadTask.snapshot.ref);
 
         handleAvatarSelect(newPhotoURL);
         
         toast({
-          title: 'Avatar Uploaded!',
-          description: 'Your new profile picture has been saved. Click "Save Profile" to apply.',
+          title: 'Avatar Ready!',
+          description: 'Your new avatar is ready. Click "Save Profile" to apply all changes.',
         });
         setIsAvatarDialogOpen(false);
-      };
-
-      reader.onerror = (error) => {
-        throw new Error("Failed to read file.");
-      }
     } catch (error) {
-      console.error("Error calling upload function:", error);
+      console.error("Error uploading avatar:", error);
       toast({
         variant: 'destructive',
         title: 'Upload Failed',
-        description: 'There was an error uploading your avatar. Please try again.',
+        description: 'There was an error uploading your avatar. You may not have permission.',
       });
     } finally {
-        setIsUploading(false);
+        setUploadProgress(null);
+        if(fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
@@ -184,14 +192,15 @@ export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: P
             <DialogHeader>
               <DialogTitle>Choose Your Avatar</DialogTitle>
               <DialogDescription>
-                Select a pre-made avatar or upload your own picture.
+                Select a pre-made avatar or upload your own picture (max 5MB).
               </DialogDescription>
             </DialogHeader>
             <div className='space-y-4'>
                 <Button onClick={handleAvatarUploadClick} disabled={isUploading} className='w-full'>
                     {isUploading ? <Loader className='w-4 h-4 animate-spin mr-2' /> : <UploadCloud className='w-4 h-4 mr-2'/>}
-                    {isUploading ? 'Uploading...' : 'Upload Your Own'}
+                    {isUploading ? `Uploading... ${Math.round(uploadProgress!)}%` : 'Upload Your Own'}
                 </Button>
+                {isUploading && <Progress value={uploadProgress} className="h-2" />}
                 <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/png, image/jpeg, image/gif" className="hidden" />
 
                 <div className='flex items-center gap-2'>

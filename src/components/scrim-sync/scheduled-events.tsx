@@ -20,7 +20,7 @@ import { Button } from '../ui/button';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { ScrollArea } from '../ui/scroll-area';
 import { cn } from '@/lib/utils';
-import { useCollection, useFirestore, useMemoFirebase, useFirebaseApp } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase, useFirebaseApp, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { Progress } from '../ui/progress';
 
 type ScheduledEventsProps = {
@@ -126,7 +126,16 @@ export function ScheduledEvents({ events, votes, allPlayerNames, onRemoveEvent, 
             
         } catch (error) {
             console.error("Error uploading file for event:", error);
-            toast({ variant: 'destructive', title: 'Upload Failed', description: 'There was an error uploading the image.' });
+             toast({
+                variant: 'destructive',
+                title: 'Upload Failed',
+                description: 'Could not upload the image. You may not have permission.',
+            });
+            const permissionError = new FirestorePermissionError({
+                path: `event-images/${eventId}/${file.name}`,
+                operation: 'write',
+            });
+            errorEmitter.emit('permission-error', permissionError);
         } finally {
             setUploadState(prev => ({ ...prev, [eventId]: { isUploading: false, progress: 0 } }));
             setSelectedEventIdForUpload(null);
@@ -199,7 +208,7 @@ export function ScheduledEvents({ events, votes, allPlayerNames, onRemoveEvent, 
                     <CardTitle>Upcoming Events</CardTitle>
                 </div>
                 <CardDescription>
-                    Here are your team's scheduled sessions. You can upload a relevant screenshot for each event.
+                    Here are your team's scheduled sessions. You can upload a relevant screenshot for each event (max 5MB).
                 </CardDescription>
             </CardHeader>
             <CardContent>
@@ -242,7 +251,7 @@ export function ScheduledEvents({ events, votes, allPlayerNames, onRemoveEvent, 
                                                 {currentUpload?.isUploading && (
                                                     <div className='space-y-1'>
                                                         <Progress value={currentUpload.progress} className="w-full h-2" />
-                                                        <p className='text-xs text-muted-foreground text-center'>Uploading...</p>
+                                                        <p className='text-xs text-muted-foreground text-center'>{`Uploading... ${Math.round(currentUpload.progress)}%`}</p>
                                                     </div>
                                                 )}
 
