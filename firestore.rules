@@ -67,7 +67,7 @@ service cloud.firestore {
       allow create: if isAdmin();
 
       // Only the event creator or an admin can update or delete an event.
-      allow update, delete: if isSignedIn() && (isOwner(resource.data.creatorId) || isAdmin());
+      allow update, delete: if isOwner(resource.data.creatorId) || isAdmin();
     }
   }
 }
