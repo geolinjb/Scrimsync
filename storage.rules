@@ -9,6 +9,7 @@ service firebase.storage {
     }
 
     // Helper function to get event creator's UID from Firestore.
+    // Note: This requires the path to be constructed correctly.
     function getEventCreatorId(eventId) {
       return get(/databases/$(database)/documents/scheduledEvents/$(eventId)).data.creatorId;
     }

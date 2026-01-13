@@ -1,62 +1,57 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Global constant for the Super Admin UID
-    function ADMIN_UID() {
-      return "BpA8qniZ03YttlnTR25nc6RrWrZ2";
-    }
-
-    // Helper functions for reusable logic
+    // Helper function to check if a user is authenticated.
     function isSignedIn() {
       return request.auth != null;
     }
 
+    // Helper function to check if the requesting user is the owner of a document.
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
-    
-    // Checks for the 'admin' custom claim on the user's token.
+
+    // Helper function to check if the user has an admin custom claim.
     function isAdmin() {
-      return request.auth.token.admin == true;
+      return isSignedIn() && request.auth.token.admin == true;
     }
 
     /**
-     * @description Secures a user's profile document.
+     * @description Secures user profile documents.
      * @path /users/{userId}
      */
     match /users/{userId} {
-      // Any user (authenticated or not) can read profiles for the public roster.
+      // Anyone can read user profiles.
       allow read;
 
-      // A user can create their own profile document.
+      // Users can create their own profile.
       allow create: if isOwner(userId);
-      
-      // A user can update their own profile, but cannot change restricted fields.
-      // Admins and the Super Admin can update any field.
-      allow update: if (isOwner(userId) && !isChangingRestrictedFields()) || isAdmin() || request.auth.uid == ADMIN_UID();
-      
-      // Only an admin or the Super Admin can delete a user profile.
-      allow delete: if isAdmin() || request.auth.uid == ADMIN_UID();
 
-      // Helper function to check if a non-admin is trying to modify admin-only fields.
-      function isChangingRestrictedFields() {
-        return request.resource.data.rosterStatus != resource.data.rosterStatus ||
-               request.resource.data.playstyleTags != resource.data.playstyleTags;
-      }
+      // Users can update their own profile, but cannot change admin-only fields.
+      // Admins can update any field.
+      allow update: if (isOwner(userId) && !(
+                      'rosterStatus' in request.resource.data && request.resource.data.rosterStatus != resource.data.rosterStatus
+                    ) && !(
+                      'playstyleTags' in request.resource.data && request.resource.data.playstyleTags != resource.data.playstyleTags
+                    )) || isAdmin();
+
+      // Only admins can delete user profiles.
+      allow delete: if isAdmin();
     }
-    
+
     /**
-     * @description Secures a user's votes. Users can only manage their own votes.
+     * @description Secures user votes.
      * @path /votes/{voteId}
      */
     match /votes/{voteId} {
-        // Any authenticated user can read all votes to build the heatmap.
-        allow read: if isSignedIn();
-        // A user can create/update a vote if the data's userId matches their own.
-        allow create, update: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-        // A user can delete their own vote, OR an admin/Super Admin can delete any vote.
-        allow delete: if isSignedIn() && (isOwner(resource.data.userId) || isAdmin() || request.auth.uid == ADMIN_UID());
+      // Any authenticated user can read all votes.
+      allow read: if isSignedIn();
+
+      // Users can create, update, and delete their own votes.
+      // An admin can also delete any vote.
+      allow write: if (isSignedIn() && request.resource.data.userId == request.auth.uid) || (isAdmin() && request.method == 'delete');
     }
 
     /**
@@ -66,10 +61,12 @@ service cloud.firestore {
     match /scheduledEvents/{eventId} {
       // Any authenticated user can read events.
       allow read: if isSignedIn();
+
       // Any authenticated user can create events.
       allow create: if isSignedIn();
-      // Users can only update/delete events they created, unless they are an admin or super admin.
-      allow update, delete: if isSignedIn() && (isOwner(resource.data.creatorId) || isAdmin() || request.auth.uid == ADMIN_UID());
+
+      // Only the event creator or an admin can update or delete an event.
+      allow update, delete: if isSignedIn() && (isOwner(resource.data.creatorId) || isAdmin());
     }
   }
 }
