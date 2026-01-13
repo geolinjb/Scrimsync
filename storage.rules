@@ -3,20 +3,19 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
 
-    // Helper function to check if a user is an admin via custom claims.
+    // Helper function to check if a user is an admin, by custom claim or by being the hardcoded owner.
     function isAdmin() {
-      return request.auth != null && request.auth.token.admin == true;
+      return request.auth != null && (request.auth.token.admin == true || request.auth.uid == 'BpA8qniZ03YttlnTR25nc6RrWrZ2');
     }
 
-    // Helper function to get event creator's UID from Firestore.
-    // Note: This requires the path to be constructed correctly.
+    // Helper function to get the creator's UID from the corresponding Firestore event document.
     function getEventCreatorId(eventId) {
       return get(/databases/$(database)/documents/scheduledEvents/$(eventId)).data.creatorId;
     }
     
-    // Match any file in the 'avatars/{userId}' path
+    // Match any file in a user's avatar directory.
     match /avatars/{userId}/{fileName} {
-      // Anyone can read avatars (for public profiles, etc.)
+      // Anyone can read avatars.
       allow read;
 
       // Only the authenticated user can write to their own avatar path.
@@ -27,7 +26,7 @@ service firebase.storage {
                    && request.resource.size < 5 * 1024 * 1024;
     }
 
-    // Rules for event-specific images
+    // Rules for event-specific images.
     match /event-images/{eventId}/{fileName} {
       // Anyone can read event images.
       allow read;
