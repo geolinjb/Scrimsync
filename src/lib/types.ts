@@ -30,6 +30,13 @@ export type Vote = {
     voteValue: boolean;
 }
 
+export type AvailabilityOverride = {
+  id: string; // composite key: `${eventId}_${userId}`
+  eventId: string;
+  userId: string;
+  status: 'Possibly Available';
+};
+
 export const gameRoles = ['Tank Destroyer', 'Medium Tank', 'Heavy Tank', 'Assaulter', 'Defender', 'Light Tank'] as const;
 
 export const rosterStatuses = ["Main Roster", "Standby Player"] as const;

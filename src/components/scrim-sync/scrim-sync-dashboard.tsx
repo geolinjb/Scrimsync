@@ -6,7 +6,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import type { User as AuthUser } from 'firebase/auth';
 import { collection, doc, writeBatch } from 'firebase/firestore';
 
-import type { PlayerProfileData, ScheduleEvent, UserVotes, AllVotes, Vote, FirestoreScheduleEvent } from '@/lib/types';
+import type { PlayerProfileData, ScheduleEvent, UserVotes, AllVotes, Vote, FirestoreScheduleEvent, AvailabilityOverride } from '@/lib/types';
 import { timeSlots } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -405,11 +405,6 @@ const hasLastWeekVotes = React.useMemo(() => {
     setCurrentDate(new Date());
   };
   
-  const allPlayerNames = React.useMemo(() => {
-      if (!allProfiles) return [];
-      return allProfiles.map(p => p.username).filter(Boolean) as string[];
-  }, [allProfiles]);
-
   const isLoading = areEventsLoading || areVotesLoading || areProfilesLoading;
   const isSuperAdmin = authUser.uid === ADMIN_UID;
   const canSeeAdminPanel = isAdmin || isSuperAdmin;
@@ -519,7 +514,6 @@ const hasLastWeekVotes = React.useMemo(() => {
                 <ScheduledEvents 
                     events={scheduledEvents} 
                     votes={allVotes}
-                    allPlayerNames={allPlayerNames}
                     onRemoveEvent={handleRemoveEvent}
                     currentUser={authUser}
                     isAdmin={canSeeAdminPanel}

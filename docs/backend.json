@@ -124,6 +124,38 @@
         "date",
         "time"
       ]
+    },
+    "AvailabilityOverride": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "AvailabilityOverride",
+      "type": "object",
+      "description": "Represents an admin's manual override for a user's availability for a specific event.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the override."
+        },
+        "eventId": {
+          "type": "string",
+          "description": "Reference to the ScheduledEvent ID."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to the UserProfile ID."
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "Possibly Available"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "eventId",
+        "userId",
+        "status"
+      ]
     }
   },
   "auth": {
@@ -155,6 +187,12 @@
         "$ref": "#/entities/ScheduledEvent"
       },
       "description": "Stores information about scheduled events. Rules allow any authenticated user to read, but only an admin to write or delete."
+    },
+    "/availabilityOverrides/{overrideId}": {
+      "schema": {
+        "$ref": "#/entities/AvailabilityOverride"
+      },
+      "description": "Stores manual availability overrides set by admins."
     }
   }
 }

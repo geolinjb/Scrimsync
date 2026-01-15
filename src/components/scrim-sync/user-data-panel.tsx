@@ -23,7 +23,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from '../ui/skeleton';
-import type { PlayerProfileData, Vote, ScheduleEvent, AllVotes } from '@/lib/types';
+import type { PlayerProfileData, Vote, ScheduleEvent, AllVotes, AvailabilityOverride } from '@/lib/types';
 import { timeSlots, MINIMUM_PLAYERS, rosterStatuses, playstyleTags } from '@/lib/types';
 import { Button } from '../ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -38,7 +38,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { useFirestore } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
@@ -83,6 +83,12 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent, a
     return Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   }, [weekStart]);
   
+  const overridesRef = useMemoFirebase(() => {
+      if (!firestore) return null;
+      return collection(firestore, 'availabilityOverrides');
+  }, [firestore]);
+  const { data: availabilityOverrides } = useCollection<AvailabilityOverride>(overridesRef);
+
   React.useEffect(() => {
     if (selectedPlayerForTags && allProfiles) {
       const player = allProfiles.find(p => p.id === selectedPlayerForTags);
@@ -671,6 +677,7 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent, a
             events={events}
             allVotes={allVotes}
             allProfiles={allProfiles || []} 
+            availabilityOverrides={availabilityOverrides || []}
         />
         
         <Card>

@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { format, startOfToday, differenceInMinutes } from 'date-fns';
 import { Send, Megaphone, Check, Loader } from 'lucide-react';
-import type { AllVotes, PlayerProfileData, ScheduleEvent } from '@/lib/types';
+import type { AllVotes, PlayerProfileData, ScheduleEvent, AvailabilityOverride } from '@/lib/types';
 import { MINIMUM_PLAYERS } from '@/lib/types';
 import {
   Card,
@@ -29,11 +29,12 @@ type ReminderGeneratorProps = {
   events: ScheduleEvent[] | null;
   allVotes: AllVotes;
   allProfiles: PlayerProfileData[];
+  availabilityOverrides: AvailabilityOverride[];
 };
 
 const DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1454808762475872358/vzp7fiSxE7THIR5sc6npnuAG2TVl_B3fikdS_WgZFnzxQmejMJylsYafopfEkzU035Yt";
 
-export function ReminderGenerator({ events, allVotes, allProfiles }: ReminderGeneratorProps) {
+export function ReminderGenerator({ events, allVotes, allProfiles, availabilityOverrides }: ReminderGeneratorProps) {
   const { toast } = useToast();
   const [selectedEventId, setSelectedEventId] = React.useState<string>('');
   const [reminderMessage, setReminderMessage] = React.useState<string>('');
@@ -61,16 +62,23 @@ export function ReminderGenerator({ events, allVotes, allProfiles }: ReminderGen
     }
     const event = upcomingEvents.find(e => e.id === eventId);
     if (!event) return;
-
+    
+    const profileMap = new Map(allProfiles.map(p => [p.id, p.username]));
     const allPlayerNames = allProfiles.map(p => p.username).filter(Boolean) as string[];
 
     // Logic to get players
     const dateKey = format(new Date(event.date), 'yyyy-MM-dd');
     const voteKey = `${dateKey}-${event.time}`;
     const availablePlayers = allVotes[voteKey] || [];
-    
-    const unavailablePlayers = allPlayerNames.filter(p => !availablePlayers.includes(p));
-    const neededPlayers = Math.max(0, MINIMUM_PLAYERS - availablePlayers.length);
+
+    const eventOverrides = availabilityOverrides.filter(o => o.eventId === eventId);
+    const possiblyAvailablePlayerUsernames = eventOverrides
+        .map(o => profileMap.get(o.userId))
+        .filter((name): name is string => !!name);
+
+    const unavailablePlayers = allPlayerNames.filter(p => !availablePlayers.includes(p) && !possiblyAvailablePlayerUsernames.includes(p));
+    const totalAvailable = availablePlayers.length + possiblyAvailablePlayerUsernames.length;
+    const neededPlayers = Math.max(0, MINIMUM_PLAYERS - totalAvailable);
     
     // Time formatting
     const timeRemaining = formatTimeRemaining(new Date(event.date), event.time);
@@ -79,11 +87,14 @@ export function ReminderGenerator({ events, allVotes, allProfiles }: ReminderGen
     // Message construction (Discord Markdown)
     const header = `**🔔 REMINDER: ${event.type.toUpperCase()} @Spartan [Tour chad]! 🔔**`;
     const eventInfo = `> **When:** ${formattedDate} at **${event.time}** (Starts in ~${timeRemaining})`;
-    const rosterHeader = `--- \n**ROSTER (${availablePlayers.length}/${MINIMUM_PLAYERS})**`;
+    const rosterHeader = `--- \n**ROSTER (${totalAvailable}/${MINIMUM_PLAYERS})**`;
     
     const availableHeader = `✅ **Available Players (${availablePlayers.length}):**`;
     const availableList = availablePlayers.length > 0 ? availablePlayers.map(p => `- ${p}`).join('\n') : '> - *None yet*';
     
+    const possiblyAvailableHeader = `🤔 **Possibly Available (${possiblyAvailablePlayerUsernames.length}):**`;
+    const possiblyAvailableList = possiblyAvailablePlayerUsernames.length > 0 ? possiblyAvailablePlayerUsernames.map(p => `- ${p}`).join('\n') : '> - *None*';
+
     const unavailableHeader = `❌ **Unavailable Players (${unavailablePlayers.length}):**`;
     const unavailableList = unavailablePlayers.length > 0 ? unavailablePlayers.map(p => `- ${p}`).join('\n') : '> - *Everyone is available!*';
     
@@ -99,6 +110,9 @@ export function ReminderGenerator({ events, allVotes, allProfiles }: ReminderGen
       '',
       availableHeader,
       availableList,
+      '',
+      possiblyAvailableHeader,
+      possiblyAvailableList,
       '',
       unavailableHeader,
       unavailableList,

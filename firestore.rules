@@ -69,5 +69,16 @@ service cloud.firestore {
       // Only the event creator or an admin can update or delete an event.
       allow update, delete: if isOwner(resource.data.creatorId) || isAdmin();
     }
+
+    /**
+     * @description Manages availability overrides set by admins.
+     * @path /availabilityOverrides/{overrideId}
+     */
+    match /availabilityOverrides/{overrideId} {
+        // Any authenticated user can read overrides.
+        allow read: if isSignedIn();
+        // Only admins can create, update, or delete overrides.
+        allow write: if isAdmin();
+    }
   }
 }

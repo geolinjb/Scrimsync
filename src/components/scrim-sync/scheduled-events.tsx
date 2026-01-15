@@ -2,14 +2,14 @@
 
 import * as React from 'react';
 import { format, startOfToday, differenceInMinutes, isToday } from 'date-fns';
-import { CalendarCheck, Users, Trash2, Copy, Trophy, UploadCloud, Loader } from 'lucide-react';
+import { CalendarCheck, Users, Trash2, Copy, Trophy, UploadCloud, Loader, UserPlus, UserCheck, UserX } from 'lucide-react';
 import type { User } from 'firebase/auth';
-import { collection, doc, updateDoc } from 'firebase/firestore';
+import { collection, doc, updateDoc, writeBatch } from 'firebase/firestore';
 import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL, type UploadTask } from "firebase/storage";
 import Image from 'next/image';
 
 
-import type { AllVotes, ScheduleEvent, PlayerProfileData } from '@/lib/types';
+import type { AllVotes, ScheduleEvent, PlayerProfileData, AvailabilityOverride } from '@/lib/types';
 import { MINIMUM_PLAYERS } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -22,11 +22,11 @@ import { ScrollArea } from '../ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { useCollection, useFirestore, useMemoFirebase, useFirebaseApp, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { Progress } from '../ui/progress';
+import { Separator } from '../ui/separator';
 
 type ScheduledEventsProps = {
   events: ScheduleEvent[];
   votes: AllVotes;
-  allPlayerNames: string[];
   onRemoveEvent: (eventId: string) => void;
   currentUser: User | null;
   isAdmin: boolean;
@@ -39,7 +39,7 @@ type UploadState = {
     }
 }
 
-export function ScheduledEvents({ events, votes, allPlayerNames, onRemoveEvent, currentUser, isAdmin }: ScheduledEventsProps) {
+export function ScheduledEvents({ events, votes, onRemoveEvent, currentUser, isAdmin }: ScheduledEventsProps) {
     const { toast } = useToast();
     const [now, setNow] = React.useState(new Date());
     const [uploadState, setUploadState] = React.useState<UploadState>({});
@@ -53,12 +53,23 @@ export function ScheduledEvents({ events, votes, allPlayerNames, onRemoveEvent, 
         if (!firestore) return null;
         return collection(firestore, 'users');
     }, [firestore]);
+    
+    const overridesRef = useMemoFirebase(() => {
+        if (!firestore) return null;
+        return collection(firestore, 'availabilityOverrides');
+    }, [firestore]);
 
     const { data: profiles } = useCollection<PlayerProfileData>(profilesRef);
+    const { data: overrides, isLoading: areOverridesLoading } = useCollection<AvailabilityOverride>(overridesRef);
 
     const profileMap = React.useMemo(() => {
         if (!profiles) return new Map();
         return new Map(profiles.map(p => [p.username, p]));
+    }, [profiles]);
+
+    const profileIdMap = React.useMemo(() => {
+        if (!profiles) return new Map();
+        return new Map(profiles.map(p => [p.id, p]));
     }, [profiles]);
 
     React.useEffect(() => {
@@ -187,15 +198,21 @@ export function ScheduledEvents({ events, votes, allPlayerNames, onRemoveEvent, 
         return result === 'in' ? 'Starting now' : result;
     };
     
-    const handleCopyList = (event: ScheduleEvent, availablePlayers: string[]) => {
-        const unavailablePlayers = allPlayerNames.filter(p => !availablePlayers.includes(p));
-        const neededPlayers = Math.max(0, MINIMUM_PLAYERS - availablePlayers.length);
+    const handleCopyList = (event: ScheduleEvent, availablePlayers: string[], possiblyAvailablePlayers: PlayerProfileData[]) => {
+        const allPlayerNames = (profiles || []).map(p => p.username).filter(Boolean) as string[];
+        const possiblyAvailableUsernames = possiblyAvailablePlayers.map(p => p.username);
+        const unavailablePlayers = allPlayerNames.filter(p => !availablePlayers.includes(p) && !possiblyAvailableUsernames.includes(p));
+        const totalAvailable = availablePlayers.length + possiblyAvailableUsernames.length;
+        const neededPlayers = Math.max(0, MINIMUM_PLAYERS - totalAvailable);
 
         const timeRemaining = formatTimeRemaining(new Date(event.date), event.time);
         const header = `Roster for ${event.type} on ${format(new Date(event.date), 'EEEE, d MMM')} at ${event.time} (starts ${timeRemaining}):`;
         
         const availableHeader = `✅ Available Players (${availablePlayers.length}):`;
         const availableList = availablePlayers.length > 0 ? availablePlayers.map(p => `- ${p}`).join('\n') : '- None';
+
+        const possiblyAvailableHeader = `🤔 Possibly Available (${possiblyAvailableUsernames.length}):`;
+        const possiblyAvailableList = possiblyAvailableUsernames.length > 0 ? possiblyAvailableUsernames.map(p => `- ${p}`).join('\n') : '- None';
         
         const neededText = `🔥 Players Needed: ${neededPlayers}`;
         
@@ -205,8 +222,12 @@ export function ScheduledEvents({ events, votes, allPlayerNames, onRemoveEvent, 
         const footer = `\n---\nGenerated by TeamSync\nhttps://scrimsync.vercel.app/`;
 
         const fullText = [
-            header, '', availableHeader, availableList, '',
-            neededText, '', unavailableHeader, unavailableList, footer
+            header, '', 
+            availableHeader, availableList, '',
+            possiblyAvailableHeader, possiblyAvailableList, '',
+            neededText, '', 
+            unavailableHeader, unavailableList, 
+            footer
         ].join('\n');
         
         navigator.clipboard.writeText(fullText).then(() => {
@@ -216,6 +237,30 @@ export function ScheduledEvents({ events, votes, allPlayerNames, onRemoveEvent, 
             toast({ variant: 'destructive', title: 'Copy Failed', description: 'Could not copy the list to your clipboard.' });
         });
     };
+
+    const handleOverride = async (eventId: string, userId: string, to: 'add' | 'remove') => {
+        if (!firestore) return;
+
+        const overrideId = `${eventId}_${userId}`;
+
+        if (to === 'add') {
+            const overrideRef = doc(firestore, 'availabilityOverrides', overrideId);
+            const overrideData: AvailabilityOverride = { id: overrideId, eventId, userId, status: 'Possibly Available' };
+            
+            updateDoc(overrideRef, overrideData).catch(error => {
+                const permissionError = new FirestorePermissionError({ path: overrideRef.path, operation: 'create', requestResourceData: overrideData });
+                errorEmitter.emit('permission-error', permissionError);
+            });
+        } else {
+            const overrideRef = doc(firestore, 'availabilityOverrides', overrideId);
+            const batch = writeBatch(firestore);
+            batch.delete(overrideRef);
+            await batch.commit().catch(error => {
+                const permissionError = new FirestorePermissionError({ path: overrideRef.path, operation: 'delete' });
+                errorEmitter.emit('permission-error', permissionError);
+            });
+        }
+    }
 
     return (
         <Card>
@@ -237,6 +282,18 @@ export function ScheduledEvents({ events, votes, allPlayerNames, onRemoveEvent, 
                                 const availablePlayers = getAvailablePlayers(event);
                                 const canManage = isAdmin || (currentUser && currentUser.uid === event.creatorId);
                                 const currentUpload = uploadState[event.id];
+
+                                const eventOverrides = (overrides || []).filter(o => o.eventId === event.id);
+                                const possiblyAvailablePlayerIds = eventOverrides.map(o => o.userId);
+                                const possiblyAvailablePlayers = possiblyAvailablePlayerIds.map(id => profileIdMap.get(id)).filter(p => p) as PlayerProfileData[];
+
+                                const notAttendingProfiles = (profiles || []).filter(p => 
+                                    !availablePlayers.includes(p.username) && 
+                                    !possiblyAvailablePlayerIds.includes(p.id)
+                                );
+
+                                const allPlayerUsernames = (profiles || []).map(p => p.username).filter(Boolean) as string[];
+
                                 return (
                                     <AccordionItem key={event.id} value={event.id}>
                                         <AccordionTrigger>
@@ -273,25 +330,74 @@ export function ScheduledEvents({ events, votes, allPlayerNames, onRemoveEvent, 
                                                 )}
 
                                                 <div className='flex justify-between items-start gap-4'>
-                                                    <div className='flex-grow'>
-                                                        <div className='mb-2'>
-                                                            <span className='font-semibold'>{availablePlayers.length}</span> players available. <span className='text-muted-foreground'>{Math.max(0, MINIMUM_PLAYERS - availablePlayers.length)} more needed.</span>
+                                                    <div className='flex-grow space-y-4'>
+                                                        <div>
+                                                            <div className='mb-2'>
+                                                                <span className='font-semibold'>{availablePlayers.length + possiblyAvailablePlayers.length}</span> players available. <span className='text-muted-foreground'>{Math.max(0, MINIMUM_PLAYERS - (availablePlayers.length + possiblyAvailablePlayers.length))} more needed.</span>
+                                                            </div>
+
+                                                            <h4 className='text-sm font-semibold text-foreground/90 mb-2'>✅ Available ({availablePlayers.length})</h4>
+                                                            {availablePlayers.length > 0 ? (
+                                                                <ul className="space-y-3">
+                                                                    {availablePlayers.map((player) => {
+                                                                        const profile = profileMap.get(player);
+                                                                        return (
+                                                                            <li key={player} className="flex items-center gap-3">
+                                                                                <Avatar className="h-8 w-8"><AvatarImage src={profile?.photoURL ?? `https://api.dicebear.com/8.x/pixel-art/svg?seed=${profile?.id || player}`} /><AvatarFallback>{player.charAt(0).toUpperCase()}</AvatarFallback></Avatar>
+                                                                                <span className="font-medium">{player}</span>
+                                                                            </li>
+                                                                        )
+                                                                    })}
+                                                                </ul>
+                                                            ) : (
+                                                                <p className='text-sm text-muted-foreground italic'>No players voted yes.</p>
+                                                            )}
                                                         </div>
-                                                        {availablePlayers.length > 0 ? (
-                                                            <ul className="space-y-3">
-                                                                {availablePlayers.map((player) => {
-                                                                    const profile = profileMap.get(player);
-                                                                    return (
-                                                                        <li key={player} className="flex items-center gap-3">
-                                                                            <Avatar className="h-8 w-8"><AvatarImage src={profile?.photoURL ?? `https://api.dicebear.com/8.x/pixel-art/svg?seed=${profile?.id || player}`} /><AvatarFallback>{player.charAt(0).toUpperCase()}</AvatarFallback></Avatar>
-                                                                            <span className="font-medium">{player}</span>
+                                                        <Separator />
+                                                        <div>
+                                                            <h4 className='text-sm font-semibold text-foreground/90 mb-2'>🤔 Possibly Available ({possiblyAvailablePlayers.length})</h4>
+                                                            {possiblyAvailablePlayers.length > 0 ? (
+                                                                <ul className="space-y-3">
+                                                                    {possiblyAvailablePlayers.map((profile) => (
+                                                                        <li key={profile.id} className="flex items-center gap-3">
+                                                                            <Avatar className="h-8 w-8"><AvatarImage src={profile?.photoURL ?? `https://api.dicebear.com/8.x/pixel-art/svg?seed=${profile?.id}`} /><AvatarFallback>{profile.username.charAt(0).toUpperCase()}</AvatarFallback></Avatar>
+                                                                            <span className="font-medium">{profile.username}</span>
+                                                                            {canManage && <Button size="icon" variant="ghost" className='h-7 w-7' onClick={() => handleOverride(event.id, profile.id, 'remove')}><UserX className="w-4 h-4 text-destructive"/></Button>}
                                                                         </li>
-                                                                    )
-                                                                })}
-                                                            </ul>
-                                                        ) : (
-                                                            <div className="flex flex-col items-center justify-center text-center py-6"><Users className="w-10 h-10 text-muted-foreground" /><p className="mt-3 text-muted-foreground">No players have marked themselves as available yet.</p></div>
+                                                                    ))}
+                                                                </ul>
+                                                            ) : (
+                                                                <p className='text-sm text-muted-foreground italic'>No players marked as possibly available.</p>
+                                                            )}
+                                                        </div>
+
+                                                        {canManage && (
+                                                            <>
+                                                                <Separator />
+                                                                <div>
+                                                                    <h4 className='text-sm font-semibold text-foreground/90 mb-2'>❌ Not Attending ({notAttendingProfiles.length})</h4>
+                                                                    {notAttendingProfiles.length > 0 ? (
+                                                                        <ul className='space-y-2'>
+                                                                            {notAttendingProfiles.map(profile => (
+                                                                                <li key={profile.id} className='flex items-center justify-between'>
+                                                                                    <div className='flex items-center gap-3'>
+                                                                                        <Avatar className="h-8 w-8 opacity-60"><AvatarImage src={profile?.photoURL ?? `https://api.dicebear.com/8.x/pixel-art/svg?seed=${profile?.id}`} /><AvatarFallback>{profile.username.charAt(0).toUpperCase()}</AvatarFallback></Avatar>
+                                                                                        <span className="text-muted-foreground">{profile.username}</span>
+                                                                                    </div>
+                                                                                    <Button size="sm" variant="outline" onClick={() => handleOverride(event.id, profile.id, 'add')}>
+                                                                                        <UserPlus className="w-4 h-4 mr-2"/>
+                                                                                        Set as 'Possibly Available'
+                                                                                    </Button>
+                                                                                </li>
+                                                                            ))}
+                                                                        </ul>
+                                                                    ) : (
+                                                                        <p className='text-sm text-muted-foreground italic'>All players are marked as available.</p>
+                                                                    )}
+                                                                </div>
+                                                            </>
                                                         )}
+                                                        
                                                     </div>
                                                     <div className="flex flex-col items-center gap-2 shrink-0">
                                                         {canManage && (
@@ -300,7 +406,7 @@ export function ScheduledEvents({ events, votes, allPlayerNames, onRemoveEvent, 
                                                                 <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This action cannot be undone. This will permanently delete the scheduled {event.type.toLowerCase()}.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => onRemoveEvent(event.id)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
                                                             </AlertDialog>
                                                         )}
-                                                        <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleCopyList(event, availablePlayers)}><Copy className="w-4 h-4" /></Button>
+                                                        <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleCopyList(event, availablePlayers, possiblyAvailablePlayers)}><Copy className="w-4 h-4" /></Button>
                                                         {canManage && (
                                                              <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleUploadClick(event.id)} disabled={currentUpload?.isUploading}>
                                                                 {currentUpload?.isUploading ? <Loader className='w-4 h-4 animate-spin' /> : <UploadCloud className="w-4 h-4" />}
