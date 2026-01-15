@@ -211,8 +211,8 @@ export function ReminderGenerator({ events, allVotes, allProfiles }: ReminderGen
                  <Separator />
                  <h4 className='text-sm font-medium pt-2'>Generated Message:</h4>
                 <Textarea
-                    readOnly
                     value={reminderMessage}
+                    onChange={(e) => setReminderMessage(e.target.value)}
                     className="min-h-[250px] font-mono text-xs bg-muted/50"
                 />
             </div>
