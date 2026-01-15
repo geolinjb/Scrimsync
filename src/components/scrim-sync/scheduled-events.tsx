@@ -246,7 +246,6 @@ export function ScheduledEvents({ events, votes, onRemoveEvent, currentUser, isA
 
         if (to === 'add') {
             const overrideData: AvailabilityOverride = { id: overrideId, eventId, userId, status: 'Possibly Available' };
-            
             setDoc(overrideRef, overrideData).catch(error => {
                 const permissionError = new FirestorePermissionError({ path: overrideRef.path, operation: 'create', requestResourceData: overrideData });
                 errorEmitter.emit('permission-error', permissionError);
@@ -396,17 +395,17 @@ export function ScheduledEvents({ events, votes, onRemoveEvent, currentUser, isA
                                                         
                                                     </div>
                                                     <div className="flex flex-col items-center gap-2 shrink-0">
+                                                        <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleCopyList(event, availablePlayers, possiblyAvailablePlayers)}><Copy className="w-4 h-4" /></Button>
                                                         {canManage && (
+                                                            <>
                                                             <AlertDialog>
                                                                 <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive hover:text-destructive h-8 w-8"><Trash2 className="w-4 h-4" /></Button></AlertDialogTrigger>
                                                                 <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete the scheduled {event.type.toLowerCase()}.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => onRemoveEvent(event.id)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
                                                             </AlertDialog>
-                                                        )}
-                                                        <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleCopyList(event, availablePlayers, possiblyAvailablePlayers)}><Copy className="w-4 h-4" /></Button>
-                                                        {canManage && (
-                                                             <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleUploadClick(event.id)} disabled={currentUpload?.isUploading}>
+                                                            <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleUploadClick(event.id)} disabled={currentUpload?.isUploading}>
                                                                 {currentUpload?.isUploading ? <Loader className='w-4 h-4 animate-spin' /> : <UploadCloud className="w-4 h-4" />}
                                                             </Button>
+                                                            </>
                                                         )}
                                                     </div>
                                                 </div>
