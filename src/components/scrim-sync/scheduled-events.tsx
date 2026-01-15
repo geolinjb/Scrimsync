@@ -4,7 +4,7 @@ import * as React from 'react';
 import { format, startOfToday, differenceInMinutes, isToday } from 'date-fns';
 import { CalendarCheck, Users, Trash2, Copy, Trophy, UploadCloud, Loader, UserPlus, UserCheck, UserX } from 'lucide-react';
 import type { User } from 'firebase/auth';
-import { collection, doc, updateDoc, writeBatch } from 'firebase/firestore';
+import { collection, doc, updateDoc, writeBatch, setDoc } from 'firebase/firestore';
 import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL, type UploadTask } from "firebase/storage";
 import Image from 'next/image';
 
@@ -203,7 +203,7 @@ export function ScheduledEvents({ events, votes, onRemoveEvent, currentUser, isA
         const possiblyAvailableUsernames = possiblyAvailablePlayers.map(p => p.username);
         const unavailablePlayers = allPlayerNames.filter(p => !availablePlayers.includes(p) && !possiblyAvailableUsernames.includes(p));
         const totalAvailable = availablePlayers.length + possiblyAvailableUsernames.length;
-        const neededPlayers = Math.max(0, MINIMUM_PLAYERS - totalAvailable);
+        const neededPlayers = Math.max(0, MINIMUM_PLAYERS - (availablePlayers.length + possiblyAvailableUsernames.length));
 
         const timeRemaining = formatTimeRemaining(new Date(event.date), event.time);
         const header = `Roster for ${event.type} on ${format(new Date(event.date), 'EEEE, d MMM')} at ${event.time} (starts ${timeRemaining}):`;
@@ -242,17 +242,16 @@ export function ScheduledEvents({ events, votes, onRemoveEvent, currentUser, isA
         if (!firestore) return;
 
         const overrideId = `${eventId}_${userId}`;
+        const overrideRef = doc(firestore, 'availabilityOverrides', overrideId);
 
         if (to === 'add') {
-            const overrideRef = doc(firestore, 'availabilityOverrides', overrideId);
             const overrideData: AvailabilityOverride = { id: overrideId, eventId, userId, status: 'Possibly Available' };
             
-            updateDoc(overrideRef, overrideData).catch(error => {
+            setDoc(overrideRef, overrideData).catch(error => {
                 const permissionError = new FirestorePermissionError({ path: overrideRef.path, operation: 'create', requestResourceData: overrideData });
                 errorEmitter.emit('permission-error', permissionError);
             });
         } else {
-            const overrideRef = doc(firestore, 'availabilityOverrides', overrideId);
             const batch = writeBatch(firestore);
             batch.delete(overrideRef);
             await batch.commit().catch(error => {
@@ -288,6 +287,7 @@ export function ScheduledEvents({ events, votes, onRemoveEvent, currentUser, isA
                                 const possiblyAvailablePlayers = possiblyAvailablePlayerIds.map(id => profileIdMap.get(id)).filter(p => p) as PlayerProfileData[];
 
                                 const notAttendingProfiles = (profiles || []).filter(p => 
+                                    p.username && // only show users with profiles
                                     !availablePlayers.includes(p.username) && 
                                     !possiblyAvailablePlayerIds.includes(p.id)
                                 );
@@ -403,7 +403,7 @@ export function ScheduledEvents({ events, votes, onRemoveEvent, currentUser, isA
                                                         {canManage && (
                                                             <AlertDialog>
                                                                 <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive hover:text-destructive h-8 w-8"><Trash2 className="w-4 h-4" /></Button></AlertDialogTrigger>
-                                                                <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This action cannot be undone. This will permanently delete the scheduled {event.type.toLowerCase()}.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => onRemoveEvent(event.id)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+                                                                <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete the scheduled {event.type.toLowerCase()}.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => onRemoveEvent(event.id)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
                                                             </AlertDialog>
                                                         )}
                                                         <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleCopyList(event, availablePlayers, possiblyAvailablePlayers)}><Copy className="w-4 h-4" /></Button>
