@@ -4,7 +4,7 @@ import * as React from 'react';
 import { format, startOfToday, differenceInMinutes, isToday } from 'date-fns';
 import { CalendarCheck, Users, Trash2, Copy, Trophy, UploadCloud, Loader, UserPlus, UserCheck, UserX } from 'lucide-react';
 import type { User } from 'firebase/auth';
-import { collection, doc, updateDoc, writeBatch, setDoc, deleteDoc } from 'firebase/firestore';
+import { collection, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL, type UploadTask } from "firebase/storage";
 import Image from 'next/image';
 
@@ -136,7 +136,7 @@ export function ScheduledEvents({ events, votes, onRemoveEvent, currentUser, isA
             const imageURL = await getDownloadURL(uploadTask.snapshot.ref);
             const eventDocRef = doc(firestore, 'scheduledEvents', eventId);
             
-            updateDoc(eventDocRef, { imageURL }).catch(error => {
+            setDoc(eventDocRef, { imageURL }, { merge: true }).catch(error => {
                  const permissionError = new FirestorePermissionError({
                     path: eventDocRef.path,
                     operation: 'update',
@@ -202,8 +202,8 @@ export function ScheduledEvents({ events, votes, onRemoveEvent, currentUser, isA
         const allPlayerUsernames = (profiles || []).map(p => p.username).filter(Boolean) as string[];
         const possiblyAvailableUsernames = possiblyAvailablePlayers.map(p => p.username);
         const unavailablePlayers = allPlayerUsernames.filter(p => !availablePlayers.includes(p) && !possiblyAvailableUsernames.includes(p));
-        const totalAvailable = availablePlayers.length + possiblyAvailableUsernames.length;
-        const neededPlayers = Math.max(0, MINIMUM_PLAYERS - (availablePlayers.length + possiblyAvailableUsernames.length));
+        const totalAvailable = availablePlayers.length + possiblyAvailablePlayers.length;
+        const neededPlayers = Math.max(0, MINIMUM_PLAYERS - totalAvailable);
 
         const timeRemaining = formatTimeRemaining(new Date(event.date), event.time);
         const header = `Roster for ${event.type} on ${format(new Date(event.date), 'EEEE, d MMM')} at ${event.time} (starts ${timeRemaining}):`;
@@ -289,8 +289,6 @@ export function ScheduledEvents({ events, votes, onRemoveEvent, currentUser, isA
                                     !availablePlayers.includes(p.username) && 
                                     !possiblyAvailablePlayerIds.includes(p.id)
                                 );
-
-                                const allPlayerUsernames = (profiles || []).map(p => p.username).filter(Boolean) as string[];
 
                                 return (
                                     <AccordionItem key={event.id} value={event.id}>
