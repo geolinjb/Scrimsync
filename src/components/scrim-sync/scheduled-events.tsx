@@ -4,7 +4,7 @@ import * as React from 'react';
 import { format, startOfToday, differenceInMinutes, isToday } from 'date-fns';
 import { CalendarCheck, Users, Trash2, Copy, Trophy, UploadCloud, Loader, UserPlus, UserCheck, UserX } from 'lucide-react';
 import type { User } from 'firebase/auth';
-import { collection, doc, updateDoc, writeBatch, setDoc } from 'firebase/firestore';
+import { collection, doc, updateDoc, writeBatch, setDoc, deleteDoc } from 'firebase/firestore';
 import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL, type UploadTask } from "firebase/storage";
 import Image from 'next/image';
 
@@ -199,9 +199,9 @@ export function ScheduledEvents({ events, votes, onRemoveEvent, currentUser, isA
     };
     
     const handleCopyList = (event: ScheduleEvent, availablePlayers: string[], possiblyAvailablePlayers: PlayerProfileData[]) => {
-        const allPlayerNames = (profiles || []).map(p => p.username).filter(Boolean) as string[];
+        const allPlayerUsernames = (profiles || []).map(p => p.username).filter(Boolean) as string[];
         const possiblyAvailableUsernames = possiblyAvailablePlayers.map(p => p.username);
-        const unavailablePlayers = allPlayerNames.filter(p => !availablePlayers.includes(p) && !possiblyAvailableUsernames.includes(p));
+        const unavailablePlayers = allPlayerUsernames.filter(p => !availablePlayers.includes(p) && !possiblyAvailableUsernames.includes(p));
         const totalAvailable = availablePlayers.length + possiblyAvailableUsernames.length;
         const neededPlayers = Math.max(0, MINIMUM_PLAYERS - (availablePlayers.length + possiblyAvailableUsernames.length));
 
@@ -252,9 +252,7 @@ export function ScheduledEvents({ events, votes, onRemoveEvent, currentUser, isA
                 errorEmitter.emit('permission-error', permissionError);
             });
         } else {
-            const batch = writeBatch(firestore);
-            batch.delete(overrideRef);
-            await batch.commit().catch(error => {
+            deleteDoc(overrideRef).catch(error => {
                 const permissionError = new FirestorePermissionError({ path: overrideRef.path, operation: 'delete' });
                 errorEmitter.emit('permission-error', permissionError);
             });
