@@ -316,6 +316,13 @@ export function ScheduledEvents({ events, votes, onRemoveEvent, currentUser, isA
                                                         <Image src={event.imageURL} alt={`Screenshot for ${event.type}`} fill objectFit='cover' />
                                                     </div>
                                                 )}
+                                                
+                                                {event.description && (
+                                                    <div className="text-sm text-muted-foreground border-l-2 border-primary pl-3 py-1 bg-muted/50 rounded-r-md">
+                                                        <p className="whitespace-pre-wrap">{event.description}</p>
+                                                    </div>
+                                                )}
+
 
                                                 {currentUpload?.isUploading && (
                                                     <div className='space-y-1'>

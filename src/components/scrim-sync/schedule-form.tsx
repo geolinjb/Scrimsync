@@ -40,6 +40,7 @@ import {
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { timeSlots } from '@/lib/types';
+import { Textarea } from '@/components/ui/textarea';
 
 const formSchema = z.object({
   type: z.enum(['Training', 'Tournament']),
@@ -47,6 +48,7 @@ const formSchema = z.object({
     required_error: 'A date is required.',
   }),
   time: z.string().min(1, 'A time is required.'),
+  description: z.string().max(500, "Description must be 500 characters or less.").optional(),
 });
 
 type ScheduleFormProps = {
@@ -60,6 +62,7 @@ export function ScheduleForm({ onAddEvent, currentDate }: ScheduleFormProps) {
     defaultValues: {
       type: 'Training',
       time: '',
+      description: '',
     },
   });
 
@@ -76,6 +79,7 @@ export function ScheduleForm({ onAddEvent, currentDate }: ScheduleFormProps) {
         type: 'Training',
         time: '',
         date: undefined,
+        description: '',
     });
   }
 
@@ -198,6 +202,22 @@ export function ScheduleForm({ onAddEvent, currentDate }: ScheduleFormProps) {
                       ))}
                     </SelectContent>
                   </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+             <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Description (Optional)</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Add any notes, links, or details about the event..."
+                      {...field}
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}

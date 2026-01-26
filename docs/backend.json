@@ -116,6 +116,10 @@
         "imageURL": {
           "type": "string",
           "description": "URL for an optional image or screenshot for the event."
+        },
+        "description": {
+          "type": "string",
+          "description": "A detailed description or notes for the event."
         }
       },
       "required": [

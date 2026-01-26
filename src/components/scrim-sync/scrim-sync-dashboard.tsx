@@ -365,7 +365,7 @@ const hasLastWeekVotes = React.useMemo(() => {
     });
 }, [allVotesData, authUser.uid, weekStart]);
 
-  const handleAddEvent = (data: { type: 'Training' | 'Tournament'; date: Date; time: string; }) => {
+  const handleAddEvent = (data: { type: 'Training' | 'Tournament'; date: Date; time: string; description?: string }) => {
     if (!firestore) return;
 
     const newEvent: Omit<FirestoreScheduleEvent, 'id'> = {
@@ -374,6 +374,7 @@ const hasLastWeekVotes = React.useMemo(() => {
       time: data.time,
       creatorId: authUser.uid,
       isRecurring: false,
+      description: data.description,
     };
     const eventsRef = collection(firestore, 'scheduledEvents');
     addDocumentNonBlocking(eventsRef, newEvent);
