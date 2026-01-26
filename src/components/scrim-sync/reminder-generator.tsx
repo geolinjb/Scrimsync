@@ -87,6 +87,7 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
     // Message construction (Discord Markdown)
     const header = `**🔔 REMINDER: ${event.type.toUpperCase()} @Spartan [Tour chad]! 🔔**`;
     const eventInfo = `> **When:** ${formattedDate} at **${event.time}** (Starts in ~${timeRemaining})`;
+    const descriptionLine = event.description ? `> **Notes:** ${event.description}` : null;
     const rosterHeader = `--- \n**ROSTER (${totalAvailable}/${MINIMUM_PLAYERS})**`;
     
     const availableHeader = `✅ **Available Players (${availablePlayers.length}):**`;
@@ -102,9 +103,10 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
     const imageLine = event.imageURL ? `\n${event.imageURL}` : '';
     const footer = `\n---\nVote or update your availability:\nhttps://scrimsync.vercel.app/`;
 
-    const fullMessage = [
+    const messageParts = [
       header,
       eventInfo,
+      descriptionLine,
       rosterHeader,
       neededText,
       '',
@@ -118,7 +120,9 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
       unavailableList,
       footer,
       imageLine,
-    ].join('\n');
+    ];
+    
+    const fullMessage = messageParts.filter(line => line !== null).join('\n');
     
     setReminderMessage(fullMessage);
     setSendSuccess(false);
