@@ -2,14 +2,14 @@
 
 import * as React from 'react';
 import { format, startOfToday, differenceInMinutes, isToday } from 'date-fns';
-import { CalendarCheck, Users, Trash2, Copy, Trophy, UploadCloud, Loader, UserPlus, UserCheck, UserX, CalendarX2, Undo2, Ban, Navigation } from 'lucide-react';
+import { CalendarCheck, Users, Trash2, Copy, Trophy, UploadCloud, Loader, UserPlus, UserX, CalendarX2, Undo2, Ban, Vote, Check } from 'lucide-react';
 import type { User } from 'firebase/auth';
 import { collection, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL, type UploadTask } from "firebase/storage";
 import Image from 'next/image';
 
 
-import type { AllVotes, ScheduleEvent, PlayerProfileData, AvailabilityOverride } from '@/lib/types';
+import type { AllVotes, ScheduleEvent, PlayerProfileData, AvailabilityOverride, UserVotes } from '@/lib/types';
 import { MINIMUM_PLAYERS } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -30,8 +30,9 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/
 type ScheduledEventsProps = {
   events: ScheduleEvent[];
   votes: AllVotes;
+  userVotes: UserVotes;
+  onVote: (date: Date, timeSlot: string) => void;
   onRemoveEvent: (eventId: string) => void;
-  onGoToVote: (event: ScheduleEvent) => void;
   currentUser: User | null;
   isAdmin: boolean;
 };
@@ -43,7 +44,7 @@ type UploadState = {
     }
 }
 
-export function ScheduledEvents({ events, votes, onRemoveEvent, onGoToVote, currentUser, isAdmin }: ScheduledEventsProps) {
+export function ScheduledEvents({ events, votes, userVotes, onVote, onRemoveEvent, currentUser, isAdmin }: ScheduledEventsProps) {
     const { toast } = useToast();
     const [now, setNow] = React.useState(new Date());
     const [uploadState, setUploadState] = React.useState<UploadState>({});
@@ -314,6 +315,8 @@ export function ScheduledEvents({ events, votes, onRemoveEvent, onGoToVote, curr
                         <ScrollArea className='h-[400px]'>
                             <Accordion type="single" collapsible className="w-full">
                                 {upcomingEvents.map((event) => {
+                                    const dateKey = format(new Date(event.date), 'yyyy-MM-dd');
+                                    const isVoted = userVotes[dateKey]?.has(event.time);
                                     const availablePlayers = getAvailablePlayers(event);
                                     const canManage = isAdmin || (currentUser && currentUser.uid === event.creatorId);
                                     const currentUpload = uploadState[event.id];
@@ -450,22 +453,40 @@ export function ScheduledEvents({ events, votes, onRemoveEvent, onGoToVote, curr
                                                             
                                                         </div>
                                                         <div className="flex flex-col items-center gap-2 shrink-0">
+                                                             <AlertDialog>
+                                                                <AlertDialogTrigger asChild>
+                                                                     {!isCancelled && (
+                                                                         <Button variant={isVoted ? 'secondary' : 'default'} size="sm" className="w-full">
+                                                                            {isVoted ? <Check className="mr-2 h-4 w-4" /> : <Vote className="mr-2 h-4 w-4" />}
+                                                                            {isVoted ? 'Attending' : 'Vote'}
+                                                                        </Button>
+                                                                     )}
+                                                                </AlertDialogTrigger>
+                                                                <AlertDialogContent>
+                                                                    <AlertDialogHeader>
+                                                                        <AlertDialogTitle>{isVoted ? "Cancel Attendance?" : "Confirm Attendance?"}</AlertDialogTitle>
+                                                                        <AlertDialogDescription>
+                                                                            {isVoted 
+                                                                                ? `Are you sure you want to mark yourself as unavailable for the ${event.type.toLowerCase()} on ${format(new Date(event.date), 'EEEE')} at ${event.time}?`
+                                                                                : `Are you sure you are available for the ${event.type.toLowerCase()} on ${format(new Date(event.date), 'EEEE')} at ${event.time}?`
+                                                                            }
+                                                                        </AlertDialogDescription>
+                                                                    </AlertDialogHeader>
+                                                                    <AlertDialogFooter>
+                                                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                                        <AlertDialogAction onClick={() => onVote(new Date(event.date), event.time)}>
+                                                                            {isVoted ? "Yes, I'm Unavailable" : "Yes, I'm Available"}
+                                                                        </AlertDialogAction>
+                                                                    </AlertDialogFooter>
+                                                                </AlertDialogContent>
+                                                            </AlertDialog>
                                                             <Tooltip>
                                                                 <TooltipTrigger asChild>
                                                                     <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleCopyList(event, availablePlayers, possiblyAvailablePlayers)}><Copy className="w-4 h-4" /></Button>
                                                                 </TooltipTrigger>
                                                                 <TooltipContent><p>Copy Roster</p></TooltipContent>
                                                             </Tooltip>
-                                                            {!isCancelled && (
-                                                                <Tooltip>
-                                                                    <TooltipTrigger asChild>
-                                                                        <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => onGoToVote(event)}>
-                                                                            <Navigation className="w-4 h-4" />
-                                                                        </Button>
-                                                                    </TooltipTrigger>
-                                                                    <TooltipContent><p>Go to Vote</p></TooltipContent>
-                                                                </Tooltip>
-                                                            )}
+                                                            
                                                             {canManage && (
                                                                 <>
                                                                 <Tooltip>

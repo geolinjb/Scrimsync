@@ -30,8 +30,6 @@ type DailyVotingGridProps = {
   scheduledEvents: ScheduleEvent[];
   dayOffset: number;
   setDayOffset: (offset: number | ((prev: number) => number)) => void;
-  targetTime: string | null;
-  onScrolledToTime: () => void;
 };
 
 export function DailyVotingGrid({
@@ -45,33 +43,13 @@ export function DailyVotingGrid({
   scheduledEvents,
   dayOffset,
   setDayOffset,
-  targetTime,
-  onScrolledToTime,
 }: DailyVotingGridProps) {
-
-  const [highlightedSlot, setHighlightedSlot] = React.useState<string | null>(null);
     
   const weekDates = React.useMemo(() => {
     const start = new Date(currentDate);
     start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
     return Array.from({ length: 7 }, (_, i) => new Date(start.getFullYear(), start.getMonth(), start.getDate() + i));
   }, [currentDate]);
-
-  React.useEffect(() => {
-    if (targetTime) {
-      const element = document.getElementById(`timeslot-${targetTime}`);
-      if (element) {
-        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        setHighlightedSlot(targetTime);
-        const timer = setTimeout(() => {
-            setHighlightedSlot(null);
-        }, 2500); // Highlight for 2.5 seconds
-        
-        onScrolledToTime();
-        return () => clearTimeout(timer);
-      }
-    }
-  }, [targetTime, onScrolledToTime]);
 
   const selectedDate = weekDates[dayOffset];
 
@@ -186,7 +164,6 @@ export function DailyVotingGrid({
                             className={cn(
                                 'flex items-center justify-between p-3 transition-all duration-300',
                                 isVoted && !isCancelled ? "bg-primary/20" : "bg-transparent",
-                                highlightedSlot === slot && 'bg-gold-10 ring-2 ring-gold-50 rounded-md',
                                 isCancelled && 'bg-destructive/10',
                                 !event && 'hover:bg-accent cursor-pointer'
                             )}

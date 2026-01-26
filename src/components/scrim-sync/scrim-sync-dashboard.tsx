@@ -41,7 +41,6 @@ export function TeamSyncDashboard({ user: authUser }: TeamSyncDashboardProps) {
   const [isAdmin, setIsAdmin] = React.useState(false);
   const [activeTab, setActiveTab] = React.useState('daily');
   const [dayOffset, setDayOffset] = React.useState(() => (new Date().getDay() + 6) % 7);
-  const [targetTime, setTargetTime] = React.useState<string | null>(null);
   
   const [isSavingProfile, setIsSavingProfile] = React.useState(false);
   
@@ -419,18 +418,6 @@ const hasLastWeekVotes = React.useMemo(() => {
     setCurrentDate(new Date());
   };
   
-  const handleGoToVote = (event: ScheduleEvent) => {
-    setCurrentDate(event.date);
-    setActiveTab('daily');
-    setDayOffset((event.date.getDay() + 6) % 7);
-    setTargetTime(event.time);
-
-    const tabsElement = document.getElementById('voting-tabs');
-    if (tabsElement) {
-        tabsElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  };
-
   const isLoading = areEventsLoading || areVotesLoading || areProfilesLoading;
   
   const canSeeAdminPanel = isAdmin;
@@ -446,8 +433,9 @@ const hasLastWeekVotes = React.useMemo(() => {
         <ScheduledEvents 
             events={scheduledEvents} 
             votes={allVotes}
+            userVotes={userVotes}
+            onVote={handleVote}
             onRemoveEvent={handleRemoveEvent}
-            onGoToVote={handleGoToVote}
             currentUser={authUser}
             isAdmin={canSeeAdminPanel}
         />
@@ -497,8 +485,6 @@ const hasLastWeekVotes = React.useMemo(() => {
                     scheduledEvents={scheduledEvents}
                     dayOffset={dayOffset}
                     setDayOffset={setDayOffset}
-                    targetTime={targetTime}
-                    onScrolledToTime={() => setTargetTime(null)}
                 />
             )}
           </TabsContent>
