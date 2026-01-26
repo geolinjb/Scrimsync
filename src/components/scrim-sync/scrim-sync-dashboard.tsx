@@ -508,7 +508,7 @@ const hasLastWeekVotes = React.useMemo(() => {
                     isSaving={isSavingProfile}
                     isLoading={isProfileLoading}
                 />
-                 {canSeeAdminPanel && <ScheduleForm onAddEvent={handleAddEvent} currentDate={currentDate} />}
+                 <ScheduleForm onAddEvent={handleAddEvent} currentDate={currentDate} />
             </div>
             <div className="lg:col-span-2 space-y-8">
                 <ScheduledEvents 
