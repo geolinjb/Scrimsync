@@ -40,7 +40,7 @@ export function EventVotingDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="w-full max-w-[calc(100vw-2rem)] md:max-w-lg">
         <DialogHeader>
           <div className="flex items-center gap-3">
             <CalendarCheck className="w-6 h-6 text-gold" />
