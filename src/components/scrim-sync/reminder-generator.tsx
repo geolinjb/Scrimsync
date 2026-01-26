@@ -50,8 +50,9 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
   const upcomingEvents = React.useMemo(() => {
     if (!events) return [];
     const today = startOfToday();
+    // Include cancelled events so they can be selected for cancellation notices.
     return events
-      .filter(event => new Date(event.date) >= today && event.status !== 'Cancelled')
+      .filter(event => new Date(event.date) >= today)
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [events]);
 
@@ -63,6 +64,28 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
     const event = upcomingEvents.find(e => e.id === eventId);
     if (!event) return;
     
+    const isCancelled = event.status === 'Cancelled';
+    const formattedDate = format(new Date(event.date), 'EEEE, d MMMM');
+
+    if (isCancelled) {
+        const header = `🚫 **EVENT CANCELLED** 🚫`;
+        const eventInfo = `> The **${event.type}** on ${formattedDate} at **${event.time}** has been cancelled.`;
+        const descriptionLine = event.description ? `> **Original Notes:** ${event.description}` : null;
+        const footer = `\n---\nhttps://scrimsync.vercel.app/`;
+
+        const messageParts = [
+            header,
+            eventInfo,
+            descriptionLine,
+            footer
+        ];
+
+        const fullMessage = messageParts.filter(line => line !== null).join('\n');
+        setReminderMessage(fullMessage);
+        setSendSuccess(false);
+        return;
+    }
+
     const profileMap = new Map(allProfiles.map(p => [p.id, p.username]));
     const allPlayerNames = allProfiles.map(p => p.username).filter(Boolean) as string[];
 
@@ -82,7 +105,6 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
     
     // Time formatting
     const timeRemaining = formatTimeRemaining(new Date(event.date), event.time);
-    const formattedDate = format(new Date(event.date), 'EEEE, d MMMM');
 
     // Message construction (Discord Markdown)
     const header = `**🔔 REMINDER: ${event.type.toUpperCase()} @Spartan [Tour chad]! 🔔**`;
@@ -216,10 +238,11 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
               upcomingEvents.map(event => (
                 <SelectItem key={event.id} value={event.id}>
                   {event.type} - {format(new Date(event.date), 'EEE, d MMM')} @ {event.time}
+                  {event.status === 'Cancelled' && ' (Cancelled)'}
                 </SelectItem>
               ))
             ) : (
-              <div className='p-4 text-center text-sm text-muted-foreground'>No upcoming active events.</div>
+              <div className='p-4 text-center text-sm text-muted-foreground'>No upcoming events.</div>
             )}
           </SelectContent>
         </Select>
