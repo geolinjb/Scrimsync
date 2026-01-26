@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { format, addDays, startOfWeek, endOfWeek, parseISO, addWeeks } from 'date-fns';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CalendarCheck } from 'lucide-react';
 import type { User as AuthUser } from 'firebase/auth';
 import { collection, doc, writeBatch } from 'firebase/firestore';
 
@@ -38,6 +38,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { EventVotingDialog } from './event-voting-dialog';
 
 
 type TeamSyncDashboardProps = {
@@ -55,6 +56,7 @@ export function TeamSyncDashboard({ user: authUser }: TeamSyncDashboardProps) {
   
   const [isSavingProfile, setIsSavingProfile] = React.useState(false);
   const [eventToVoteOn, setEventToVoteOn] = React.useState<ScheduleEvent | null>(null);
+  const [isEventVotingOpen, setIsEventVotingOpen] = React.useState(false);
   
   const { user } = useUser(); // useUser provides the full user object with claims
 
@@ -120,62 +122,65 @@ export function TeamSyncDashboard({ user: authUser }: TeamSyncDashboardProps) {
     [firestore, authUser.uid, toast]
   );
 
-  const { userCombinedVotes, userEventVotes, allCombinedVotes, allEventVotes } = React.useMemo(() => {
-    if (!allVotesData || !allProfiles) {
-        return { 
-            userCombinedVotes: {}, 
-            userEventVotes: new Set<string>(), 
-            allCombinedVotes: {}, 
-            allEventVotes: {} 
-        };
-    }
-    
-    const userCombinedVotes: UserVotes = {};
-    const userEventVotes = new Set<string>();
-
-    const allCombinedVotes: AllVotes = {};
-    const allEventVotes: { [key: string]: string[] } = {};
-
-    const profileMap = new Map(allProfiles.map(p => [p.id, p.username]));
-
-    for (const vote of allVotesData) {
-        const username = profileMap.get(vote.userId);
-        if (!username || !vote.timeslot) continue;
-
-        // Process for event-specific votes
-        if (vote.eventId) {
-            if (!allEventVotes[vote.eventId]) {
-                allEventVotes[vote.eventId] = [];
-            }
-            allEventVotes[vote.eventId].push(username);
-
-            if (vote.userId === authUser.uid) {
-                userEventVotes.add(vote.eventId);
-            }
+    const { userCombinedVotes, userEventVotes, allCombinedVotes, allEventVotes } = React.useMemo(() => {
+        if (!allVotesData || !allProfiles) {
+            return { 
+                userCombinedVotes: {}, 
+                userEventVotes: new Set<string>(), 
+                allCombinedVotes: {}, 
+                allEventVotes: {} 
+            };
         }
         
-        // Process for combined/general votes (for grids)
-        const [dateKey, slot] = vote.timeslot.split('_');
-        const voteKey = `${dateKey}-${slot}`;
+        const userCombinedVotes: UserVotes = {};
+        const userEventVotes = new Set<string>();
 
-        if (!allCombinedVotes[voteKey]) {
-            allCombinedVotes[voteKey] = [];
-        }
-        if (!allCombinedVotes[voteKey].includes(username)) {
-            allCombinedVotes[voteKey].push(username);
-        }
+        const allCombinedVotes: AllVotes = {};
+        const allEventVotes: { [key: string]: string[] } = {};
 
-        if (vote.userId === authUser.uid) {
-            if (!userCombinedVotes[dateKey]) {
-                userCombinedVotes[dateKey] = new Set();
+        const profileMap = new Map(allProfiles.map(p => [p.id, p.username]));
+
+        for (const vote of allVotesData) {
+            const username = profileMap.get(vote.userId);
+            if (!username || !vote.timeslot) continue;
+
+            const [dateKey, slot] = vote.timeslot.split('_');
+
+            // Process for event-specific votes
+            if (vote.eventId) {
+                if (!allEventVotes[vote.eventId]) {
+                    allEventVotes[vote.eventId] = [];
+                }
+                if(!allEventVotes[vote.eventId].includes(username)) {
+                    allEventVotes[vote.eventId].push(username);
+                }
+
+                if (vote.userId === authUser.uid) {
+                    userEventVotes.add(vote.eventId);
+                }
             }
-            userCombinedVotes[dateKey].add(slot);
+            
+            // Process for combined/general votes (for grids)
+            const voteKey = `${dateKey}-${slot}`;
+
+            if (!allCombinedVotes[voteKey]) {
+                allCombinedVotes[voteKey] = [];
+            }
+            if (!allCombinedVotes[voteKey].includes(username)) {
+                allCombinedVotes[voteKey].push(username);
+            }
+
+            if (vote.userId === authUser.uid) {
+                if (!userCombinedVotes[dateKey]) {
+                    userCombinedVotes[dateKey] = new Set();
+                }
+                userCombinedVotes[dateKey].add(slot);
+            }
         }
-    }
 
-    return { userCombinedVotes, userEventVotes, allCombinedVotes, allEventVotes };
+        return { userCombinedVotes, userEventVotes, allCombinedVotes, allEventVotes };
 
-}, [allVotesData, allProfiles, authUser.uid]);
+    }, [allVotesData, allProfiles, authUser.uid]);
 
     const isVotingOnEvent = React.useMemo(() => {
         if (!eventToVoteOn || !userEventVotes) return false;
@@ -543,6 +548,13 @@ const hasLastWeekVotes = React.useMemo(() => {
               )}
           </AlertDialogContent>
       </AlertDialog>
+      <EventVotingDialog 
+        isOpen={isEventVotingOpen}
+        onOpenChange={setIsEventVotingOpen}
+        events={scheduledEvents}
+        userEventVotes={userEventVotes}
+        onEventVoteTrigger={setEventToVoteOn}
+      />
       <div className="flex flex-col min-h-screen bg-background">
         <Header />
         <main className="flex-1 container mx-auto px-4 py-8 space-y-8">
@@ -564,6 +576,10 @@ const hasLastWeekVotes = React.useMemo(() => {
                   Availability for: {format(weekStart, 'd MMM')} - {format(weekEnd, 'd MMM, yyyy')}
               </h2>
               <div className='flex items-center gap-2'>
+                  <Button onClick={() => setIsEventVotingOpen(true)}>
+                    <CalendarCheck className="mr-2 h-4 w-4" />
+                    Vote on Events
+                  </Button>
                   <Button variant="outline" onClick={goToToday}>Today</Button>
                   <div className='flex items-center'>
                       <Button variant="outline" size="icon" onClick={goToPreviousWeek} className="rounded-r-none">
