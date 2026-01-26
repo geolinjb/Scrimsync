@@ -48,7 +48,7 @@ export function TeamSyncDashboard({ user: authUser }: TeamSyncDashboardProps) {
     if (user) {
       user.getIdTokenResult().then(idTokenResult => {
         const claims = idTokenResult.claims;
-        setIsAdmin(claims.admin === true);
+        setIsAdmin(claims.admin === true || user.uid === ADMIN_UID);
       });
     } else {
         setIsAdmin(false);
@@ -406,8 +406,8 @@ const hasLastWeekVotes = React.useMemo(() => {
   };
   
   const isLoading = areEventsLoading || areVotesLoading || areProfilesLoading;
-  const isSuperAdmin = authUser.uid === ADMIN_UID;
-  const canSeeAdminPanel = isAdmin || isSuperAdmin;
+  
+  const canSeeAdminPanel = isAdmin;
 
 
   return (
