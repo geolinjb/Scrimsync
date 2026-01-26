@@ -108,46 +108,96 @@ export function TeamSyncDashboard({ user: authUser }: TeamSyncDashboardProps) {
     [firestore, authUser.uid, toast]
   );
 
-  const userVotes: UserVotes = React.useMemo(() => {
-    if (!allVotesData) return {};
-    return allVotesData
-      .filter(vote => vote.userId === authUser.uid)
-      .reduce((acc, vote) => {
-        const [dateKey, slot] = vote.timeslot.split('_');
-        if (!acc[dateKey]) {
-          acc[dateKey] = new Set();
-        }
-        acc[dateKey].add(slot);
-        return acc;
-      }, {} as UserVotes);
-  }, [allVotesData, authUser.uid]);
+  const { userCombinedVotes, userEventVotes, allCombinedVotes, allEventVotes } = React.useMemo(() => {
+    if (!allVotesData || !allProfiles) {
+        return { 
+            userCombinedVotes: {}, 
+            userEventVotes: new Set<string>(), 
+            allCombinedVotes: {}, 
+            allEventVotes: {} 
+        };
+    }
+    
+    const userCombinedVotes: UserVotes = {};
+    const userEventVotes = new Set<string>();
 
-  const allVotes: AllVotes = React.useMemo(() => {
-    if (!allVotesData || !allProfiles) return {};
+    const allCombinedVotes: AllVotes = {};
+    const allEventVotes: { [key: string]: string[] } = {};
+
     const profileMap = new Map(allProfiles.map(p => [p.id, p.username]));
-    return allVotesData.reduce((acc, vote) => {
-      const [dateKey, slot] = vote.timeslot.split('_');
-      const voteKey = `${dateKey}-${slot}`;
-      const username = profileMap.get(vote.userId);
 
-      if (username) {
-        if (!acc[voteKey]) {
-          acc[voteKey] = [];
+    for (const vote of allVotesData) {
+        const username = profileMap.get(vote.userId);
+        if (!username || !vote.timeslot) continue;
+
+        // Process for event-specific votes
+        if (vote.eventId) {
+            if (!allEventVotes[vote.eventId]) {
+                allEventVotes[vote.eventId] = [];
+            }
+            allEventVotes[vote.eventId].push(username);
+
+            if (vote.userId === authUser.uid) {
+                userEventVotes.add(vote.eventId);
+            }
         }
-        acc[voteKey].push(username);
-      }
-      return acc;
-    }, {} as AllVotes);
-  }, [allVotesData, allProfiles]);
+        
+        // Process for combined/general votes (for grids)
+        const [dateKey, slot] = vote.timeslot.split('_');
+        const voteKey = `${dateKey}-${slot}`;
 
-  const handleVote = async (date: Date, timeSlot: string) => {
+        if (!allCombinedVotes[voteKey]) {
+            allCombinedVotes[voteKey] = [];
+        }
+        if (!allCombinedVotes[voteKey].includes(username)) {
+            allCombinedVotes[voteKey].push(username);
+        }
+
+        if (vote.userId === authUser.uid) {
+            if (!userCombinedVotes[dateKey]) {
+                userCombinedVotes[dateKey] = new Set();
+            }
+            userCombinedVotes[dateKey].add(slot);
+        }
+    }
+
+    return { userCombinedVotes, userEventVotes, allCombinedVotes, allEventVotes };
+
+}, [allVotesData, allProfiles, authUser.uid]);
+
+  const handleEventVote = async (eventId: string, date: Date, timeSlot: string) => {
+    if (!firestore) return;
+    const voteId = `${authUser.uid}_${eventId}`;
+    const voteRef = doc(firestore, 'votes', voteId);
+
+    const isVoted = userEventVotes.has(eventId);
+
+    if (isVoted) {
+        deleteDocumentNonBlocking(voteRef);
+    } else {
+        const voteData: Vote = {
+            id: voteId,
+            userId: authUser.uid,
+            timeslot: `${format(date, 'yyyy-MM-dd')}_${timeSlot}`,
+            voteValue: true,
+            eventId: eventId,
+        };
+        setDocumentNonBlocking(voteRef, voteData, {});
+    }
+  };
+
+  const handleGeneralVote = async (date: Date, timeSlot: string) => {
     if (!firestore) return;
     const dateKey = format(date, 'yyyy-MM-dd');
     const timeslotId = `${dateKey}_${timeSlot}`;
     const voteId = `${authUser.uid}_${timeslotId}`;
     const voteRef = doc(firestore, 'votes', voteId);
 
-    const isVoted = userVotes[dateKey]?.has(timeSlot);
+    const isVoted = userCombinedVotes[dateKey]?.has(timeSlot) && !allEventVotes[Object.keys(allEventVotes).find(eventId => {
+        const event = scheduledEvents.find(e => e.id === eventId);
+        return event && format(event.date, 'yyyy-MM-dd') === dateKey && event.time === timeSlot;
+    }) || '']?.some(v => v === profile?.username);
+
 
     if (isVoted) {
         deleteDocumentNonBlocking(voteRef);
@@ -162,10 +212,11 @@ export function TeamSyncDashboard({ user: authUser }: TeamSyncDashboardProps) {
     }
   };
 
+
   const handleVoteAllDay = async (date: Date) => {
     if (!firestore) return;
     const dateKey = format(date, 'yyyy-MM-dd');
-    const dayVotes = userVotes[dateKey] || new Set();
+    const dayVotes = userCombinedVotes[dateKey] || new Set();
     const allSelected = timeSlots.every(slot => dayVotes.has(slot));
     
     const batch = writeBatch(firestore);
@@ -175,8 +226,11 @@ export function TeamSyncDashboard({ user: authUser }: TeamSyncDashboardProps) {
         const voteId = `${authUser.uid}_${timeslotId}`;
         const voteRef = doc(firestore, 'votes', voteId);
 
-        if (allSelected) { // Deselect all
-            batch.delete(voteRef);
+        if (allSelected) { // Deselect all general votes
+            const isEventVote = allVotesData?.some(v => v.timeslot === timeslotId && v.userId === authUser.uid && v.eventId);
+            if(!isEventVote) {
+                batch.delete(voteRef);
+            }
         } else { // Select all not already selected
             if (!dayVotes.has(slot)) {
                 const voteData: Vote = {
@@ -205,7 +259,7 @@ export function TeamSyncDashboard({ user: authUser }: TeamSyncDashboardProps) {
     const allSelected = Array.from({length: 7}).every((_, i) => {
         const date = addDays(weekStartVote, i);
         const dateKey = format(date, 'yyyy-MM-dd');
-        return userVotes[dateKey]?.has(timeSlot);
+        return userCombinedVotes[dateKey]?.has(timeSlot);
     });
 
     const batch = writeBatch(firestore);
@@ -218,15 +272,20 @@ export function TeamSyncDashboard({ user: authUser }: TeamSyncDashboardProps) {
         const voteRef = doc(firestore, 'votes', voteId);
 
         if (allSelected) {
-            batch.delete(voteRef);
+            const isEventVote = allVotesData?.some(v => v.timeslot === timeslotId && v.userId === authUser.uid && v.eventId);
+            if(!isEventVote) {
+                batch.delete(voteRef);
+            }
         } else {
-            const voteData: Vote = {
-                id: voteId,
-                userId: authUser.uid,
-                timeslot: timeslotId,
-                voteValue: true,
-            };
-            batch.set(voteRef, voteData);
+             if (!userCombinedVotes[dateKey]?.has(timeSlot)) {
+                const voteData: Vote = {
+                    id: voteId,
+                    userId: authUser.uid,
+                    timeslot: timeslotId,
+                    voteValue: true,
+                };
+                batch.set(voteRef, voteData);
+            }
         }
     }
     
@@ -248,14 +307,17 @@ export function TeamSyncDashboard({ user: authUser }: TeamSyncDashboardProps) {
 
     datesToClear.forEach(d => {
         const dateKey = format(d, 'yyyy-MM-dd');
-        const dayVotes = userVotes[dateKey];
+        const dayVotes = userCombinedVotes[dateKey];
         if (dayVotes) {
             dayVotes.forEach(slot => {
-                const timeslotId = `${dateKey}_${slot}`;
-                const voteId = `${authUser.uid}_${timeslotId}`;
-                const voteRef = doc(firestore, 'votes', voteId);
-                batch.delete(voteRef);
-                votesToDelete++;
+                const isEventVote = allVotesData?.some(v => v.timeslot === `${dateKey}_${slot}` && v.userId === authUser.uid && v.eventId);
+                if (!isEventVote) {
+                    const timeslotId = `${dateKey}_${slot}`;
+                    const voteId = `${authUser.uid}_${timeslotId}`;
+                    const voteRef = doc(firestore, 'votes', voteId);
+                    batch.delete(voteRef);
+                    votesToDelete++;
+                }
             });
         }
     });
@@ -263,7 +325,7 @@ export function TeamSyncDashboard({ user: authUser }: TeamSyncDashboardProps) {
 
     if (votesToDelete === 0) {
         toast({
-            description: `You have no votes to clear for ${date ? 'this day' : 'this week'}.`,
+            description: `You have no general availability votes to clear for ${date ? 'this day' : 'this week'}. Event votes are not cleared.`,
         });
         return;
     }
@@ -271,7 +333,7 @@ export function TeamSyncDashboard({ user: authUser }: TeamSyncDashboardProps) {
     batch.commit().then(() => {
         toast({
             title: "Votes Cleared",
-            description: `All your votes for ${date ? 'this day' : 'this week'} have been removed.`,
+            description: `Your general votes for ${date ? 'this day' : 'this week'} have been removed.`,
         });
     }).catch(e => {
         const permissionError = new FirestorePermissionError({
@@ -313,10 +375,20 @@ const handleCopyLastWeeksVotes = React.useCallback(async () => {
         const newDateKey = format(newDate, 'yyyy-MM-dd');
         
         const newTimeslotId = `${newDateKey}_${slot}`;
-        const newVoteId = `${authUser.uid}_${newTimeslotId}`;
+        let newVoteId: string;
+        let voteExists: boolean;
 
-        // Check if the vote for the new week already exists
-        const voteExists = userVotes[newDateKey]?.has(slot);
+        if (vote.eventId) {
+            // This logic assumes event IDs are unique and don't carry over weeks.
+            // If events can be recurring, this would need adjustment.
+            // For now, we copy event votes as general availability votes.
+            newVoteId = `${authUser.uid}_${newTimeslotId}`;
+            voteExists = userCombinedVotes[newDateKey]?.has(slot);
+        } else {
+             newVoteId = `${authUser.uid}_${newTimeslotId}`;
+             voteExists = userCombinedVotes[newDateKey]?.has(slot);
+        }
+
 
         if (!voteExists) {
             const voteRef = doc(firestore, 'votes', newVoteId);
@@ -340,7 +412,7 @@ const handleCopyLastWeeksVotes = React.useCallback(async () => {
         await batch.commit();
         toast({
             title: "Votes Copied!",
-            description: `Successfully copied ${newVotesCount} vote(s) from last week.`,
+            description: `Successfully copied ${newVotesCount} vote(s) from last week as general availability.`,
         });
     } catch (error) {
         const permissionError = new FirestorePermissionError({
@@ -349,7 +421,7 @@ const handleCopyLastWeeksVotes = React.useCallback(async () => {
         });
         errorEmitter.emit('permission-error', permissionError);
     }
-}, [firestore, allVotesData, weekStart, authUser.uid, userVotes, toast]);
+}, [firestore, allVotesData, weekStart, authUser.uid, userCombinedVotes, toast]);
 
 const hasLastWeekVotes = React.useMemo(() => {
     if (!allVotesData) return false;
@@ -432,9 +504,9 @@ const hasLastWeekVotes = React.useMemo(() => {
         
         <ScheduledEvents 
             events={scheduledEvents} 
-            votes={allVotes}
-            userVotes={userVotes}
-            onVote={handleVote}
+            allEventVotes={allEventVotes}
+            userEventVotes={userEventVotes}
+            onEventVote={handleEventVote}
             onRemoveEvent={handleRemoveEvent}
             currentUser={authUser}
             isAdmin={canSeeAdminPanel}
@@ -475,8 +547,8 @@ const hasLastWeekVotes = React.useMemo(() => {
                 </Card>
             ) : (
                 <DailyVotingGrid 
-                    userVotes={userVotes} 
-                    onVote={handleVote}
+                    userVotes={userCombinedVotes} 
+                    onVote={handleGeneralVote}
                     onVoteAllDay={handleVoteAllDay}
                     onClearAllVotes={handleClearAllVotes}
                     onCopyLastWeeksVotes={handleCopyLastWeeksVotes}
@@ -501,8 +573,8 @@ const hasLastWeekVotes = React.useMemo(() => {
                 </Card>
             ) : (
                 <IndividualVotingGrid 
-                    userVotes={userVotes} 
-                    onVote={handleVote}
+                    userVotes={userCombinedVotes} 
+                    onVote={handleGeneralVote}
                     onVoteAllDay={handleVoteAllDay}
                     onVoteAllTime={handleVoteAllTime}
                     onClearAllVotes={() => handleClearAllVotes()}
@@ -555,7 +627,7 @@ const hasLastWeekVotes = React.useMemo(() => {
                         </Card>
                     ) : (
                         <HeatmapGrid
-                        allVotes={allVotes}
+                        allVotes={allCombinedVotes}
                         scheduledEvents={scheduledEvents}
                         currentDate={currentDate}
                         allProfiles={allProfiles}

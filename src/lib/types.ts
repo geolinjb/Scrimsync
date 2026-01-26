@@ -1,4 +1,5 @@
 
+
 export type ScheduleEvent = {
   id: string;
   type: 'Training' | 'Tournament';
@@ -27,10 +28,11 @@ export type PlayerProfileData = {
 };
 
 export type Vote = {
-    id: string; // composite key: `${userId}_${date}_${timeslot}`
+    id: string; // composite key: `${userId}_${timeslot}` or `${userId}_${eventId}`
     userId: string;
     timeslot: string; // format: 'YYYY-MM-DD_HH:mm'
     voteValue: boolean;
+    eventId?: string;
 }
 
 export type AvailabilityOverride = {

@@ -9,7 +9,7 @@ import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL, ty
 import Image from 'next/image';
 
 
-import type { AllVotes, ScheduleEvent, PlayerProfileData, AvailabilityOverride, UserVotes } from '@/lib/types';
+import type { ScheduleEvent, PlayerProfileData, AvailabilityOverride } from '@/lib/types';
 import { MINIMUM_PLAYERS } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -29,9 +29,9 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/
 
 type ScheduledEventsProps = {
   events: ScheduleEvent[];
-  votes: AllVotes;
-  userVotes: UserVotes;
-  onVote: (date: Date, timeSlot: string) => void;
+  allEventVotes: { [eventId: string]: string[] };
+  userEventVotes: Set<string>;
+  onEventVote: (eventId: string, date: Date, timeSlot: string) => void;
   onRemoveEvent: (eventId: string) => void;
   currentUser: User | null;
   isAdmin: boolean;
@@ -44,7 +44,7 @@ type UploadState = {
     }
 }
 
-export function ScheduledEvents({ events, votes, userVotes, onVote, onRemoveEvent, currentUser, isAdmin }: ScheduledEventsProps) {
+export function ScheduledEvents({ events, allEventVotes, userEventVotes, onEventVote, onRemoveEvent, currentUser, isAdmin }: ScheduledEventsProps) {
     const { toast } = useToast();
     const [now, setNow] = React.useState(new Date());
     const [uploadState, setUploadState] = React.useState<UploadState>({});
@@ -91,12 +91,6 @@ export function ScheduledEvents({ events, votes, userVotes, onVote, onRemoveEven
             .filter(event => new Date(event.date) >= today)
             .sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     }, [events]);
-
-    const getAvailablePlayers = (event: ScheduleEvent): string[] => {
-        const dateKey = format(new Date(event.date), 'yyyy-MM-dd');
-        const voteKey = `${dateKey}-${event.time}`;
-        return votes[voteKey] || [];
-    };
 
     const handleUploadClick = (eventId: string) => {
         if (!currentUser) {
@@ -315,9 +309,8 @@ export function ScheduledEvents({ events, votes, userVotes, onVote, onRemoveEven
                         <ScrollArea className='h-[400px]'>
                             <Accordion type="single" collapsible className="w-full">
                                 {upcomingEvents.map((event) => {
-                                    const dateKey = format(new Date(event.date), 'yyyy-MM-dd');
-                                    const isVoted = userVotes[dateKey]?.has(event.time);
-                                    const availablePlayers = getAvailablePlayers(event);
+                                    const isVoted = userEventVotes.has(event.id);
+                                    const availablePlayers = allEventVotes[event.id] || [];
                                     const canManage = isAdmin || (currentUser && currentUser.uid === event.creatorId);
                                     const currentUpload = uploadState[event.id];
                                     const isCancelled = event.status === 'Cancelled';
@@ -474,7 +467,7 @@ export function ScheduledEvents({ events, votes, userVotes, onVote, onRemoveEven
                                                                     </AlertDialogHeader>
                                                                     <AlertDialogFooter>
                                                                         <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                                        <AlertDialogAction onClick={() => onVote(new Date(event.date), event.time)}>
+                                                                        <AlertDialogAction onClick={() => onEventVote(event.id, new Date(event.date), event.time)}>
                                                                             {isVoted ? "Yes, I'm Unavailable" : "Yes, I'm Available"}
                                                                         </AlertDialogAction>
                                                                     </AlertDialogFooter>
