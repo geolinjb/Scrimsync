@@ -38,6 +38,7 @@ type IndividualVotingGridProps = {
   hasLastWeekVotes: boolean;
   currentDate: Date;
   scheduledEvents: ScheduleEvent[];
+  onEventVoteTrigger: (event: ScheduleEvent) => void;
 };
 
 export function IndividualVotingGrid({
@@ -50,6 +51,7 @@ export function IndividualVotingGrid({
   hasLastWeekVotes,
   currentDate,
   scheduledEvents,
+  onEventVoteTrigger,
 }: IndividualVotingGridProps) {
   const weekDates = React.useMemo(() => {
     const start = startOfWeek(currentDate, { weekStartsOn: 1 });
@@ -168,7 +170,7 @@ export function IndividualVotingGrid({
                                       return (
                                           <TableCell key={date.toISOString()} className="text-center p-0 align-middle">
                                               <motion.div
-                                                  onClick={() => onVote(date, slot)}
+                                                  onClick={() => event ? onEventVoteTrigger(event) : onVote(date, slot)}
                                                   className={cn(
                                                       'h-14 w-full cursor-pointer flex justify-center items-center transition-colors duration-200 border-l border-t relative group',
                                                       'hover:bg-accent',

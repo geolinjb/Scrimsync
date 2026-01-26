@@ -30,6 +30,7 @@ type DailyVotingGridProps = {
   scheduledEvents: ScheduleEvent[];
   dayOffset: number;
   setDayOffset: (offset: number | ((prev: number) => number)) => void;
+  onEventVoteTrigger: (event: ScheduleEvent) => void;
 };
 
 export function DailyVotingGrid({
@@ -43,6 +44,7 @@ export function DailyVotingGrid({
   scheduledEvents,
   dayOffset,
   setDayOffset,
+  onEventVoteTrigger,
 }: DailyVotingGridProps) {
     
   const weekDates = React.useMemo(() => {
@@ -183,11 +185,11 @@ export function DailyVotingGrid({
                                         <Button 
                                             variant={isVoted ? 'secondary' : 'outline'} 
                                             size="sm" 
-                                            onClick={() => onVote(selectedDate, slot)}
+                                            onClick={() => onEventVoteTrigger(event)}
                                             className="shrink-0"
                                         >
                                             {isVoted ? <Check className="w-4 h-4 mr-2"/> : <Vote className="w-4 h-4 mr-2" />}
-                                            {isVoted ? 'Attending' : 'Vote Available'}
+                                            {isVoted ? 'Attending' : 'Vote'}
                                         </Button>
                                     )}
                                 </div>

@@ -31,7 +31,7 @@ type ScheduledEventsProps = {
   events: ScheduleEvent[];
   allEventVotes: { [eventId: string]: string[] };
   userEventVotes: Set<string>;
-  onEventVote: (eventId: string, date: Date, timeSlot: string) => void;
+  onEventVoteTrigger: (event: ScheduleEvent) => void;
   onRemoveEvent: (eventId: string) => void;
   currentUser: User | null;
   isAdmin: boolean;
@@ -44,7 +44,7 @@ type UploadState = {
     }
 }
 
-export function ScheduledEvents({ events, allEventVotes, userEventVotes, onEventVote, onRemoveEvent, currentUser, isAdmin }: ScheduledEventsProps) {
+export function ScheduledEvents({ events, allEventVotes, userEventVotes, onEventVoteTrigger, onRemoveEvent, currentUser, isAdmin }: ScheduledEventsProps) {
     const { toast } = useToast();
     const [now, setNow] = React.useState(new Date());
     const [uploadState, setUploadState] = React.useState<UploadState>({});
@@ -446,33 +446,12 @@ export function ScheduledEvents({ events, allEventVotes, userEventVotes, onEvent
                                                             
                                                         </div>
                                                         <div className="flex flex-col items-center gap-2 shrink-0">
-                                                             <AlertDialog>
-                                                                <AlertDialogTrigger asChild>
-                                                                     {!isCancelled && (
-                                                                         <Button variant={isVoted ? 'secondary' : 'default'} size="sm" className="w-full">
-                                                                            {isVoted ? <Check className="mr-2 h-4 w-4" /> : <Vote className="mr-2 h-4 w-4" />}
-                                                                            {isVoted ? 'Attending' : 'Vote'}
-                                                                        </Button>
-                                                                     )}
-                                                                </AlertDialogTrigger>
-                                                                <AlertDialogContent>
-                                                                    <AlertDialogHeader>
-                                                                        <AlertDialogTitle>{isVoted ? "Cancel Attendance?" : "Confirm Attendance?"}</AlertDialogTitle>
-                                                                        <AlertDialogDescription>
-                                                                            {isVoted 
-                                                                                ? `Are you sure you want to mark yourself as unavailable for the ${event.type.toLowerCase()} on ${format(new Date(event.date), 'EEEE')} at ${event.time}?`
-                                                                                : `Are you sure you are available for the ${event.type.toLowerCase()} on ${format(new Date(event.date), 'EEEE')} at ${event.time}?`
-                                                                            }
-                                                                        </AlertDialogDescription>
-                                                                    </AlertDialogHeader>
-                                                                    <AlertDialogFooter>
-                                                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                                        <AlertDialogAction onClick={() => onEventVote(event.id, new Date(event.date), event.time)}>
-                                                                            {isVoted ? "Yes, I'm Unavailable" : "Yes, I'm Available"}
-                                                                        </AlertDialogAction>
-                                                                    </AlertDialogFooter>
-                                                                </AlertDialogContent>
-                                                            </AlertDialog>
+                                                            {!isCancelled && (
+                                                                <Button variant={isVoted ? 'secondary' : 'default'} size="sm" className="w-full" onClick={() => onEventVoteTrigger(event)}>
+                                                                    {isVoted ? <Check className="mr-2 h-4 w-4" /> : <Vote className="mr-2 h-4 w-4" />}
+                                                                    {isVoted ? 'Attending' : 'Vote'}
+                                                                </Button>
+                                                            )}
                                                             <Tooltip>
                                                                 <TooltipTrigger asChild>
                                                                     <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleCopyList(event, availablePlayers, possiblyAvailablePlayers)}><Copy className="w-4 h-4" /></Button>
