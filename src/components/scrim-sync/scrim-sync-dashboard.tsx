@@ -39,6 +39,9 @@ export function TeamSyncDashboard({ user: authUser }: TeamSyncDashboardProps) {
 
   const [currentDate, setCurrentDate] = React.useState(() => new Date());
   const [isAdmin, setIsAdmin] = React.useState(false);
+  const [activeTab, setActiveTab] = React.useState('daily');
+  const [dayOffset, setDayOffset] = React.useState(() => (new Date().getDay() + 6) % 7);
+  const [targetTime, setTargetTime] = React.useState<string | null>(null);
   
   const [isSavingProfile, setIsSavingProfile] = React.useState(false);
   
@@ -416,6 +419,18 @@ const hasLastWeekVotes = React.useMemo(() => {
     setCurrentDate(new Date());
   };
   
+  const handleGoToVote = (event: ScheduleEvent) => {
+    setCurrentDate(event.date);
+    setActiveTab('daily');
+    setDayOffset((event.date.getDay() + 6) % 7);
+    setTargetTime(event.time);
+
+    const tabsElement = document.getElementById('voting-tabs');
+    if (tabsElement) {
+        tabsElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
   const isLoading = areEventsLoading || areVotesLoading || areProfilesLoading;
   
   const canSeeAdminPanel = isAdmin;
@@ -445,7 +460,7 @@ const hasLastWeekVotes = React.useMemo(() => {
             </div>
         </div>
 
-        <Tabs defaultValue="daily" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full" id="voting-tabs">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="daily">Daily View</TabsTrigger>
             <TabsTrigger value="weekly">Weekly View</TabsTrigger>
@@ -471,6 +486,10 @@ const hasLastWeekVotes = React.useMemo(() => {
                     hasLastWeekVotes={hasLastWeekVotes}
                     currentDate={currentDate}
                     scheduledEvents={scheduledEvents}
+                    dayOffset={dayOffset}
+                    setDayOffset={setDayOffset}
+                    targetTime={targetTime}
+                    onScrolledToTime={() => setTargetTime(null)}
                 />
             )}
           </TabsContent>
@@ -527,6 +546,7 @@ const hasLastWeekVotes = React.useMemo(() => {
                     events={scheduledEvents} 
                     votes={allVotes}
                     onRemoveEvent={handleRemoveEvent}
+                    onGoToVote={handleGoToVote}
                     currentUser={authUser}
                     isAdmin={canSeeAdminPanel}
                 />

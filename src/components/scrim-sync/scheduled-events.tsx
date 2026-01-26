@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { format, startOfToday, differenceInMinutes, isToday } from 'date-fns';
-import { CalendarCheck, Users, Trash2, Copy, Trophy, UploadCloud, Loader, UserPlus, UserCheck, UserX, CalendarX2, Undo2, Ban } from 'lucide-react';
+import { CalendarCheck, Users, Trash2, Copy, Trophy, UploadCloud, Loader, UserPlus, UserCheck, UserX, CalendarX2, Undo2, Ban, Navigation } from 'lucide-react';
 import type { User } from 'firebase/auth';
 import { collection, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL, type UploadTask } from "firebase/storage";
@@ -25,11 +25,13 @@ import { Progress } from '../ui/progress';
 import { Separator } from '../ui/separator';
 import { Alert, AlertTitle, AlertDescription } from '../ui/alert';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 
 type ScheduledEventsProps = {
   events: ScheduleEvent[];
   votes: AllVotes;
   onRemoveEvent: (eventId: string) => void;
+  onGoToVote: (event: ScheduleEvent) => void;
   currentUser: User | null;
   isAdmin: boolean;
 };
@@ -41,7 +43,7 @@ type UploadState = {
     }
 }
 
-export function ScheduledEvents({ events, votes, onRemoveEvent, currentUser, isAdmin }: ScheduledEventsProps) {
+export function ScheduledEvents({ events, votes, onRemoveEvent, onGoToVote, currentUser, isAdmin }: ScheduledEventsProps) {
     const { toast } = useToast();
     const [now, setNow] = React.useState(new Date());
     const [uploadState, setUploadState] = React.useState<UploadState>({});
@@ -306,189 +308,221 @@ export function ScheduledEvents({ events, votes, onRemoveEvent, currentUser, isA
                 </CardDescription>
             </CardHeader>
             <CardContent>
-                <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/png, image/jpeg, image/gif" className="hidden" />
-                {upcomingEvents.length > 0 ? (
-                    <ScrollArea className='h-[400px]'>
-                        <Accordion type="single" collapsible className="w-full">
-                            {upcomingEvents.map((event) => {
-                                const availablePlayers = getAvailablePlayers(event);
-                                const canManage = isAdmin || (currentUser && currentUser.uid === event.creatorId);
-                                const currentUpload = uploadState[event.id];
-                                const isCancelled = event.status === 'Cancelled';
+                <TooltipProvider>
+                    <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/png, image/jpeg, image/gif" className="hidden" />
+                    {upcomingEvents.length > 0 ? (
+                        <ScrollArea className='h-[400px]'>
+                            <Accordion type="single" collapsible className="w-full">
+                                {upcomingEvents.map((event) => {
+                                    const availablePlayers = getAvailablePlayers(event);
+                                    const canManage = isAdmin || (currentUser && currentUser.uid === event.creatorId);
+                                    const currentUpload = uploadState[event.id];
+                                    const isCancelled = event.status === 'Cancelled';
 
-                                const eventOverrides = (overrides || []).filter(o => o.eventId === event.id);
-                                const possiblyAvailablePlayerIds = eventOverrides.map(o => o.userId);
-                                const possiblyAvailablePlayers = possiblyAvailablePlayerIds.map(id => profileIdMap.get(id)).filter(p => p) as PlayerProfileData[];
+                                    const eventOverrides = (overrides || []).filter(o => o.eventId === event.id);
+                                    const possiblyAvailablePlayerIds = eventOverrides.map(o => o.userId);
+                                    const possiblyAvailablePlayers = possiblyAvailablePlayerIds.map(id => profileIdMap.get(id)).filter(p => p) as PlayerProfileData[];
 
-                                const notAttendingProfiles = (profiles || []).filter(p => 
-                                    p.username && // only show users with profiles
-                                    !availablePlayers.includes(p.username) && 
-                                    !possiblyAvailablePlayerIds.includes(p.id)
-                                );
+                                    const notAttendingProfiles = (profiles || []).filter(p => 
+                                        p.username && // only show users with profiles
+                                        !availablePlayers.includes(p.username) && 
+                                        !possiblyAvailablePlayerIds.includes(p.id)
+                                    );
 
-                                return (
-                                    <AccordionItem key={event.id} value={event.id} className={cn(isCancelled && 'bg-muted/50')}>
-                                        <AccordionTrigger>
-                                            <div className="flex justify-between items-center w-full pr-2">
-                                                <div className={cn('flex flex-col items-start text-left', isCancelled && 'opacity-60')}>
-                                                    <div className={cn('flex items-center gap-2', isCancelled && 'line-through')}>
-                                                        <Badge variant={event.type === 'Tournament' ? 'default' : 'secondary'} className={cn(event.type === 'Tournament' && 'bg-gold text-black hover:bg-gold/90')}>
-                                                            {event.type === 'Tournament' && <Trophy className='w-3 h-3 mr-1'/>}
-                                                            {event.type}
-                                                        </Badge>
-                                                        <span className={cn('font-semibold', isToday(new Date(event.date)) && !isCancelled && 'text-gold')}>{format(new Date(event.date), 'EEEE, d MMM')}</span>
-                                                        {isToday(new Date(event.date)) && <Badge variant="outline">Today</Badge>}
+                                    return (
+                                        <AccordionItem key={event.id} value={event.id} className={cn(isCancelled && 'bg-muted/50')}>
+                                            <AccordionTrigger>
+                                                <div className="flex justify-between items-center w-full pr-2">
+                                                    <div className={cn('flex flex-col items-start text-left', isCancelled && 'opacity-60')}>
+                                                        <div className={cn('flex items-center gap-2', isCancelled && 'line-through')}>
+                                                            <Badge variant={event.type === 'Tournament' ? 'default' : 'secondary'} className={cn(event.type === 'Tournament' && 'bg-gold text-black hover:bg-gold/90')}>
+                                                                {event.type === 'Tournament' && <Trophy className='w-3 h-3 mr-1'/>}
+                                                                {event.type}
+                                                            </Badge>
+                                                            <span className={cn('font-semibold', isToday(new Date(event.date)) && !isCancelled && 'text-gold')}>{format(new Date(event.date), 'EEEE, d MMM')}</span>
+                                                            {isToday(new Date(event.date)) && <Badge variant="outline">Today</Badge>}
+                                                        </div>
+                                                        <div className='flex items-baseline gap-2'>
+                                                            <span className='text-sm text-muted-foreground'>{event.time}</span>
+                                                            {!isCancelled && <span className='text-xs text-primary/80 font-medium'>{formatTimeRemaining(new Date(event.date), event.time)}</span>}
+                                                        </div>
                                                     </div>
-                                                    <div className='flex items-baseline gap-2'>
-                                                        <span className='text-sm text-muted-foreground'>{event.time}</span>
-                                                        {!isCancelled && <span className='text-xs text-primary/80 font-medium'>{formatTimeRemaining(new Date(event.date), event.time)}</span>}
-                                                    </div>
+                                                    {isCancelled && <Badge variant="destructive" className="mr-2">Cancelled</Badge>}
                                                 </div>
-                                                {isCancelled && <Badge variant="destructive" className="mr-2">Cancelled</Badge>}
-                                            </div>
-                                        </AccordionTrigger>
-                                        <AccordionContent>
-                                            <div className='space-y-4'>
-                                                {isCancelled && (
-                                                    <Alert variant="destructive">
-                                                        <Ban className="h-4 w-4" />
-                                                        <AlertTitle>Event Cancelled</AlertTitle>
-                                                        <AlertDescription>This event has been cancelled and will not take place.</AlertDescription>
-                                                    </Alert>
-                                                )}
+                                            </AccordionTrigger>
+                                            <AccordionContent>
+                                                <div className='space-y-4'>
+                                                    {isCancelled && (
+                                                        <Alert variant="destructive">
+                                                            <Ban className="h-4 w-4" />
+                                                            <AlertTitle>Event Cancelled</AlertTitle>
+                                                            <AlertDescription>This event has been cancelled and will not take place.</AlertDescription>
+                                                        </Alert>
+                                                    )}
 
-                                                {event.imageURL && (
-                                                    <div className="relative aspect-video w-full rounded-md overflow-hidden border">
-                                                        <Image src={event.imageURL} alt={`Screenshot for ${event.type}`} fill objectFit='cover' />
-                                                    </div>
-                                                )}
-                                                
-                                                {event.description && (
-                                                    <div className="text-sm text-muted-foreground border-l-2 border-primary pl-3 py-1 bg-muted/50 rounded-r-md">
-                                                        <p className="whitespace-pre-wrap">{event.description}</p>
-                                                    </div>
-                                                )}
+                                                    {event.imageURL && (
+                                                        <div className="relative aspect-video w-full rounded-md overflow-hidden border">
+                                                            <Image src={event.imageURL} alt={`Screenshot for ${event.type}`} fill objectFit='cover' />
+                                                        </div>
+                                                    )}
+                                                    
+                                                    {event.description && (
+                                                        <div className="text-sm text-muted-foreground border-l-2 border-primary pl-3 py-1 bg-muted/50 rounded-r-md">
+                                                            <p className="whitespace-pre-wrap">{event.description}</p>
+                                                        </div>
+                                                    )}
 
-                                                {currentUpload?.isUploading && (
-                                                    <div className='space-y-1'>
-                                                        <Progress value={currentUpload.progress} className="w-full h-2" />
-                                                        <p className='text-xs text-muted-foreground text-center'>{`Uploading... ${Math.round(currentUpload.progress)}%`}</p>
-                                                    </div>
-                                                )}
+                                                    {currentUpload?.isUploading && (
+                                                        <div className='space-y-1'>
+                                                            <Progress value={currentUpload.progress} className="w-full h-2" />
+                                                            <p className='text-xs text-muted-foreground text-center'>{`Uploading... ${Math.round(currentUpload.progress)}%`}</p>
+                                                        </div>
+                                                    )}
 
-                                                <div className='flex justify-between items-start gap-4'>
-                                                    <div className='flex-grow space-y-4'>
-                                                        <div>
-                                                            <div className='mb-2'>
-                                                                <span className='font-semibold'>{availablePlayers.length + possiblyAvailablePlayers.length}</span> players available. <span className='text-muted-foreground'>{Math.max(0, MINIMUM_PLAYERS - (availablePlayers.length + possiblyAvailablePlayers.length))} more needed.</span>
+                                                    <div className='flex justify-between items-start gap-4'>
+                                                        <div className='flex-grow space-y-4'>
+                                                            <div>
+                                                                <div className='mb-2'>
+                                                                    <span className='font-semibold'>{availablePlayers.length + possiblyAvailablePlayers.length}</span> players available. <span className='text-muted-foreground'>{Math.max(0, MINIMUM_PLAYERS - (availablePlayers.length + possiblyAvailablePlayers.length))} more needed.</span>
+                                                                </div>
+
+                                                                <h4 className='text-sm font-semibold text-foreground/90 mb-2'>✅ Available ({availablePlayers.length})</h4>
+                                                                {availablePlayers.length > 0 ? (
+                                                                    <ul className="space-y-3">
+                                                                        {availablePlayers.map((player) => {
+                                                                            const profile = profileMap.get(player);
+                                                                            return (
+                                                                                <li key={player} className="flex items-center gap-3">
+                                                                                    <Avatar className="h-8 w-8"><AvatarImage src={profile?.photoURL ?? `https://api.dicebear.com/8.x/pixel-art/svg?seed=${profile?.id || player}`} /><AvatarFallback>{player.charAt(0).toUpperCase()}</AvatarFallback></Avatar>
+                                                                                    <span className="font-medium">{player}</span>
+                                                                                </li>
+                                                                            )
+                                                                        })}
+                                                                    </ul>
+                                                                ) : (
+                                                                    <p className='text-sm text-muted-foreground italic'>No players voted yes.</p>
+                                                                )}
+                                                            </div>
+                                                            <Separator />
+                                                            <div>
+                                                                <h4 className='text-sm font-semibold text-foreground/90 mb-2'>🤔 Possibly Available ({possiblyAvailablePlayers.length})</h4>
+                                                                {possiblyAvailablePlayers.length > 0 ? (
+                                                                    <ul className="space-y-3">
+                                                                        {possiblyAvailablePlayers.map((profile) => (
+                                                                            <li key={profile.id} className="flex items-center gap-3">
+                                                                                <Avatar className="h-8 w-8"><AvatarImage src={profile?.photoURL ?? `https://api.dicebear.com/8.x/pixel-art/svg?seed=${profile?.id}`} /><AvatarFallback>{profile.username.charAt(0).toUpperCase()}</AvatarFallback></Avatar>
+                                                                                <span className="font-medium">{profile.username}</span>
+                                                                                {canManage && <Button size="icon" variant="ghost" className='h-7 w-7' onClick={() => handleOverride(event.id, profile.id, 'remove')}><UserX className="w-4 h-4 text-destructive"/></Button>}
+                                                                            </li>
+                                                                        ))}
+                                                                    </ul>
+                                                                ) : (
+                                                                    <p className='text-sm text-muted-foreground italic'>No players marked as possibly available.</p>
+                                                                )}
                                                             </div>
 
-                                                            <h4 className='text-sm font-semibold text-foreground/90 mb-2'>✅ Available ({availablePlayers.length})</h4>
-                                                            {availablePlayers.length > 0 ? (
-                                                                <ul className="space-y-3">
-                                                                    {availablePlayers.map((player) => {
-                                                                        const profile = profileMap.get(player);
-                                                                        return (
-                                                                            <li key={player} className="flex items-center gap-3">
-                                                                                <Avatar className="h-8 w-8"><AvatarImage src={profile?.photoURL ?? `https://api.dicebear.com/8.x/pixel-art/svg?seed=${profile?.id || player}`} /><AvatarFallback>{player.charAt(0).toUpperCase()}</AvatarFallback></Avatar>
-                                                                                <span className="font-medium">{player}</span>
-                                                                            </li>
-                                                                        )
-                                                                    })}
-                                                                </ul>
-                                                            ) : (
-                                                                <p className='text-sm text-muted-foreground italic'>No players voted yes.</p>
+                                                            {canManage && (
+                                                                <>
+                                                                    <Separator />
+                                                                    <div>
+                                                                        <h4 className='text-sm font-semibold text-foreground/90 mb-2'>❌ Not Attending ({notAttendingProfiles.length})</h4>
+                                                                        {notAttendingProfiles.length > 0 ? (
+                                                                            <ul className='space-y-2'>
+                                                                                {notAttendingProfiles.map(profile => (
+                                                                                    <li key={profile.id} className='flex items-center justify-between'>
+                                                                                        <div className='flex items-center gap-3'>
+                                                                                            <Avatar className="h-8 w-8 opacity-60"><AvatarImage src={profile?.photoURL ?? `https://api.dicebear.com/8.x/pixel-art/svg?seed=${profile?.id}`} /><AvatarFallback>{profile.username.charAt(0).toUpperCase()}</AvatarFallback></Avatar>
+                                                                                            <span className="text-muted-foreground">{profile.username}</span>
+                                                                                        </div>
+                                                                                        <Button size="sm" variant="outline" onClick={() => handleOverride(event.id, profile.id, 'add')} disabled={isCancelled}>
+                                                                                            <UserPlus className="w-4 h-4 mr-2"/>
+                                                                                            Set as 'Possibly Available'
+                                                                                        </Button>
+                                                                                    </li>
+                                                                                ))}
+                                                                            </ul>
+                                                                        ) : (
+                                                                            <p className='text-sm text-muted-foreground italic'>All players are marked as available.</p>
+                                                                        )}
+                                                                    </div>
+                                                                </>
+                                                            )}
+                                                            
+                                                        </div>
+                                                        <div className="flex flex-col items-center gap-2 shrink-0">
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleCopyList(event, availablePlayers, possiblyAvailablePlayers)}><Copy className="w-4 h-4" /></Button>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent><p>Copy Roster</p></TooltipContent>
+                                                            </Tooltip>
+                                                            {!isCancelled && (
+                                                                <Tooltip>
+                                                                    <TooltipTrigger asChild>
+                                                                        <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => onGoToVote(event)}>
+                                                                            <Navigation className="w-4 h-4" />
+                                                                        </Button>
+                                                                    </TooltipTrigger>
+                                                                    <TooltipContent><p>Go to Vote</p></TooltipContent>
+                                                                </Tooltip>
+                                                            )}
+                                                            {canManage && (
+                                                                <>
+                                                                <Tooltip>
+                                                                    <TooltipTrigger asChild>
+                                                                        <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleToggleCancel(event)}>
+                                                                            {isCancelled ? <Undo2 className="w-4 h-4 text-green-500" /> : <CalendarX2 className="w-4 h-4 text-destructive" />}
+                                                                        </Button>
+                                                                    </TooltipTrigger>
+                                                                    <TooltipContent><p>{isCancelled ? 'Reactivate Event' : 'Cancel Event'}</p></TooltipContent>
+                                                                </Tooltip>
+                                                                <AlertDialog>
+                                                                    <Tooltip>
+                                                                        <TooltipTrigger asChild>
+                                                                            <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive hover:text-destructive h-8 w-8"><Trash2 className="w-4 h-4" /></Button></AlertDialogTrigger>
+                                                                        </TooltipTrigger>
+                                                                        <TooltipContent><p>Delete Event</p></TooltipContent>
+                                                                    </Tooltip>
+                                                                    <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete the scheduled {event.type.toLowerCase()}. This action cannot be undone.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                                    <AlertDialogAction onClick={() => {
+                                                                        if (!firestore) return;
+                                                                        const notificationsRef = collection(firestore, 'appNotifications');
+                                                                        addDocumentNonBlocking(notificationsRef, {
+                                                                            message: `${event.type} on ${format(new Date(event.date), 'd MMM, yyyy')} at ${event.time} was deleted.`,
+                                                                            icon: 'Trash2',
+                                                                            createdBy: currentUser?.displayName ?? 'Admin',
+                                                                            timestamp: new Date().toISOString(),
+                                                                        });
+                                                                        onRemoveEvent(event.id);
+                                                                    }} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+                                                                    </AlertDialogFooter></AlertDialogContent>
+                                                                </AlertDialog>
+                                                                <Tooltip>
+                                                                    <TooltipTrigger asChild>
+                                                                        <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleUploadClick(event.id)} disabled={currentUpload?.isUploading || isCancelled}>
+                                                                            {currentUpload?.isUploading ? <Loader className='w-4 h-4 animate-spin' /> : <UploadCloud className="w-4 h-4" />}
+                                                                        </Button>
+                                                                    </TooltipTrigger>
+                                                                    <TooltipContent><p>Upload Image</p></TooltipContent>
+                                                                </Tooltip>
+                                                                </>
                                                             )}
                                                         </div>
-                                                        <Separator />
-                                                        <div>
-                                                            <h4 className='text-sm font-semibold text-foreground/90 mb-2'>🤔 Possibly Available ({possiblyAvailablePlayers.length})</h4>
-                                                            {possiblyAvailablePlayers.length > 0 ? (
-                                                                <ul className="space-y-3">
-                                                                    {possiblyAvailablePlayers.map((profile) => (
-                                                                        <li key={profile.id} className="flex items-center gap-3">
-                                                                            <Avatar className="h-8 w-8"><AvatarImage src={profile?.photoURL ?? `https://api.dicebear.com/8.x/pixel-art/svg?seed=${profile?.id}`} /><AvatarFallback>{profile.username.charAt(0).toUpperCase()}</AvatarFallback></Avatar>
-                                                                            <span className="font-medium">{profile.username}</span>
-                                                                            {canManage && <Button size="icon" variant="ghost" className='h-7 w-7' onClick={() => handleOverride(event.id, profile.id, 'remove')}><UserX className="w-4 h-4 text-destructive"/></Button>}
-                                                                        </li>
-                                                                    ))}
-                                                                </ul>
-                                                            ) : (
-                                                                <p className='text-sm text-muted-foreground italic'>No players marked as possibly available.</p>
-                                                            )}
-                                                        </div>
-
-                                                        {canManage && (
-                                                            <>
-                                                                <Separator />
-                                                                <div>
-                                                                    <h4 className='text-sm font-semibold text-foreground/90 mb-2'>❌ Not Attending ({notAttendingProfiles.length})</h4>
-                                                                    {notAttendingProfiles.length > 0 ? (
-                                                                        <ul className='space-y-2'>
-                                                                            {notAttendingProfiles.map(profile => (
-                                                                                <li key={profile.id} className='flex items-center justify-between'>
-                                                                                    <div className='flex items-center gap-3'>
-                                                                                        <Avatar className="h-8 w-8 opacity-60"><AvatarImage src={profile?.photoURL ?? `https://api.dicebear.com/8.x/pixel-art/svg?seed=${profile?.id}`} /><AvatarFallback>{profile.username.charAt(0).toUpperCase()}</AvatarFallback></Avatar>
-                                                                                        <span className="text-muted-foreground">{profile.username}</span>
-                                                                                    </div>
-                                                                                    <Button size="sm" variant="outline" onClick={() => handleOverride(event.id, profile.id, 'add')} disabled={isCancelled}>
-                                                                                        <UserPlus className="w-4 h-4 mr-2"/>
-                                                                                        Set as 'Possibly Available'
-                                                                                    </Button>
-                                                                                </li>
-                                                                            ))}
-                                                                        </ul>
-                                                                    ) : (
-                                                                        <p className='text-sm text-muted-foreground italic'>All players are marked as available.</p>
-                                                                    )}
-                                                                </div>
-                                                            </>
-                                                        )}
-                                                        
-                                                    </div>
-                                                    <div className="flex flex-col items-center gap-2 shrink-0">
-                                                        <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleCopyList(event, availablePlayers, possiblyAvailablePlayers)}><Copy className="w-4 h-4" /></Button>
-                                                        {canManage && (
-                                                            <>
-                                                            <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleToggleCancel(event)}>
-                                                                {isCancelled ? <Undo2 className="w-4 h-4 text-green-500" /> : <CalendarX2 className="w-4 h-4 text-destructive" />}
-                                                            </Button>
-                                                            <AlertDialog>
-                                                                <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive hover:text-destructive h-8 w-8"><Trash2 className="w-4 h-4" /></Button></AlertDialogTrigger>
-                                                                <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete the scheduled {event.type.toLowerCase()}. This action cannot be undone.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                                <AlertDialogAction onClick={() => {
-                                                                    if (!firestore) return;
-                                                                    const notificationsRef = collection(firestore, 'appNotifications');
-                                                                    addDocumentNonBlocking(notificationsRef, {
-                                                                        message: `${event.type} on ${format(new Date(event.date), 'd MMM, yyyy')} at ${event.time} was deleted.`,
-                                                                        icon: 'Trash2',
-                                                                        createdBy: currentUser?.displayName ?? 'Admin',
-                                                                        timestamp: new Date().toISOString(),
-                                                                    });
-                                                                    onRemoveEvent(event.id);
-                                                                }} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
-                                                                </AlertDialogFooter></AlertDialogContent>
-                                                            </AlertDialog>
-                                                            <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleUploadClick(event.id)} disabled={currentUpload?.isUploading || isCancelled}>
-                                                                {currentUpload?.isUploading ? <Loader className='w-4 h-4 animate-spin' /> : <UploadCloud className="w-4 h-4" />}
-                                                            </Button>
-                                                            </>
-                                                        )}
                                                     </div>
                                                 </div>
-                                            </div>
-                                        </AccordionContent>
-                                    </AccordionItem>
-                                );
-                            })}
-                        </Accordion>
-                    </ScrollArea>
-                ) : (
-                    <div className="flex flex-col items-center justify-center text-center py-10 px-6">
-                        <CalendarCheck className="w-12 h-12 text-muted-foreground" />
-                        <p className="mt-4 text-muted-foreground">No upcoming events scheduled.</p>
-                    </div>
-                )}
+                                            </AccordionContent>
+                                        </AccordionItem>
+                                    );
+                                })}
+                            </Accordion>
+                        </ScrollArea>
+                    ) : (
+                        <div className="flex flex-col items-center justify-center text-center py-10 px-6">
+                            <CalendarCheck className="w-12 h-12 text-muted-foreground" />
+                            <p className="mt-4 text-muted-foreground">No upcoming events scheduled.</p>
+                        </div>
+                    )}
+                </TooltipProvider>
             </CardContent>
         </Card>
     );
