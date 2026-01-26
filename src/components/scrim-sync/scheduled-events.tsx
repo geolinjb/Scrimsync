@@ -24,6 +24,7 @@ import { useCollection, useFirestore, useMemoFirebase, useFirebaseApp, errorEmit
 import { Progress } from '../ui/progress';
 import { Separator } from '../ui/separator';
 import { Alert, AlertTitle, AlertDescription } from '../ui/alert';
+import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 type ScheduledEventsProps = {
   events: ScheduleEvent[];
@@ -121,6 +122,14 @@ export function ScheduledEvents({ events, votes, onRemoveEvent, currentUser, isA
                 title: 'Update Failed',
                 description: 'Could not update the event status. You may not have permission.',
             });
+        });
+        
+        const notificationsRef = collection(firestore, 'appNotifications');
+        addDocumentNonBlocking(notificationsRef, {
+            message: `Event was ${newStatus.toLowerCase()}: ${event.type} on ${format(new Date(event.date), 'd MMM')}.`,
+            icon: newStatus === 'Cancelled' ? 'CalendarX2' : 'CalendarPlus',
+            createdBy: currentUser?.displayName ?? 'Admin',
+            timestamp: new Date().toISOString()
         });
 
         toast({
@@ -446,7 +455,19 @@ export function ScheduledEvents({ events, votes, onRemoveEvent, currentUser, isA
                                                             </Button>
                                                             <AlertDialog>
                                                                 <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive hover:text-destructive h-8 w-8"><Trash2 className="w-4 h-4" /></Button></AlertDialogTrigger>
-                                                                <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete the scheduled {event.type.toLowerCase()}. This action cannot be undone.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => onRemoveEvent(event.id)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+                                                                <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete the scheduled {event.type.toLowerCase()}. This action cannot be undone.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                                <AlertDialogAction onClick={() => {
+                                                                    if (!firestore) return;
+                                                                    const notificationsRef = collection(firestore, 'appNotifications');
+                                                                    addDocumentNonBlocking(notificationsRef, {
+                                                                        message: `${event.type} on ${format(new Date(event.date), 'd MMM, yyyy')} at ${event.time} was deleted.`,
+                                                                        icon: 'Trash2',
+                                                                        createdBy: currentUser?.displayName ?? 'Admin',
+                                                                        timestamp: new Date().toISOString(),
+                                                                    });
+                                                                    onRemoveEvent(event.id);
+                                                                }} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+                                                                </AlertDialogFooter></AlertDialogContent>
                                                             </AlertDialog>
                                                             <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleUploadClick(event.id)} disabled={currentUpload?.isUploading || isCancelled}>
                                                                 {currentUpload?.isUploading ? <Loader className='w-4 h-4 animate-spin' /> : <UploadCloud className="w-4 h-4" />}

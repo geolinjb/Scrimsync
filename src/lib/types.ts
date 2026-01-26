@@ -23,6 +23,7 @@ export type PlayerProfileData = {
   role: (typeof gameRoles)[number] | '';
   rosterStatus?: (typeof rosterStatuses)[number];
   playstyleTags?: (typeof playstyleTags)[number][];
+  lastNotificationReadTimestamp?: string; // ISO 8601 string
 };
 
 export type Vote = {
@@ -38,6 +39,14 @@ export type AvailabilityOverride = {
   userId: string;
   status: 'Possibly Available';
 };
+
+export type AppNotification = {
+    id: string;
+    message: string;
+    timestamp: string; // ISO 8601 string
+    createdBy: string;
+    icon: string; // lucide-react icon name
+}
 
 export const gameRoles = ['Tank Destroyer', 'Medium Tank', 'Heavy Tank', 'Assaulter', 'Defender', 'Light Tank'] as const;
 

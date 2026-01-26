@@ -379,6 +379,15 @@ const hasLastWeekVotes = React.useMemo(() => {
     };
     const eventsRef = collection(firestore, 'scheduledEvents');
     addDocumentNonBlocking(eventsRef, newEvent);
+
+    const notificationsRef = collection(firestore, 'appNotifications');
+    addDocumentNonBlocking(notificationsRef, {
+        message: `${data.type} on ${format(data.date, 'd MMM')} at ${data.time} was scheduled.`,
+        icon: 'CalendarPlus',
+        createdBy: profile?.username || authUser.displayName || 'A user',
+        timestamp: new Date().toISOString()
+    });
+
     toast({
       title: 'Event Scheduled!',
       description: `${data.type} on ${format(data.date, 'd MMM, yyyy')} at ${data.time} has been added.`,
@@ -504,13 +513,14 @@ const hasLastWeekVotes = React.useMemo(() => {
                         favoriteTank: profile?.favoriteTank ?? '', 
                         role: profile?.role ?? '',
                         rosterStatus: profile?.rosterStatus,
-                        playstyleTags: profile?.playstyleTags
+                        playstyleTags: profile?.playstyleTags,
+                        lastNotificationReadTimestamp: profile?.lastNotificationReadTimestamp,
                     }} 
                     onSave={handleProfileSave}
                     isSaving={isSavingProfile}
                     isLoading={isProfileLoading}
                 />
-                 <ScheduleForm onAddEvent={handleAddEvent} currentDate={currentDate} />
+                <ScheduleForm onAddEvent={handleAddEvent} currentDate={currentDate} />
             </div>
             <div className="lg:col-span-2 space-y-8">
                 <ScheduledEvents 

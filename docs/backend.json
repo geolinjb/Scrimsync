@@ -47,6 +47,11 @@
               "Harvester"
             ]
           }
+        },
+        "lastNotificationReadTimestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "The ISO 8601 timestamp of the last notification read by the user."
         }
       },
       "required": [
@@ -168,6 +173,36 @@
         "userId",
         "status"
       ]
+    },
+    "AppNotification": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "AppNotification",
+      "type": "object",
+      "description": "Represents a global notification about an application event.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the notification."
+        },
+        "message": {
+          "type": "string",
+          "description": "The content of the notification message."
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The ISO 8601 timestamp when the notification was created."
+        },
+        "createdBy": {
+          "type": "string",
+          "description": "The username of the user who triggered the notification."
+        },
+        "icon": {
+          "type": "string",
+          "description": "A lucide-react icon name to display with the notification."
+        }
+      },
+      "required": ["id", "message", "timestamp", "createdBy", "icon"]
     }
   },
   "auth": {
@@ -205,6 +240,12 @@
         "$ref": "#/entities/AvailabilityOverride"
       },
       "description": "Stores manual availability overrides set by admins."
+    },
+    "/appNotifications/{notificationId}": {
+        "schema": {
+            "$ref": "#/entities/AppNotification"
+        },
+        "description": "Stores global app notifications for all users to see."
     }
   }
 }

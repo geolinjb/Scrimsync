@@ -14,6 +14,7 @@ import {
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
+import { NotificationBell } from './notification-bell';
 
 export function Header() {
   const auth = useAuth();
@@ -39,13 +40,14 @@ export function Header() {
         </div>
 
         {user && (
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
             <Button asChild variant="outline">
                 <Link href="/roster">
                     <Users className="mr-2 h-4 w-4" />
                     View Roster
                 </Link>
             </Button>
+            <NotificationBell />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-10 w-10 rounded-full">
