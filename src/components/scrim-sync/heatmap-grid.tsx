@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Swords, Trophy, Vote, Users, Copy } from 'lucide-react';
+import { Swords, Trophy, Vote, Users, Copy, CalendarX2 } from 'lucide-react';
 import { format, startOfWeek, addDays, isSameDay, isToday } from 'date-fns';
 
 import type { ScheduleEvent, AllVotes, PlayerProfileData } from '@/lib/types';
@@ -210,6 +210,7 @@ export function HeatmapGrid({
                                     const availablePlayers = allVotes[voteKey] || [];
                                     const voteCount = availablePlayers.length;
                                     const event = getEventForSlot(date, slot);
+                                    const isCancelled = event?.status === 'Cancelled';
                                     return (
                                         <TableCell key={date.toISOString()} className="text-center p-0 align-middle">
                                             <Tooltip>
@@ -218,16 +219,18 @@ export function HeatmapGrid({
                                                         onClick={() => handleSlotClick(date, slot, availablePlayers)}
                                                         className={cn(
                                                             'relative h-14 w-full flex flex-col justify-center items-center text-center p-1 transition-all duration-300 cursor-pointer border-l border-t border-border glow-on-hover',
-                                                            getHeatmapColor(voteCount),
-                                                            isToday(date) && 'bg-gold-10'
+                                                            isCancelled ? 'bg-destructive/20' : getHeatmapColor(voteCount),
+                                                            isToday(date) && !isCancelled && 'bg-gold-10'
                                                         )}
                                                     >
-                                                        <div className="relative z-10 text-sm font-bold text-foreground/90">
-                                                            {voteCount > 0 ? voteCount : ''}
+                                                        <div className={cn("relative z-10 text-sm font-bold", isCancelled ? 'text-destructive-foreground' : 'text-foreground/90')}>
+                                                            {!isCancelled && voteCount > 0 ? voteCount : ''}
                                                         </div>
                                                         {event && (
                                                             <div className="absolute top-1 right-1 z-20">
-                                                            {event.type === 'Training' ? (
+                                                            {isCancelled ? (
+                                                                <CalendarX2 className="w-4 h-4 text-destructive-foreground/80" />
+                                                            ) : event.type === 'Training' ? (
                                                                 <Swords className="w-4 h-4 text-foreground/80" />
                                                             ) : (
                                                                 <Trophy className="w-4 h-4 text-gold" />
@@ -240,8 +243,8 @@ export function HeatmapGrid({
                                                     <p>{format(date, 'EEEE, d MMM')} at {slot}</p>
                                                     <p>{voteCount} players available</p>
                                                     {event && (
-                                                    <p className="mt-1 font-bold">
-                                                        {event.type} scheduled
+                                                    <p className={cn("mt-1 font-bold", isCancelled && "text-destructive")}>
+                                                        {event.type} {isCancelled ? "Cancelled" : "scheduled"}
                                                     </p>
                                                     )}
                                                 </TooltipContent>

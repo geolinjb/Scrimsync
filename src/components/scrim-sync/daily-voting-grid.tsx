@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { motion } from 'framer-motion';
-import { Vote, CheckCircle, Circle, Swords, Trophy, Trash2, ClipboardCopy, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Vote, CheckCircle, Circle, Swords, Trophy, Trash2, ClipboardCopy, ChevronLeft, ChevronRight, CalendarX2 } from 'lucide-react';
 import { format, isToday } from 'date-fns';
 
 import type { UserVotes, ScheduleEvent } from '@/lib/types';
@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/card';
 import { Button } from '../ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
+import { Badge } from '../ui/badge';
 
 type DailyVotingGridProps = {
   userVotes: UserVotes;
@@ -156,6 +157,7 @@ export function DailyVotingGrid({
                 {timeSlots.map(slot => {
                     const isVoted = userVotes[dateKey]?.has(slot);
                     const event = getEventForSlot(selectedDate, slot);
+                    const isCancelled = event?.status === 'Cancelled';
 
                     return (
                         <motion.div
@@ -163,31 +165,38 @@ export function DailyVotingGrid({
                             onClick={() => onVote(selectedDate, slot)}
                             className={cn(
                                 'flex items-center justify-between p-3 cursor-pointer transition-colors hover:bg-accent',
-                                isVoted ? "bg-primary/20" : "bg-transparent"
+                                isVoted ? "bg-primary/20" : "bg-transparent",
+                                isCancelled && 'bg-destructive/10'
                             )}
                             whileTap={{ scale: 0.98 }}
                         >
                             <div className='flex items-center gap-3'>
                                 {isVoted ? (
-                                    <CheckCircle className="w-5 h-5 text-primary" />
+                                    <CheckCircle className={cn("w-5 h-5 text-primary", isCancelled && 'opacity-50')} />
                                 ) : (
-                                    <Circle className="w-5 h-5 text-muted-foreground/30" />
+                                    <Circle className={cn("w-5 h-5 text-muted-foreground/30", isCancelled && 'opacity-50')} />
                                 )}
-                                <span className='font-medium'>{slot}</span>
+                                <span className={cn('font-medium', isCancelled && 'line-through text-muted-foreground')}>{slot}</span>
                             </div>
                              {event && (
                                 <Tooltip>
                                     <TooltipTrigger asChild>
-                                        <div className="p-1">
-                                        {event.type === 'Training' ? (
-                                            <Swords className="w-5 h-5 text-blue-400" />
-                                        ) : (
-                                            <Trophy className="w-5 h-5 text-gold" />
-                                        )}
+                                        <div className="flex items-center gap-2">
+                                            {isCancelled && <Badge variant="destructive" className="text-xs">Cancelled</Badge>}
+                                            <div className="p-1">
+                                                {isCancelled ? (
+                                                    <CalendarX2 className="w-5 h-5 text-destructive" />
+                                                ) : event.type === 'Training' ? (
+                                                    <Swords className="w-5 h-5 text-blue-400" />
+                                                ) : (
+                                                    <Trophy className="w-5 h-5 text-gold" />
+                                                )}
+                                            </div>
                                         </div>
                                     </TooltipTrigger>
                                     <TooltipContent>
                                         <p>{event.type} at {event.time}</p>
+                                        {isCancelled && <p className="font-bold text-destructive">This event has been cancelled.</p>}
                                     </TooltipContent>
                                 </Tooltip>
                             )}

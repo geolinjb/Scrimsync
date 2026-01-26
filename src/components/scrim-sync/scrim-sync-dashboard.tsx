@@ -375,6 +375,7 @@ const hasLastWeekVotes = React.useMemo(() => {
       creatorId: authUser.uid,
       isRecurring: false,
       description: data.description,
+      status: 'Active',
     };
     const eventsRef = collection(firestore, 'scheduledEvents');
     addDocumentNonBlocking(eventsRef, newEvent);

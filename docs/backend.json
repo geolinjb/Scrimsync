@@ -120,6 +120,14 @@
         "description": {
           "type": "string",
           "description": "A detailed description or notes for the event."
+        },
+        "status": {
+          "type": "string",
+          "description": "The current status of the event.",
+          "enum": [
+            "Active",
+            "Cancelled"
+          ]
         }
       },
       "required": [

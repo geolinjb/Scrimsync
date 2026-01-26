@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { motion } from 'framer-motion';
-import { Check, Vote, CheckCircle, Circle, Swords, Trophy, Trash2, ClipboardCopy } from 'lucide-react';
+import { Check, Vote, CheckCircle, Circle, Swords, Trophy, Trash2, ClipboardCopy, CalendarX2 } from 'lucide-react';
 import { format, startOfWeek, addDays, isSameDay, isToday } from 'date-fns';
 
 import type { UserVotes, ScheduleEvent } from '@/lib/types';
@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/table"
 import { Button } from '../ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
+import { Badge } from '../ui/badge';
 
 
 type IndividualVotingGridProps = {
@@ -163,6 +164,7 @@ export function IndividualVotingGrid({
                                       const dateKey = format(date, 'yyyy-MM-dd');
                                       const isVoted = userVotes[dateKey]?.has(slot);
                                       const event = getEventForSlot(date, slot);
+                                      const isCancelled = event?.status === 'Cancelled';
                                       return (
                                           <TableCell key={date.toISOString()} className="text-center p-0 align-middle">
                                               <motion.div
@@ -172,23 +174,28 @@ export function IndividualVotingGrid({
                                                       'hover:bg-accent',
                                                       isVoted ? 'bg-primary/20' : 'bg-transparent',
                                                       isToday(date) && 'bg-gold-10',
+                                                      isCancelled && 'bg-destructive/10 line-through'
                                                   )}
                                                   whileTap={{ scale: 0.95 }}
                                               >
-                                                  {isVoted && <Check className="relative z-10 w-5 h-5 text-primary" />}
+                                                  {isVoted && <Check className={cn("relative z-10 w-5 h-5 text-primary", isCancelled && "opacity-50")} />}
                                                   {event && (
                                                       <Tooltip>
                                                           <TooltipTrigger asChild>
-                                                              <div className="absolute top-1 right-1 z-20 p-1">
-                                                              {event.type === 'Training' ? (
-                                                                  <Swords className="w-4 h-4 text-blue-400" />
-                                                              ) : (
-                                                                  <Trophy className="w-4 h-4 text-gold" />
-                                                              )}
+                                                              <div className="absolute top-1 right-1 z-20 p-1 flex items-center gap-1">
+                                                                  {isCancelled && <Badge variant="destructive" className="text-xs py-0 px-1 h-auto">C</Badge>}
+                                                                  {isCancelled ? (
+                                                                    <CalendarX2 className="w-4 h-4 text-destructive" />
+                                                                  ) : event.type === 'Training' ? (
+                                                                      <Swords className="w-4 h-4 text-blue-400" />
+                                                                  ) : (
+                                                                      <Trophy className="w-4 h-4 text-gold" />
+                                                                  )}
                                                               </div>
                                                           </TooltipTrigger>
                                                           <TooltipContent>
                                                               <p>{event.type} at {event.time}</p>
+                                                              {isCancelled && <p className="font-bold text-destructive">This event has been cancelled.</p>}
                                                           </TooltipContent>
                                                       </Tooltip>
                                                   )}

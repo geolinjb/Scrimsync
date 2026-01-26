@@ -8,6 +8,7 @@ export type ScheduleEvent = {
   isRecurring?: boolean;
   imageURL?: string;
   description?: string;
+  status?: 'Active' | 'Cancelled';
 };
 
 export type FirestoreScheduleEvent = Omit<ScheduleEvent, 'date'> & {

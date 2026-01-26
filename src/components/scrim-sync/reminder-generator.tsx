@@ -51,7 +51,7 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
     if (!events) return [];
     const today = startOfToday();
     return events
-      .filter(event => new Date(event.date) >= today)
+      .filter(event => new Date(event.date) >= today && event.status !== 'Cancelled')
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [events]);
 
@@ -219,7 +219,7 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
                 </SelectItem>
               ))
             ) : (
-              <div className='p-4 text-center text-sm text-muted-foreground'>No upcoming events.</div>
+              <div className='p-4 text-center text-sm text-muted-foreground'>No upcoming active events.</div>
             )}
           </SelectContent>
         </Select>
