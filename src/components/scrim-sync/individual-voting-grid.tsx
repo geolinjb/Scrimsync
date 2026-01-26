@@ -179,6 +179,11 @@ export function IndividualVotingGrid({
                                                   whileTap={{ scale: 0.95 }}
                                               >
                                                   {isVoted && <Check className={cn("relative z-10 w-5 h-5 text-primary", isCancelled && "opacity-50")} />}
+                                                  
+                                                  {event && !isVoted && !isCancelled && (
+                                                      <Vote className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                                                  )}
+
                                                   {event && (
                                                       <Tooltip>
                                                           <TooltipTrigger asChild>
@@ -194,7 +199,11 @@ export function IndividualVotingGrid({
                                                               </div>
                                                           </TooltipTrigger>
                                                           <TooltipContent>
-                                                              <p>{event.type} at {event.time}</p>
+                                                              <p>
+                                                                  {isVoted ? "You are attending this " : "There is a "}
+                                                                  {event.type} at {event.time}
+                                                              </p>
+                                                              {!isVoted && !isCancelled && <p className="font-semibold text-center">Click cell to vote</p>}
                                                               {isCancelled && <p className="font-bold text-destructive">This event has been cancelled.</p>}
                                                           </TooltipContent>
                                                       </Tooltip>

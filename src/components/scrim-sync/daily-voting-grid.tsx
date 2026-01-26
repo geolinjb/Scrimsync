@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { motion } from 'framer-motion';
-import { Vote, CheckCircle, Circle, Swords, Trophy, Trash2, ClipboardCopy, ChevronLeft, ChevronRight, CalendarX2 } from 'lucide-react';
+import { Vote, Check, CheckCircle, Circle, Swords, Trophy, Trash2, ClipboardCopy, ChevronLeft, ChevronRight, CalendarX2 } from 'lucide-react';
 import { format, isToday } from 'date-fns';
 
 import type { UserVotes, ScheduleEvent } from '@/lib/types';
@@ -123,7 +123,7 @@ export function DailyVotingGrid({
               </div>
           </div>
           <CardDescription>
-            Focus on one day at a time. Use the arrows to navigate the week, and click the circle button at the top to select all times for the chosen day. There's also a "Weekly View" tab for a broader look.
+            Focus on one day at a time. Click an event's button to vote for it, or click a timeslot to mark your general availability. There's also a "Weekly View" tab for a broader look.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -162,43 +162,47 @@ export function DailyVotingGrid({
                     return (
                         <motion.div
                             key={slot}
-                            onClick={() => onVote(selectedDate, slot)}
                             className={cn(
-                                'flex items-center justify-between p-3 cursor-pointer transition-colors hover:bg-accent',
-                                isVoted ? "bg-primary/20" : "bg-transparent",
-                                isCancelled && 'bg-destructive/10'
+                                'flex items-center justify-between p-3 transition-colors',
+                                isVoted && !isCancelled ? "bg-primary/20" : "bg-transparent",
+                                isCancelled && 'bg-destructive/10',
+                                !event && 'hover:bg-accent cursor-pointer'
                             )}
-                            whileTap={{ scale: 0.98 }}
+                            onClick={!event ? () => onVote(selectedDate, slot) : undefined}
+                            whileTap={!event ? { scale: 0.98 } : {}}
                         >
-                            <div className='flex items-center gap-3'>
-                                {isVoted ? (
-                                    <CheckCircle className={cn("w-5 h-5 text-primary", isCancelled && 'opacity-50')} />
-                                ) : (
-                                    <Circle className={cn("w-5 h-5 text-muted-foreground/30", isCancelled && 'opacity-50')} />
-                                )}
-                                <span className={cn('font-medium', isCancelled && 'line-through text-muted-foreground')}>{slot}</span>
-                            </div>
-                             {event && (
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <div className="flex items-center gap-2">
-                                            {isCancelled && <Badge variant="destructive" className="text-xs">Cancelled</Badge>}
-                                            <div className="p-1">
-                                                {isCancelled ? (
-                                                    <CalendarX2 className="w-5 h-5 text-destructive" />
-                                                ) : event.type === 'Training' ? (
-                                                    <Swords className="w-5 h-5 text-blue-400" />
-                                                ) : (
-                                                    <Trophy className="w-5 h-5 text-gold" />
-                                                )}
-                                            </div>
+                            {event ? (
+                                <div className="flex-1 flex items-center justify-between gap-2">
+                                    <div className='flex items-center gap-3'>
+                                        {event.type === 'Training' ? <Swords className="w-5 h-5 text-blue-400" /> : <Trophy className="w-5 h-5 text-gold" />}
+                                        <div className='flex flex-col'>
+                                            <span className={cn('font-medium', isCancelled && 'line-through text-muted-foreground')}>{event.type} at {slot}</span>
+                                            {isCancelled && <Badge variant="destructive" className="w-fit text-xs">Cancelled</Badge>}
                                         </div>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                        <p>{event.type} at {event.time}</p>
-                                        {isCancelled && <p className="font-bold text-destructive">This event has been cancelled.</p>}
-                                    </TooltipContent>
-                                </Tooltip>
+                                    </div>
+                                    {!isCancelled && (
+                                        <Button 
+                                            variant={isVoted ? 'secondary' : 'outline'} 
+                                            size="sm" 
+                                            onClick={() => onVote(selectedDate, slot)}
+                                            className="shrink-0"
+                                        >
+                                            {isVoted ? <Check className="w-4 h-4 mr-2"/> : <Vote className="w-4 h-4 mr-2" />}
+                                            {isVoted ? 'Attending' : 'Vote Available'}
+                                        </Button>
+                                    )}
+                                </div>
+                            ) : (
+                                <>
+                                    <div className='flex items-center gap-3'>
+                                        {isVoted ? (
+                                            <CheckCircle className="w-5 h-5 text-primary" />
+                                        ) : (
+                                            <Circle className="w-5 h-5 text-muted-foreground/30" />
+                                        )}
+                                        <span className='font-medium'>{slot}</span>
+                                    </div>
+                                </>
                             )}
                         </motion.div>
                     )
