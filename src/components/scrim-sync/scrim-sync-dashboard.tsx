@@ -442,6 +442,15 @@ const hasLastWeekVotes = React.useMemo(() => {
       <main className="flex-1 container mx-auto px-4 py-8 space-y-8">
         
         <WelcomeInstructions username={profile?.username || authUser.displayName || 'Player'} />
+        
+        <ScheduledEvents 
+            events={scheduledEvents} 
+            votes={allVotes}
+            onRemoveEvent={handleRemoveEvent}
+            onGoToVote={handleGoToVote}
+            currentUser={authUser}
+            isAdmin={canSeeAdminPanel}
+        />
 
         <div className="flex justify-between items-center flex-wrap gap-4">
             <h2 className="text-2xl font-bold tracking-tight">
@@ -521,7 +530,7 @@ const hasLastWeekVotes = React.useMemo(() => {
         </Tabs>
         
         
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pt-8">
             <div className="lg:col-span-1 space-y-8">
                 <PlayerProfile 
                     initialProfile={{ 
@@ -539,58 +548,49 @@ const hasLastWeekVotes = React.useMemo(() => {
                     isSaving={isSavingProfile}
                     isLoading={isProfileLoading}
                 />
-                <ScheduleForm onAddEvent={handleAddEvent} currentDate={currentDate} />
+                {canSeeAdminPanel && <ScheduleForm onAddEvent={handleAddEvent} currentDate={currentDate} />}
             </div>
             <div className="lg:col-span-2 space-y-8">
-                <ScheduledEvents 
-                    events={scheduledEvents} 
-                    votes={allVotes}
-                    onRemoveEvent={handleRemoveEvent}
-                    onGoToVote={handleGoToVote}
-                    currentUser={authUser}
-                    isAdmin={canSeeAdminPanel}
-                />
+                <Tabs defaultValue="heatmap" className='w-full'>
+                    <TabsList>
+                        <TabsTrigger value="heatmap">Team Heatmap</TabsTrigger>
+                        {canSeeAdminPanel && <TabsTrigger value="admin">User Data</TabsTrigger>}
+                    </TabsList>
+                    <TabsContent value="heatmap" className="space-y-4">
+                    {isLoading ? (
+                        <Card>
+                        <CardHeader>
+                            <Skeleton className="h-8 w-1/2" />
+                            <Skeleton className="h-4 w-3/4" />
+                        </CardHeader>
+                        <CardContent>
+                            <Skeleton className="h-[65vh] w-full" />
+                        </CardContent>
+                        </Card>
+                    ) : (
+                        <HeatmapGrid
+                        allVotes={allVotes}
+                        scheduledEvents={scheduledEvents}
+                        currentDate={currentDate}
+                        allProfiles={allProfiles}
+                        />
+                    )}
+                    </TabsContent>
+                    {canSeeAdminPanel && (
+                    <TabsContent value="admin">
+                        <UserDataPanel 
+                            allProfiles={allProfiles} 
+                            isLoading={areProfilesLoading || areVotesLoading}
+                            events={scheduledEvents}
+                            onRemoveEvent={handleRemoveEvent}
+                            allVotesData={allVotesData}
+                            currentUser={authUser}
+                        />
+                    </TabsContent>
+                    )}
+                </Tabs>
             </div>
         </div>
-
-        <Tabs defaultValue="heatmap" className='w-full pt-8'>
-            <TabsList>
-                <TabsTrigger value="heatmap">Team Heatmap</TabsTrigger>
-                {canSeeAdminPanel && <TabsTrigger value="admin">User Data</TabsTrigger>}
-            </TabsList>
-            <TabsContent value="heatmap" className="space-y-4">
-            {isLoading ? (
-                <Card>
-                <CardHeader>
-                    <Skeleton className="h-8 w-1/2" />
-                    <Skeleton className="h-4 w-3/4" />
-                </CardHeader>
-                <CardContent>
-                    <Skeleton className="h-[65vh] w-full" />
-                </CardContent>
-                </Card>
-            ) : (
-                <HeatmapGrid
-                allVotes={allVotes}
-                scheduledEvents={scheduledEvents}
-                currentDate={currentDate}
-                allProfiles={allProfiles}
-                />
-            )}
-            </TabsContent>
-            {canSeeAdminPanel && (
-            <TabsContent value="admin">
-                <UserDataPanel 
-                    allProfiles={allProfiles} 
-                    isLoading={areProfilesLoading || areVotesLoading}
-                    events={scheduledEvents}
-                    onRemoveEvent={handleRemoveEvent}
-                    allVotesData={allVotesData}
-                    currentUser={authUser}
-                />
-            </TabsContent>
-            )}
-        </Tabs>
       </main>
     </div>
   );

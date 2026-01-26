@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { User, Loader, Save, Shield, Swords, UploadCloud, Image as ImageIcon } from 'lucide-react';
+import { User, Loader, Save, Shield, Swords, UploadCloud, Image as ImageIcon, Copy } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Skeleton } from '../ui/skeleton';
 import { Badge } from '../ui/badge';
@@ -86,6 +86,14 @@ export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: P
 
   const handleAvatarUploadClick = () => {
     fileInputRef.current?.click();
+  };
+
+  const copyUid = () => {
+    navigator.clipboard.writeText(profile.id);
+    toast({
+      title: 'UID Copied!',
+      description: 'Your User ID has been copied to the clipboard.',
+    });
   };
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -228,6 +236,12 @@ export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: P
         <div className='text-center'>
             <CardTitle className='mt-2'>{profile.username}</CardTitle>
             <CardDescription>{profile.email}</CardDescription>
+            <div className='flex items-center justify-center gap-2 mt-2'>
+                <Badge variant="outline" className="text-xs truncate max-w-[200px]">{profile.id}</Badge>
+                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={copyUid}>
+                    <Copy className="h-3 w-3" />
+                </Button>
+            </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">

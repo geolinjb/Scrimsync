@@ -1,6 +1,6 @@
 'use client';
 
-import { LogOut, Trophy, Users } from 'lucide-react';
+import { LogOut, Trophy, Users, Copy } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth, useUser } from '@/firebase';
 import { signOut } from 'firebase/auth';
@@ -15,10 +15,12 @@ import {
 } from '../ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { NotificationBell } from './notification-bell';
+import { useToast } from '@/hooks/use-toast';
 
 export function Header() {
   const auth = useAuth();
   const { user } = useUser();
+  const { toast } = useToast();
 
   const handleSignOut = async () => {
     if (!auth) return;
@@ -27,6 +29,15 @@ export function Header() {
     } catch (error) {
       console.error('Error signing out:', error);
     }
+  };
+
+  const copyUid = () => {
+    if (!user) return;
+    navigator.clipboard.writeText(user.uid);
+    toast({
+      title: 'UID Copied!',
+      description: 'Your User ID has been copied to the clipboard.',
+    });
   };
 
   return (
@@ -66,6 +77,11 @@ export function Header() {
                     </p>
                   </div>
                 </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={copyUid}>
+                  <Copy className="mr-2 h-4 w-4" />
+                  <span>Copy User ID</span>
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleSignOut}>
                   <LogOut className="mr-2 h-4 w-4" />
