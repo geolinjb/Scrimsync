@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -215,10 +214,17 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent, a
             batch.delete(voteDoc.ref);
         });
 
+        // 3. Find and delete all availability overrides for that user
+        const overridesQueryInstance = query(collection(firestore, 'availabilityOverrides'), where('userId', '==', userId));
+        const overridesSnapshot = await getDocs(overridesQueryInstance);
+        overridesSnapshot.forEach(overrideDoc => {
+            batch.delete(overrideDoc.ref);
+        });
+
         await batch.commit();
         toast({
             title: 'User Deleted',
-            description: `User '${username}' and their ${votesSnapshot.size} vote(s) have been removed.`,
+            description: `User '${username}', their ${votesSnapshot.size} vote(s), and ${overridesSnapshot.size} override(s) have been removed.`,
         });
     } catch (error: any) {
         console.error('Error deleting user:', error);
@@ -494,9 +500,9 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent, a
                                             variant="ghost" 
                                             size="icon" 
                                             className="text-destructive hover:text-destructive"
-                                            disabled={isDeleting && deletingUserId === profile.id}
+                                            disabled={!!deletingUserId}
                                         >
-                                            {isDeleting && deletingUserId === profile.id ? <Loader className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                                            {deletingUserId === profile.id ? <Loader className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                                         </Button>
                                     </AlertDialogTrigger>
                                     <AlertDialogContent>
@@ -508,7 +514,7 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent, a
                                         </AlertDialogHeader>
                                         <AlertDialogFooter>
                                             <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                            <AlertDialogAction onClick={() => handleDeleteUser(profile.id, profile.username)} className="bg-destructive hover:bg-destructive/90">
+                                            <AlertDialogAction onClick={() => handleDeleteUser(profile.id, profile.username || 'user')} className="bg-destructive hover:bg-destructive/90">
                                                 Yes, Delete User
                                             </AlertDialogAction>
                                         </AlertDialogFooter>
