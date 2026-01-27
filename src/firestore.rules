@@ -80,5 +80,18 @@ service cloud.firestore {
         // Only admins can create, update, or delete overrides.
         allow create, update, delete: if isAdmin();
     }
+
+    /**
+     * @description Manages application-wide notifications.
+     * @path /appNotifications/{notificationId}
+     */
+    match /appNotifications/{notificationId} {
+        // Any authenticated user can read notifications.
+        allow read: if isSignedIn();
+        // Any authenticated user can create a notification (e.g., by creating an event).
+        allow create: if isSignedIn();
+        // Only admins can update or delete notifications to manage the feed.
+        allow update, delete: if isAdmin();
+    }
   }
 }
