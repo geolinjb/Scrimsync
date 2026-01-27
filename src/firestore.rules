@@ -29,11 +29,9 @@ service cloud.firestore {
       // Users can create their own profile.
       allow create: if isOwner(userId);
 
-      // Users can update their own profile, but cannot change admin-only fields.
-      // Admins can update any field on any profile.
-      allow update: if (isOwner(userId) && 
-                      !(request.resource.data.rosterStatus != resource.data.rosterStatus) && 
-                      !(request.resource.data.playstyleTags != resource.data.playstyleTags)
+      // Users can update only their own non-admin fields. Admins can update anything.
+      allow update: if (isOwner(userId) &&
+                      request.resource.data.diff(resource.data).affectedKeys().hasOnly(['username', 'photoURL', 'favoriteTank', 'role', 'lastNotificationReadTimestamp'])
                     ) || isAdmin();
 
       // Only admins can delete user profiles.
