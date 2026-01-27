@@ -19,16 +19,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { User, Loader, Save, Shield, Swords, UploadCloud, Image as ImageIcon, Copy } from 'lucide-react';
+import { User, Loader, Save, Shield, Swords, UploadCloud, Image as ImageIcon, Copy, Trash2 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Skeleton } from '../ui/skeleton';
 import { Badge } from '../ui/badge';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
-import { useFirebaseApp } from '@/firebase';
+import { useFirebaseApp, useAuth, useFirestore } from '@/firebase';
 import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL, type UploadTask } from 'firebase/storage';
-import { doc, updateDoc } from 'firebase/firestore';
-import { useFirestore } from '@/firebase';
+import { doc, updateDoc, writeBatch, query, where, getDocs, collection } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import {
   Dialog,
@@ -41,6 +40,19 @@ import {
 import { ScrollArea } from '../ui/scroll-area';
 import { Separator } from '../ui/separator';
 import { Progress } from '../ui/progress';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import { signOut } from 'firebase/auth';
+
 
 type PlayerProfileProps = {
   initialProfile: PlayerProfileData & { email?: string | null };
@@ -58,9 +70,11 @@ export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: P
   const [uploadProgress, setUploadProgress] = React.useState<number | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [isAvatarDialogOpen, setIsAvatarDialogOpen] = React.useState(false);
+  const [isDeleting, setIsDeleting] = React.useState(false);
 
   const firebaseApp = useFirebaseApp();
   const firestore = useFirestore();
+  const auth = useAuth();
   const { toast } = useToast();
   const isUploading = uploadProgress !== null;
 
@@ -154,6 +168,56 @@ export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: P
         if(fileInputRef.current) fileInputRef.current.value = "";
     }
   };
+
+  const handleDeleteAccount = async () => {
+    if (!firestore || !profile.id) return;
+    setIsDeleting(true);
+    try {
+      const batch = writeBatch(firestore);
+      
+      // 1. Delete user profile
+      const userRef = doc(firestore, 'users', profile.id);
+      batch.delete(userRef);
+  
+      // 2. Find and delete all votes by that user
+      const votesQueryInstance = query(collection(firestore, 'votes'), where('userId', '==', profile.id));
+      const votesSnapshot = await getDocs(votesQueryInstance);
+      votesSnapshot.forEach(voteDoc => {
+          batch.delete(voteDoc.ref);
+      });
+  
+      // 3. Find and delete all availability overrides for that user
+      const overridesQueryInstance = query(collection(firestore, 'availabilityOverrides'), where('userId', '==', profile.id));
+      const overridesSnapshot = await getDocs(overridesQueryInstance);
+      overridesSnapshot.forEach(overrideDoc => {
+          batch.delete(overrideDoc.ref);
+      });
+  
+      await batch.commit();
+
+      toast({
+          title: 'Account Deleted',
+          description: `Your account and all associated data have been removed. You will now be signed out.`,
+      });
+
+      // Sign out after a short delay to allow toast to be seen
+      setTimeout(async () => {
+        if (auth) {
+            await signOut(auth);
+        }
+      }, 2000);
+
+    } catch (error) {
+      console.error("Error deleting account:", error);
+      toast({
+        variant: 'destructive',
+        title: 'Deletion Failed',
+        description: 'Could not delete your account. You may not have permission or there was a network issue.',
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  }
 
   if (isLoading) {
     return (
@@ -308,11 +372,34 @@ export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: P
             </div>
           </div>
       </CardContent>
-      <CardFooter>
-        <Button onClick={handleSave} disabled={isSaving || !hasChanges || isUploading} className='w-full'>
+      <CardFooter className="flex flex-col gap-2">
+        <Button onClick={handleSave} disabled={isSaving || !hasChanges || isUploading || isDeleting} className='w-full'>
             {isSaving ? <Loader className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
             {isSaving ? 'Saving...' : 'Save Profile'}
         </Button>
+        <AlertDialog>
+            <AlertDialogTrigger asChild>
+                <Button variant="destructive" className="w-full" disabled={isDeleting}>
+                    {isDeleting ? <Loader className="w-5 h-5 animate-spin" /> : <Trash2 className="w-5 h-5" />}
+                    {isDeleting ? 'Deleting...' : 'Delete Account'}
+                </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        This action cannot be undone. This will permanently delete your account
+                        and remove all your voting and availability data from our servers.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDeleteAccount} className="bg-destructive hover:bg-destructive/90">
+                        Yes, Delete My Account
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
       </CardFooter>
     </Card>
   );

@@ -34,8 +34,8 @@ service cloud.firestore {
                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['username', 'photoURL', 'favoriteTank', 'role', 'lastNotificationReadTimestamp'])
                     ) || isAdmin();
 
-      // Only admins can delete user profiles.
-      allow delete: if isAdmin();
+      // Owner or admin can delete user profiles.
+      allow delete: if isOwner(userId) || isAdmin();
     }
 
     /**
@@ -75,8 +75,10 @@ service cloud.firestore {
     match /availabilityOverrides/{overrideId} {
         // Any authenticated user can read overrides.
         allow read: if isSignedIn();
-        // Only admins can create, update, or delete overrides.
-        allow create, update, delete: if isAdmin();
+        // Only admins can create or update overrides.
+        allow create, update: if isAdmin();
+        // Admin or owner of the override can delete it.
+        allow delete: if isAdmin() || isOwner(resource.data.userId);
     }
 
     /**
