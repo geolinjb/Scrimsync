@@ -102,6 +102,33 @@ export function TeamSyncDashboard({ user: authUser }: TeamSyncDashboardProps) {
     return scheduledEventsData.map(e => ({...e, date: parseISO(e.date)}));
   }, [scheduledEventsData]);
 
+  // Automatically create a profile for new users.
+  React.useEffect(() => {
+    if (firestore && authUser && !isProfileLoading && !profile) {
+      // Profile has loaded and is confirmed to not exist, indicating a new user.
+      const handleCreateProfile = () => {
+        const profileDocRef = doc(firestore, 'users', authUser.uid);
+        const defaultProfile: PlayerProfileData = {
+          id: authUser.uid,
+          username: authUser.displayName || `Player${authUser.uid.slice(0, 5)}`,
+          photoURL: authUser.photoURL || '',
+          favoriteTank: '',
+          role: '',
+        };
+        
+        // This effectively "registers" the user in our database.
+        setDocumentNonBlocking(profileDocRef, defaultProfile, { merge: true });
+        
+        toast({
+          title: 'Welcome to TeamSync!',
+          description: "We've created a profile for you. Please review and save any changes.",
+        });
+      };
+
+      handleCreateProfile();
+    }
+  }, [firestore, authUser, isProfileLoading, profile, toast]);
+
 
   const handleProfileSave = React.useCallback(
     (newProfile: PlayerProfileData) => {
