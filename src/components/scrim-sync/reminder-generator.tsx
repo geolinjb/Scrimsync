@@ -86,7 +86,8 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
         return;
     }
 
-    const profileMap = new Map(allProfiles.map(p => [p.id, p.username]));
+    const profileIdMap = new Map(allProfiles.map(p => [p.id, p]));
+    const profileUsernameMap = new Map(allProfiles.map(p => [p.username, p]));
     const allPlayerNames = allProfiles.map(p => p.username).filter(Boolean) as string[];
 
     // Logic to get players
@@ -96,7 +97,7 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
 
     const eventOverrides = availabilityOverrides.filter(o => o.eventId === eventId);
     const possiblyAvailablePlayerUsernames = eventOverrides
-        .map(o => profileMap.get(o.userId))
+        .map(o => profileIdMap.get(o.userId)?.username)
         .filter((name): name is string => !!name);
 
     const unavailablePlayers = allPlayerNames.filter(p => !availablePlayers.includes(p) && !possiblyAvailablePlayerUsernames.includes(p));
@@ -106,6 +107,18 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
     // Time formatting
     const timeRemaining = formatTimeRemaining(new Date(event.date), event.time);
 
+    const formatPlayerList = (players: string[]) => {
+      if (players.length === 0) return '> - *None*';
+      return players
+        .map(p => {
+          const profile = profileUsernameMap.get(p);
+          if (profile?.rosterStatus === 'Main Roster') return `- ${p} (Main)`;
+          if (profile?.rosterStatus === 'Standby Player') return `- ${p} (Standby)`;
+          return `- ${p}`;
+        })
+        .join('\n');
+    };
+
     // Message construction (Discord Markdown)
     const header = `**🔔 REMINDER: ${event.type.toUpperCase()} @Spartan [Tour chad]! 🔔**`;
     const eventInfo = `> **When:** ${formattedDate} at **${event.time}** (Starts in ~${timeRemaining})`;
@@ -113,13 +126,13 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
     const rosterHeader = `--- \n**ROSTER (${totalAvailable}/${MINIMUM_PLAYERS})**`;
     
     const availableHeader = `✅ **Available Players (${availablePlayers.length}):**`;
-    const availableList = availablePlayers.length > 0 ? availablePlayers.map(p => `- ${p}`).join('\n') : '> - *None yet*';
+    const availableList = availablePlayers.length > 0 ? formatPlayerList(availablePlayers) : '> - *None yet*';
     
     const possiblyAvailableHeader = `🤔 **Possibly Available (${possiblyAvailablePlayerUsernames.length}):**`;
-    const possiblyAvailableList = possiblyAvailablePlayerUsernames.length > 0 ? possiblyAvailablePlayerUsernames.map(p => `- ${p}`).join('\n') : '> - *None*';
+    const possiblyAvailableList = formatPlayerList(possiblyAvailablePlayerUsernames);
 
     const unavailableHeader = `❌ **Unavailable Players (${unavailablePlayers.length}):**`;
-    const unavailableList = unavailablePlayers.length > 0 ? unavailablePlayers.map(p => `- ${p}`).join('\n') : '> - *Everyone is available!*';
+    const unavailableList = unavailablePlayers.length > 0 ? formatPlayerList(unavailablePlayers) : '> - *Everyone is available!*';
     
     const neededText = `🔥 **Players Needed: ${neededPlayers}**`;
     const imageLine = event.imageURL ? `\n${event.imageURL}` : '';
