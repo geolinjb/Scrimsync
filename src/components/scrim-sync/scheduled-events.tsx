@@ -368,6 +368,49 @@ export function ScheduledEvents({ events, allEventVotes, userEventVotes, onEvent
                                                         </Alert>
                                                     )}
 
+                                                    {canManage && (
+                                                        <div className="p-2 bg-muted rounded-md flex items-center justify-end gap-2 border">
+                                                            <span className="text-sm font-medium mr-auto text-muted-foreground">Admin Actions</span>
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleToggleCancel(event)}>
+                                                                        {isCancelled ? <Undo2 className="w-4 h-4 text-green-500" /> : <CalendarX2 className="w-4 h-4 text-destructive" />}
+                                                                    </Button>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent><p>{isCancelled ? 'Reactivate Event' : 'Cancel Event'}</p></TooltipContent>
+                                                            </Tooltip>
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleUploadClick(event.id)} disabled={currentUpload?.isUploading || isCancelled}>
+                                                                        {currentUpload?.isUploading ? <Loader className='w-4 h-4 animate-spin' /> : <UploadCloud className="w-4 h-4" />}
+                                                                    </Button>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent><p>Upload Image</p></TooltipContent>
+                                                            </Tooltip>
+                                                            <AlertDialog>
+                                                                <Tooltip>
+                                                                    <TooltipTrigger asChild>
+                                                                        <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive hover:text-destructive h-8 w-8"><Trash2 className="w-4 h-4" /></Button></AlertDialogTrigger>
+                                                                    </TooltipTrigger>
+                                                                    <TooltipContent><p>Delete Event</p></TooltipContent>
+                                                                </Tooltip>
+                                                                <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete the scheduled {event.type.toLowerCase()}. This action cannot be undone.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                                <AlertDialogAction onClick={() => {
+                                                                    if (!firestore) return;
+                                                                    const notificationsRef = collection(firestore, 'appNotifications');
+                                                                    addDocumentNonBlocking(notificationsRef, {
+                                                                        message: `${event.type} on ${format(new Date(event.date), 'd MMM, yyyy')} at ${event.time} was deleted.`,
+                                                                        icon: 'Trash2',
+                                                                        createdBy: currentUser?.displayName ?? 'Admin',
+                                                                        timestamp: new Date().toISOString(),
+                                                                    });
+                                                                    onRemoveEvent(event.id);
+                                                                }} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+                                                                </AlertDialogFooter></AlertDialogContent>
+                                                            </AlertDialog>
+                                                        </div>
+                                                    )}
+
                                                     {event.imageURL && (
                                                         <div className="relative aspect-video w-full rounded-md overflow-hidden border">
                                                             <Image src={event.imageURL} alt={`Screenshot for ${event.type}`} fill objectFit='cover' />
@@ -470,48 +513,6 @@ export function ScheduledEvents({ events, allEventVotes, userEventVotes, onEvent
                                                                 </TooltipTrigger>
                                                                 <TooltipContent><p>Copy Roster</p></TooltipContent>
                                                             </Tooltip>
-                                                            
-                                                            {canManage && (
-                                                                <>
-                                                                <Tooltip>
-                                                                    <TooltipTrigger asChild>
-                                                                        <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleToggleCancel(event)}>
-                                                                            {isCancelled ? <Undo2 className="w-4 h-4 text-green-500" /> : <CalendarX2 className="w-4 h-4 text-destructive" />}
-                                                                        </Button>
-                                                                    </TooltipTrigger>
-                                                                    <TooltipContent><p>{isCancelled ? 'Reactivate Event' : 'Cancel Event'}</p></TooltipContent>
-                                                                </Tooltip>
-                                                                <AlertDialog>
-                                                                    <Tooltip>
-                                                                        <TooltipTrigger asChild>
-                                                                            <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive hover:text-destructive h-8 w-8"><Trash2 className="w-4 h-4" /></Button></AlertDialogTrigger>
-                                                                        </TooltipTrigger>
-                                                                        <TooltipContent><p>Delete Event</p></TooltipContent>
-                                                                    </Tooltip>
-                                                                    <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete the scheduled {event.type.toLowerCase()}. This action cannot be undone.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                                    <AlertDialogAction onClick={() => {
-                                                                        if (!firestore) return;
-                                                                        const notificationsRef = collection(firestore, 'appNotifications');
-                                                                        addDocumentNonBlocking(notificationsRef, {
-                                                                            message: `${event.type} on ${format(new Date(event.date), 'd MMM, yyyy')} at ${event.time} was deleted.`,
-                                                                            icon: 'Trash2',
-                                                                            createdBy: currentUser?.displayName ?? 'Admin',
-                                                                            timestamp: new Date().toISOString(),
-                                                                        });
-                                                                        onRemoveEvent(event.id);
-                                                                    }} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
-                                                                    </AlertDialogFooter></AlertDialogContent>
-                                                                </AlertDialog>
-                                                                <Tooltip>
-                                                                    <TooltipTrigger asChild>
-                                                                        <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleUploadClick(event.id)} disabled={currentUpload?.isUploading || isCancelled}>
-                                                                            {currentUpload?.isUploading ? <Loader className='w-4 h-4 animate-spin' /> : <UploadCloud className="w-4 h-4" />}
-                                                                        </Button>
-                                                                    </TooltipTrigger>
-                                                                    <TooltipContent><p>Upload Image</p></TooltipContent>
-                                                                </Tooltip>
-                                                                </>
-                                                            )}
                                                         </div>
                                                     </div>
                                                 </div>
