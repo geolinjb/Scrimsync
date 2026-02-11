@@ -38,6 +38,7 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
   const { toast } = useToast();
   const [selectedEventId, setSelectedEventId] = React.useState<string>('');
   const [reminderMessage, setReminderMessage] = React.useState<string>('');
+  const [imageToSend, setImageToSend] = React.useState<string | null>(null);
   const [isSending, setIsSending] = React.useState(false);
   const [sendSuccess, setSendSuccess] = React.useState(false);
   const [now, setNow] = React.useState(new Date());
@@ -59,10 +60,13 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
   const generateReminder = (eventId: string) => {
     if (!eventId) {
       setReminderMessage('');
+      setImageToSend(null);
       return;
     }
     const event = upcomingEvents.find(e => e.id === eventId);
     if (!event) return;
+
+    setImageToSend(event.imageURL || null);
     
     const isCancelled = event.status === 'Cancelled';
     const formattedDate = format(new Date(event.date), 'EEEE, d MMMM');
@@ -135,7 +139,6 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
     const unavailableList = unavailablePlayers.length > 0 ? formatPlayerList(unavailablePlayers) : '> - *Everyone is available!*';
     
     const neededText = `🔥 **Players Needed: ${neededPlayers}**`;
-    const imageLine = event.imageURL ? `\n${event.imageURL}` : '';
     const footer = `\n---\nVote or update your availability:\nhttps://scrimsync.vercel.app/`;
 
     const messageParts = [
@@ -154,7 +157,6 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
       unavailableHeader,
       unavailableList,
       footer,
-      imageLine,
     ];
     
     const fullMessage = messageParts.filter(line => line !== null).join('\n');
@@ -175,12 +177,22 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
     setSendSuccess(false);
 
     try {
+      const payload: { content: string; embeds?: { image: { url: string } }[] } = {
+        content: reminderMessage,
+      };
+      
+      if (imageToSend) {
+        payload.embeds = [{
+          image: { url: imageToSend }
+        }];
+      }
+
       const response = await fetch(DISCORD_WEBHOOK_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ content: reminderMessage }),
+        body: JSON.stringify(payload),
       });
 
       if (response.ok) {
