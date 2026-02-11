@@ -30,9 +30,9 @@ service cloud.firestore {
       allow create: if isOwner(userId);
 
       // Users can update only their own non-admin fields. Admins can update anything.
-      allow update: if (isOwner(userId) &&
-                      !request.resource.data.keys().hasAny(['rosterStatus', 'playstyleTags'])
-                    ) || isAdmin();
+      allow update: if isAdmin() || (isOwner(userId) && 
+                      request.resource.data.rosterStatus == resource.data.rosterStatus &&
+                      request.resource.data.playstyleTags == resource.data.playstyleTags);
 
       // Owner or admin can delete user profiles.
       allow delete: if isOwner(userId) || isAdmin();
