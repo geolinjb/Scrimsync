@@ -62,7 +62,8 @@ export function TeamSyncDashboard({ user: authUser }: TeamSyncDashboardProps) {
 
   React.useEffect(() => {
     if (user) {
-      user.getIdTokenResult().then(idTokenResult => {
+      // Pass true to force a refresh of the token, ensuring the latest custom claims are fetched.
+      user.getIdTokenResult(true).then(idTokenResult => {
         const claims = idTokenResult.claims;
         setIsAdmin(claims.admin === true || user.uid === ADMIN_UID);
       });
