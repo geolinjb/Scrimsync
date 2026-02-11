@@ -61,11 +61,8 @@ service cloud.firestore {
       // Any authenticated user can read events.
       allow read: if isSignedIn();
 
-      // Any authenticated user can create an event.
-      allow create: if isSignedIn();
-
-      // Only the event creator or an admin can update or delete an event.
-      allow update, delete: if isOwner(resource.data.creatorId) || isAdmin();
+      // Only an admin can create, update or delete an event.
+      allow create, update, delete: if isAdmin();
     }
 
     /**
@@ -86,8 +83,8 @@ service cloud.firestore {
     match /appNotifications/{notificationId} {
         // Any authenticated user can read notifications.
         allow read: if isSignedIn();
-        // Any authenticated user can create a notification (e.g., by creating an event).
-        allow create: if isSignedIn();
+        // Only admins can create notifications.
+        allow create: if isAdmin();
         // Only admins can update or delete notifications to manage the feed.
         allow update, delete: if isAdmin();
     }
