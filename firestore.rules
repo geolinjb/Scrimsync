@@ -31,7 +31,7 @@ service cloud.firestore {
 
       // Users can update only their own non-admin fields. Admins can update anything.
       allow update: if (isOwner(userId) &&
-                      request.resource.data.diff(resource.data).affectedKeys().hasOnly(['username', 'photoURL', 'favoriteTank', 'role', 'lastNotificationReadTimestamp'])
+                      !request.resource.data.keys().hasAny(['rosterStatus', 'playstyleTags'])
                     ) || isAdmin();
 
       // Owner or admin can delete user profiles.
@@ -75,10 +75,8 @@ service cloud.firestore {
     match /availabilityOverrides/{overrideId} {
         // Any authenticated user can read overrides.
         allow read: if isSignedIn();
-        // Only admins can create or update overrides.
-        allow create, update: if isAdmin();
-        // Admin or owner of the override can delete it.
-        allow delete: if isAdmin() || isOwner(resource.data.userId);
+        // Only admins can create, update, or delete overrides.
+        allow create, update, delete: if isAdmin();
     }
 
     /**

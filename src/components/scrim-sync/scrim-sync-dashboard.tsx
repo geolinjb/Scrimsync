@@ -137,7 +137,7 @@ export function TeamSyncDashboard({ user: authUser }: TeamSyncDashboardProps) {
       setIsSavingProfile(true);
       const profileDocRef = doc(firestore, 'users', authUser.uid);
       
-      const dataToSave = { ...newProfile, id: authUser.uid };
+      const dataToSave = { ...newProfile };
       
       setDocumentNonBlocking(profileDocRef, dataToSave, { merge: true });
 

@@ -31,11 +31,11 @@ service cloud.firestore {
 
       // Users can update only their own non-admin fields. Admins can update anything.
       allow update: if (isOwner(userId) &&
-                      request.resource.data.diff(resource.data).affectedKeys().hasOnly(['username', 'photoURL', 'favoriteTank', 'role', 'lastNotificationReadTimestamp'])
+                      !request.resource.data.keys().hasAny(['rosterStatus', 'playstyleTags'])
                     ) || isAdmin();
 
-      // Only admins can delete user profiles.
-      allow delete: if isAdmin();
+      // Owner or admin can delete user profiles.
+      allow delete: if isOwner(userId) || isAdmin();
     }
 
     /**

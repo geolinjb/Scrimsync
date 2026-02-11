@@ -250,7 +250,7 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
           <CardTitle>Reminder Generator</CardTitle>
         </div>
         <CardDescription>
-          Select an event to generate and send a formatted reminder to Discord.
+          Select an event to generate a reminder. Images can be attached to events via the "Upcoming Events" list above.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
