@@ -736,6 +736,7 @@ const hasLastWeekVotes = React.useMemo(() => {
                               onRemoveEvent={handleRemoveEvent}
                               allVotesData={allVotesData}
                               currentUser={authUser}
+                              isAdmin={canSeeAdminPanel}
                           />
                       </TabsContent>
                       )}

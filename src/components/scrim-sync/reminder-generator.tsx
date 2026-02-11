@@ -2,7 +2,13 @@
 
 import * as React from 'react';
 import { format, startOfToday, differenceInMinutes } from 'date-fns';
-import { Send, Megaphone, Check, Loader } from 'lucide-react';
+import { Send, Megaphone, Check, Loader, UploadCloud, Image as ImageIcon } from 'lucide-react';
+import Image from 'next/image';
+import type { User as AuthUser } from 'firebase/auth';
+import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL, type UploadTask } from "firebase/storage";
+import { doc, setDoc } from 'firebase/firestore';
+
+
 import type { AllVotes, PlayerProfileData, ScheduleEvent, AvailabilityOverride } from '@/lib/types';
 import { MINIMUM_PLAYERS } from '@/lib/types';
 import {
@@ -24,24 +30,35 @@ import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '../ui/separator';
+import { useFirebaseApp, useFirestore } from '@/firebase';
+import { Progress } from '../ui/progress';
 
 type ReminderGeneratorProps = {
   events: ScheduleEvent[] | null;
   allVotes: AllVotes;
   allProfiles: PlayerProfileData[];
   availabilityOverrides: AvailabilityOverride[];
+  isAdmin: boolean;
+  currentUser: AuthUser | null;
 };
 
 const DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1454808762475872358/vzp7fiSxE7THIR5sc6npnuAG2TVl_B3fikdS_WgZFnzxQmejMJylsYafopfEkzU035Yt";
 
-export function ReminderGenerator({ events, allVotes, allProfiles, availabilityOverrides }: ReminderGeneratorProps) {
+export function ReminderGenerator({ events, allVotes, allProfiles, availabilityOverrides, isAdmin, currentUser }: ReminderGeneratorProps) {
   const { toast } = useToast();
+  const firestore = useFirestore();
+  const firebaseApp = useFirebaseApp();
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
   const [selectedEventId, setSelectedEventId] = React.useState<string>('');
   const [reminderMessage, setReminderMessage] = React.useState<string>('');
   const [imageToSend, setImageToSend] = React.useState<string | null>(null);
   const [isSending, setIsSending] = React.useState(false);
   const [sendSuccess, setSendSuccess] = React.useState(false);
   const [now, setNow] = React.useState(new Date());
+
+  const [uploadProgress, setUploadProgress] = React.useState<number | null>(null);
+  const isUploading = uploadProgress !== null;
 
   React.useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 60000);
@@ -56,6 +73,16 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
       .filter(event => new Date(event.date) >= today)
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [events]);
+
+    const selectedEvent = React.useMemo(() => {
+        if (!selectedEventId || !events) return null;
+        return events.find(e => e.id === selectedEventId);
+    }, [selectedEventId, events]);
+
+    const canManageEvent = React.useMemo(() => {
+        if (!selectedEvent || !currentUser) return false;
+        return isAdmin || currentUser.uid === selectedEvent.creatorId;
+    }, [selectedEvent, currentUser, isAdmin]);
 
   const generateReminder = (eventId: string) => {
     if (!eventId) {
@@ -165,6 +192,13 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
     setSendSuccess(false);
   };
   
+    React.useEffect(() => {
+        // This effect will re-generate the reminder when the event data (like imageURL) changes.
+        if (selectedEventId) {
+            generateReminder(selectedEventId);
+        }
+    }, [events, selectedEventId]); // Rerun when events list changes
+
   const handleEventChange = (eventId: string) => {
     setSelectedEventId(eventId);
     generateReminder(eventId);
@@ -242,6 +276,65 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
     return result.join(' ') || 'Now';
   };
 
+  const handleUploadClick = () => {
+    if (!currentUser) {
+        toast({ variant: 'destructive', title: 'Authentication Error', description: 'You must be logged in to upload an image.' });
+        return;
+    }
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !firebaseApp || !currentUser || !selectedEventId || !firestore) {
+        toast({ variant: 'destructive', title: 'Upload Error', description: 'Could not start upload. Select an event first.' });
+        return;
+    }
+    
+    const eventId = selectedEventId;
+
+    if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        toast({ variant: 'destructive', title: 'File Too Large', description: 'Please select an image smaller than 5MB.' });
+        return;
+    }
+
+    setUploadProgress(0);
+
+    try {
+        const storage = getStorage(firebaseApp);
+        const filePath = `event-images/${eventId}/${file.name}`;
+        const fileRef = storageRef(storage, filePath);
+        const uploadTask: UploadTask = uploadBytesResumable(fileRef, file);
+
+        uploadTask.on('state_changed',
+            (snapshot) => {
+                const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                setUploadProgress(progress);
+            }
+        );
+        
+        await uploadTask;
+
+        const imageURL = await getDownloadURL(uploadTask.snapshot.ref);
+        const eventDocRef = doc(firestore, 'scheduledEvents', eventId);
+        
+        await setDoc(eventDocRef, { imageURL }, { merge: true });
+
+        toast({ title: 'Image Uploaded!', description: 'The event image has been updated and will appear in the preview shortly.' });
+        
+    } catch (error) {
+        console.error("Error uploading file or updating doc:", error);
+         toast({
+            variant: 'destructive',
+            title: 'Upload Failed',
+            description: 'Could not upload the image or save the link. You may not have permission.',
+        });
+    } finally {
+        setUploadProgress(null);
+        if(fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -250,7 +343,7 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
           <CardTitle>Reminder Generator</CardTitle>
         </div>
         <CardDescription>
-          Select an event to generate a reminder. Images can be attached to events via the "Upcoming Events" list above.
+          Select an event to generate a reminder. You can upload an image which will be embedded in the Discord message.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -271,6 +364,35 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
             )}
           </SelectContent>
         </Select>
+
+        {selectedEventId && (
+            <>
+                <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/png, image/jpeg, image/gif" className="hidden" />
+                <Separator />
+                <div className="space-y-2">
+                    <h4 className='text-sm font-medium'>Event Image</h4>
+                    {imageToSend ? (
+                        <div className="relative aspect-video w-full rounded-md overflow-hidden border">
+                            <Image src={imageToSend} alt="Event image" fill objectFit="cover" />
+                        </div>
+                    ) : (
+                        <div className="flex items-center justify-center text-sm text-muted-foreground border-2 border-dashed rounded-lg h-32">
+                            <ImageIcon className="w-6 h-6 mr-2" />
+                            No image attached to this event.
+                        </div>
+                    )}
+                    {canManageEvent && (
+                        <div className="pt-2 space-y-2">
+                            <Button onClick={handleUploadClick} disabled={isUploading} variant="outline" className="w-full">
+                                {isUploading ? <Loader className='w-4 h-4 animate-spin mr-2' /> : <UploadCloud className='w-4 h-4 mr-2'/>}
+                                {isUploading ? `Uploading... ${Math.round(uploadProgress!)}%` : (imageToSend ? 'Change Image' : 'Upload Image')}
+                            </Button>
+                            {isUploading && <Progress value={uploadProgress} className="h-2" />}
+                        </div>
+                    )}
+                </div>
+            </>
+        )}
         
         {reminderMessage && (
             <div className='space-y-2'>

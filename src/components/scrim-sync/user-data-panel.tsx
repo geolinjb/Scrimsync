@@ -57,9 +57,10 @@ type UserDataPanelProps = {
   onRemoveEvent: (eventId: string) => void;
   allVotesData: Vote[] | null;
   currentUser: AuthUser | null;
+  isAdmin: boolean;
 };
 
-export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent, allVotesData, currentUser }: UserDataPanelProps) {
+export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent, allVotesData, currentUser, isAdmin }: UserDataPanelProps) {
   const { toast } = useToast();
   const firestore = useFirestore();
   const [isDeleting, setIsDeleting] = React.useState(false);
@@ -694,6 +695,8 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent, a
             allVotes={allVotes}
             allProfiles={allProfiles || []} 
             availabilityOverrides={availabilityOverrides || []}
+            isAdmin={isAdmin}
+            currentUser={currentUser}
         />
         
         <Card>
