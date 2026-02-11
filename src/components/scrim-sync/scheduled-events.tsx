@@ -342,7 +342,7 @@ export function ScheduledEvents({ events, allEventVotes, userEventVotes, onEvent
                                             <AccordionTrigger>
                                                 <div className="flex justify-between items-center w-full pr-2">
                                                     <div className={cn('flex flex-col items-start text-left', isCancelled && 'opacity-60')}>
-                                                        <div className={cn('flex items-center gap-2', isCancelled && 'line-through')}>
+                                                        <div className={cn('flex flex-wrap items-center gap-2', isCancelled && 'line-through')}>
                                                             <Badge variant={event.type === 'Tournament' ? 'default' : 'secondary'} className={cn(event.type === 'Tournament' && 'bg-gold text-black hover:bg-gold/90')}>
                                                                 {event.type === 'Tournament' && <Trophy className='w-3 h-3 mr-1'/>}
                                                                 {event.type}
@@ -480,12 +480,12 @@ export function ScheduledEvents({ events, allEventVotes, userEventVotes, onEvent
                                                                         {notAttendingProfiles.length > 0 ? (
                                                                             <ul className='space-y-2'>
                                                                                 {notAttendingProfiles.map(profile => (
-                                                                                    <li key={profile.id} className='flex items-center justify-between'>
+                                                                                    <li key={profile.id} className='flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between'>
                                                                                         <div className='flex items-center gap-3'>
                                                                                             <Avatar className="h-8 w-8 opacity-60"><AvatarImage src={profile?.photoURL ?? `https://api.dicebear.com/8.x/pixel-art/svg?seed=${profile?.id}`} /><AvatarFallback>{profile.username.charAt(0).toUpperCase()}</AvatarFallback></Avatar>
                                                                                             <span className="text-muted-foreground">{profile.username}</span>
                                                                                         </div>
-                                                                                        <Button size="sm" variant="outline" onClick={() => handleOverride(event.id, profile.id, 'add')} disabled={isCancelled}>
+                                                                                        <Button size="sm" variant="outline" onClick={() => handleOverride(event.id, profile.id, 'add')} disabled={isCancelled} className="w-full sm:w-auto">
                                                                                             <UserPlus className="w-4 h-4 mr-2"/>
                                                                                             Set as 'Possibly Available'
                                                                                         </Button>
