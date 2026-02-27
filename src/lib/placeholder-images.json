@@ -1,6 +1,12 @@
 {
   "placeholderImages": [
     {
+      "id": "tank-snow-training",
+      "description": "Tank Training - Snowy Ridge",
+      "imageUrl": "https://images.unsplash.com/photo-1599387118329-f8df6f8090a9?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHx0YW5rJTIwc25vd3xlbnwwfHx8fDE3NzIyMDMxOTd8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "tank snow"
+    },
+    {
       "id": "gaming-setup",
       "description": "Professional Gaming Setup",
       "imageUrl": "https://images.unsplash.com/photo-1617507171089-6cb9aa5add36?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxnYW1pbmclMjBzZXR1cHxlbnwwfHx8fDE3NzIxNTI3NDl8MA&ixlib=rb-4.1.0&q=80&w=1080",
