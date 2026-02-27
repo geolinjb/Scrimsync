@@ -1,31 +1,29 @@
 'use client';
 
 import * as React from 'react';
-import { format, startOfToday, differenceInMinutes, isToday } from 'date-fns';
-import { CalendarCheck, Trash2, Trophy, UploadCloud, Loader, CalendarX2, Undo2, Ban, Vote, Check } from 'lucide-react';
+import { format, startOfToday, isToday } from 'date-fns';
+import { CalendarCheck, Trash2, UploadCloud, Loader, CalendarX2, Undo2, Ban, Vote, Check, Send, Sparkles } from 'lucide-react';
 import type { User } from 'firebase/auth';
-import { collection, doc, setDoc, deleteDoc } from 'firebase/firestore';
-import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL, type UploadTask } from "firebase/storage";
+import { collection, doc, setDoc } from 'firebase/firestore';
+import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import Image from 'next/image';
 
-import type { ScheduleEvent, PlayerProfileData, AvailabilityOverride } from '@/lib/types';
+import type { ScheduleEvent, PlayerProfileData } from '@/lib/types';
 import { MINIMUM_PLAYERS } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { ScrollArea, ScrollBar } from '../ui/scroll-area';
 import { cn } from '@/lib/utils';
-import { useCollection, useFirestore, useMemoFirebase, useFirebaseApp, errorEmitter, FirestorePermissionError } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase, useFirebaseApp } from '@/firebase';
 import { Progress } from '../ui/progress';
-import { Separator } from '../ui/separator';
-import { Alert, AlertTitle, AlertDescription } from '../ui/alert';
+import { Alert, AlertTitle } from '../ui/alert';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 import { Skeleton } from '../ui/skeleton';
+import { DISCORD_WEBHOOK_URL } from '@/lib/config';
 
 type ScheduledEventsProps = {
   events: ScheduleEvent[];
@@ -40,9 +38,9 @@ type ScheduledEventsProps = {
 export function ScheduledEvents({ events, allEventVotes, userEventVotes, onEventVoteTrigger, onRemoveEvent, currentUser, isAdmin }: ScheduledEventsProps) {
     const { toast } = useToast();
     const [mounted, setMounted] = React.useState(false);
-    const [now, setNow] = React.useState(new Date());
     const [uploadingEventId, setUploadingEventId] = React.useState<string | null>(null);
     const [uploadProgress, setUploadProgress] = React.useState(0);
+    const [isSendingReady, setIsSendingReady] = React.useState<string | null>(null);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
     const firestore = useFirestore();
@@ -54,8 +52,6 @@ export function ScheduledEvents({ events, allEventVotes, userEventVotes, onEvent
 
     React.useEffect(() => {
         setMounted(true);
-        const timer = setInterval(() => setNow(new Date()), 60000);
-        return () => clearInterval(timer);
     }, []);
     
     const upcomingEvents = React.useMemo(() => events
@@ -96,7 +92,40 @@ export function ScheduledEvents({ events, allEventVotes, userEventVotes, onEvent
         });
     };
 
-    if (!mounted) return <Card><CardHeader><Skeleton className="h-8 w-1/3" /></CardHeader></Card>;
+    const handleSendRosterReady = async (event: ScheduleEvent, players: string[]) => {
+        setIsSendingReady(event.id);
+        const formattedDate = format(new Date(event.date), 'EEEE, d MMMM');
+        const mention = event.discordRoleId ? `<@&${event.discordRoleId}> ` : '';
+        
+        const playerTags = players.map(name => {
+            const prof = profileMap.get(name);
+            return prof?.discordUsername || name;
+        });
+
+        const message = `${mention}✅ **ROSTER READY!** ✅\n> The **${event.type}** on ${formattedDate} at **${event.time}** is officially ready with ${players.length} players!\n\n**Squad:**\n${playerTags.map(p => `- ${p}`).join('\n')}\n\n---\nhttps://scrimsync.vercel.app/`;
+
+        try {
+            const res = await fetch(DISCORD_WEBHOOK_URL, { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify({ content: message }) 
+            });
+            if (res.ok) {
+                toast({ title: 'Roster Ready Alert Sent!' });
+            }
+        } catch (error) {
+            toast({ variant: 'destructive', title: 'Failed to send alert' });
+        } finally {
+            setIsSendingReady(null);
+        }
+    };
+
+    if (!mounted) return (
+        <Card>
+            <CardHeader><div className="flex items-center gap-3"><CalendarCheck className="w-6 h-6 text-gold" /><CardTitle>Upcoming Events</CardTitle></div></CardHeader>
+            <CardContent><Skeleton className="h-[200px] w-full" /></CardContent>
+        </Card>
+    );
 
     return (
         <Card>
@@ -110,6 +139,8 @@ export function ScheduledEvents({ events, allEventVotes, userEventVotes, onEvent
                                 const isVoted = userEventVotes.has(event.id);
                                 const availablePlayers = allEventVotes[event.id] || [];
                                 const isCancelled = event.status === 'Cancelled';
+                                const isRosterFull = availablePlayers.length >= MINIMUM_PLAYERS;
+
                                 return (
                                     <AccordionItem key={event.id} value={event.id}>
                                         <AccordionTrigger className="px-4">
@@ -119,6 +150,11 @@ export function ScheduledEvents({ events, allEventVotes, userEventVotes, onEvent
                                                         <Badge className={cn(event.type === 'Tournament' && 'bg-gold text-black')}>{event.type}</Badge>
                                                         <span className="font-bold">{format(new Date(event.date), 'EEE, d MMM')}</span>
                                                         {isToday(new Date(event.date)) && <Badge variant="outline">Today</Badge>}
+                                                        {isRosterFull && !isCancelled && (
+                                                            <Badge variant="secondary" className="bg-primary/20 text-primary border-primary/30 flex items-center gap-1">
+                                                                <Check className="w-3 h-3" /> Ready
+                                                            </Badge>
+                                                        )}
                                                     </div>
                                                     <span className="text-sm text-muted-foreground">{event.time}</span>
                                                 </div>
@@ -127,6 +163,25 @@ export function ScheduledEvents({ events, allEventVotes, userEventVotes, onEvent
                                         </AccordionTrigger>
                                         <AccordionContent className="px-4 space-y-4">
                                             {isCancelled && <Alert variant="destructive"><Ban className="h-4 w-4" /><AlertTitle>Cancelled</AlertTitle></Alert>}
+                                            {isRosterFull && !isCancelled && (
+                                                <Alert className="bg-primary/5 border-primary/20">
+                                                    <Sparkles className="h-4 w-4 text-primary" />
+                                                    <AlertTitle className="text-primary font-bold">Roster is Ready!</AlertTitle>
+                                                    <div className="mt-2 flex items-center justify-between gap-4">
+                                                        <p className="text-xs text-muted-foreground">This event has reached the minimum of {MINIMUM_PLAYERS} players.</p>
+                                                        {isAdmin && (
+                                                            <Button 
+                                                                size="sm" 
+                                                                onClick={() => handleSendRosterReady(event, availablePlayers)}
+                                                                disabled={isSendingReady === event.id}
+                                                            >
+                                                                {isSendingReady === event.id ? <Loader className="animate-spin w-4 h-4 mr-2" /> : <Send className="w-4 h-4 mr-2" />}
+                                                                Notify Discord
+                                                            </Button>
+                                                        )}
+                                                    </div>
+                                                </Alert>
+                                            )}
                                             {isAdmin && (
                                                 <div className="flex justify-end gap-2 p-2 bg-muted rounded">
                                                     <Button variant="outline" size="sm" onClick={() => handleToggleCancel(event)}>{isCancelled ? <Undo2 className="h-4 w-4" /> : <CalendarX2 className="h-4 w-4" />}</Button>

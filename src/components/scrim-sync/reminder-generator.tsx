@@ -30,6 +30,7 @@ import { Textarea } from '../ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebaseApp, useFirestore } from '@/firebase';
 import { Separator } from '../ui/separator';
+import { DISCORD_WEBHOOK_URL } from '@/lib/config';
 
 type ReminderGeneratorProps = {
   events: ScheduleEvent[] | null;
@@ -39,8 +40,6 @@ type ReminderGeneratorProps = {
   isAdmin: boolean;
   currentUser: AuthUser | null;
 };
-
-const DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1454808762475872358/vzp7fiSxE7THIR5sc6npnuAG2TVl_B3fikdS_WgZFnzxQmejMJylsYafopfEkzU035Yt";
 
 export function ReminderGenerator({ events, allVotes, allProfiles, availabilityOverrides, isAdmin, currentUser }: ReminderGeneratorProps) {
   const { toast } = useToast();
