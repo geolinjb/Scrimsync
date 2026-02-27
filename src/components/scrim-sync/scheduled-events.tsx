@@ -46,6 +46,7 @@ type UploadState = {
 
 export function ScheduledEvents({ events, allEventVotes, userEventVotes, onEventVoteTrigger, onRemoveEvent, currentUser, isAdmin }: ScheduledEventsProps) {
     const { toast } = useToast();
+    const [mounted, setMounted] = React.useState(false);
     const [now, setNow] = React.useState(new Date());
     const [uploadState, setUploadState] = React.useState<UploadState>({});
     const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -78,6 +79,7 @@ export function ScheduledEvents({ events, allEventVotes, userEventVotes, onEvent
     }, [profiles]);
 
     React.useEffect(() => {
+        setMounted(true);
         const timer = setInterval(() => {
             setNow(new Date());
         }, 60000); // Update every minute
@@ -192,11 +194,6 @@ export function ScheduledEvents({ events, allEventVotes, userEventVotes, onEvent
                 title: 'Upload Failed',
                 description: 'Could not upload the image. You may not have permission.',
             });
-            const permissionError = new FirestorePermissionError({
-                path: `event-images/${eventId}/${file.name}`,
-                operation: 'write',
-            });
-            errorEmitter.emit('permission-error', permissionError);
         } finally {
             setUploadState(prev => ({ ...prev, [eventId]: { isUploading: false, progress: 0 } }));
             setSelectedEventIdForUpload(null);
@@ -256,7 +253,7 @@ export function ScheduledEvents({ events, allEventVotes, userEventVotes, onEvent
         const availableHeader = `✅ Available Players (${availablePlayers.length}):`;
         const availableList = formatPlayerList(availablePlayers, profileMap);
         
-        const possiblyAvailableHeader = `🤔 Possibly Available (${possiblyAvailableUsernames.length}):`;
+        const possiblyAvailableHeader = `🤔 Possibly Available (${possiblyAvailablePlayers.length}):`;
         const possiblyAvailableList = formatPlayerList(possiblyAvailableUsernames, profileMap);
         
         const neededText = `🔥 Players Needed: ${neededPlayers}`;
@@ -301,6 +298,16 @@ export function ScheduledEvents({ events, allEventVotes, userEventVotes, onEvent
                 errorEmitter.emit('permission-error', permissionError);
             });
         }
+    }
+
+    if (!mounted) {
+      return (
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-8 w-1/3" />
+          </CardHeader>
+        </Card>
+      );
     }
 
     return (
@@ -397,13 +404,6 @@ export function ScheduledEvents({ events, allEventVotes, userEventVotes, onEvent
                                                                 <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete the scheduled {event.type.toLowerCase()}. This action cannot be undone.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel>
                                                                 <AlertDialogAction onClick={() => {
                                                                     if (!firestore) return;
-                                                                    const notificationsRef = collection(firestore, 'appNotifications');
-                                                                    addDocumentNonBlocking(notificationsRef, {
-                                                                        message: `${event.type} on ${format(new Date(event.date), 'd MMM, yyyy')} at ${event.time} was deleted.`,
-                                                                        icon: 'Trash2',
-                                                                        createdBy: currentUser?.displayName ?? 'Admin',
-                                                                        timestamp: new Date().toISOString(),
-                                                                    });
                                                                     onRemoveEvent(event.id);
                                                                 }} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
                                                                 </AlertDialogFooter></AlertDialogContent>
@@ -413,7 +413,7 @@ export function ScheduledEvents({ events, allEventVotes, userEventVotes, onEvent
 
                                                     {event.imageURL && (
                                                         <div className="relative aspect-video w-full rounded-md overflow-hidden border">
-                                                            <Image src={event.imageURL} alt={`Screenshot for ${event.type}`} fill objectFit='cover' />
+                                                            <Image src={event.imageURL} alt={`Screenshot for ${event.type}`} fill style={{ objectFit: 'cover' }} />
                                                         </div>
                                                     )}
                                                     

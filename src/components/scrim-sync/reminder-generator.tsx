@@ -50,6 +50,7 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
   const firebaseApp = useFirebaseApp();
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
+  const [mounted, setMounted] = React.useState(false);
   const [selectedEventId, setSelectedEventId] = React.useState<string>('');
   const [reminderMessage, setReminderMessage] = React.useState<string>('');
   const [imageToSend, setImageToSend] = React.useState<string | null>(null);
@@ -61,6 +62,7 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
   const isUploading = uploadProgress !== null;
 
   React.useEffect(() => {
+    setMounted(true);
     const timer = setInterval(() => setNow(new Date()), 60000);
     return () => clearInterval(timer);
   }, []);
@@ -151,8 +153,8 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
     };
 
     // Message construction (Discord Markdown)
-    const header = `**🔔 REMINDER: ${event.type.toUpperCase()} @Spartan [Tour chad]! 🔔**`;
-    const eventInfo = `> **When:** ${formattedDate} at **${event.time}** (Starts in ~${timeRemaining})`;
+    const header = `**🔔 REMINDER: ${event.type.toUpperCase()}! 🔔**`;
+    const eventInfo = `> **When:** ${formattedDate} at **${event.time}** (Starts ${timeRemaining})`;
     const descriptionLine = event.description ? `> **Notes:** ${event.description}` : null;
     const rosterHeader = `--- \n**ROSTER (${totalAvailable}/${MINIMUM_PLAYERS})**`;
     
@@ -252,7 +254,9 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
   };
 
   const formatTimeRemaining = (eventDate: Date, eventTime: string) => {
+    if (!mounted) return 'soon';
     const [time, modifier] = eventTime.split(' ');
+    if (!time) return 'soon';
     let [hours, minutes] = time.split(':').map(Number);
 
     if (modifier === 'PM' && hours !== 12) hours += 12;
@@ -268,12 +272,12 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
     const hoursLeft = Math.floor((totalMinutes % 1440) / 60);
     const minutesLeft = totalMinutes % 60;
     
-    let result = [];
-    if (days > 0) result.push(`${days}d`);
-    if (hoursLeft > 0) result.push(`${hoursLeft}h`);
-    if (days === 0 && minutesLeft > 0) result.push(`${minutesLeft}m`);
+    let result = 'in';
+    if (days > 0) result += ` ${days}d`;
+    if (hoursLeft > 0) result += ` ${hoursLeft}h`;
+    if (days === 0 && minutesLeft > 0) result += ` ${minutesLeft}m`;
     
-    return result.join(' ') || 'Now';
+    return result === 'in' ? 'starting now' : result;
   };
 
   const handleUploadClick = () => {
@@ -335,6 +339,8 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
     }
   };
 
+  if (!mounted) return null;
+
   return (
     <Card>
       <CardHeader>
@@ -373,7 +379,7 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
                     <h4 className='text-sm font-medium'>Event Image</h4>
                     {imageToSend ? (
                         <div className="relative aspect-video w-full rounded-md overflow-hidden border">
-                            <Image src={imageToSend} alt="Event image" fill objectFit="cover" />
+                            <Image src={imageToSend} alt="Event image" fill style={{ objectFit: 'cover' }} />
                         </div>
                     ) : (
                         <div className="flex items-center justify-center text-sm text-muted-foreground border-2 border-dashed rounded-lg h-32">

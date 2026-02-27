@@ -49,16 +49,25 @@ export function TeamSyncDashboard({ user: authUser }: TeamSyncDashboardProps) {
   const { toast } = useToast();
   const firestore = useFirestore();
 
-  const [currentDate, setCurrentDate] = React.useState(() => new Date());
+  const [mounted, setMounted] = React.useState(false);
+  const [currentDate, setCurrentDate] = React.useState<Date>(new Date());
   const [isAdmin, setIsAdmin] = React.useState(false);
   const [activeTab, setActiveTab] = React.useState('daily');
-  const [dayOffset, setDayOffset] = React.useState(() => (new Date().getDay() + 6) % 7);
+  const [dayOffset, setDayOffset] = React.useState(0);
   
   const [isSavingProfile, setIsSavingProfile] = React.useState(false);
   const [eventToVoteOn, setEventToVoteOn] = React.useState<ScheduleEvent | null>(null);
   const [isEventVotingOpen, setIsEventVotingOpen] = React.useState(false);
   
   const { user } = useUser(); // useUser provides the full user object with claims
+
+  // Handle hydration
+  React.useEffect(() => {
+    setMounted(true);
+    const now = new Date();
+    setCurrentDate(now);
+    setDayOffset((now.getDay() + 6) % 7);
+  }, []);
 
   React.useEffect(() => {
     if (user) {
@@ -244,10 +253,7 @@ export function TeamSyncDashboard({ user: authUser }: TeamSyncDashboardProps) {
     const voteId = `${authUser.uid}_${timeslotId}`;
     const voteRef = doc(firestore, 'votes', voteId);
 
-    const isVoted = userCombinedVotes[dateKey]?.has(timeSlot) && !allEventVotes[Object.keys(allEventVotes).find(eventId => {
-        const event = scheduledEvents.find(e => e.id === eventId);
-        return event && format(event.date, 'yyyy-MM-dd') === dateKey && event.time === timeSlot;
-    }) || '']?.some(v => v === profile?.username);
+    const isVoted = userCombinedVotes[dateKey]?.has(timeSlot);
 
 
     if (isVoted) {
@@ -426,20 +432,8 @@ const handleCopyLastWeeksVotes = React.useCallback(async () => {
         const newDateKey = format(newDate, 'yyyy-MM-dd');
         
         const newTimeslotId = `${newDateKey}_${slot}`;
-        let newVoteId: string;
-        let voteExists: boolean;
-
-        if (vote.eventId) {
-            // This logic assumes event IDs are unique and don't carry over weeks.
-            // If events can be recurring, this would need adjustment.
-            // For now, we copy event votes as general availability votes.
-            newVoteId = `${authUser.uid}_${newTimeslotId}`;
-            voteExists = userCombinedVotes[newDateKey]?.has(slot);
-        } else {
-             newVoteId = `${authUser.uid}_${newTimeslotId}`;
-             voteExists = userCombinedVotes[newDateKey]?.has(slot);
-        }
-
+        let newVoteId = `${authUser.uid}_${newTimeslotId}`;
+        let voteExists = userCombinedVotes[newDateKey]?.has(slot);
 
         if (!voteExists) {
             const voteRef = doc(firestore, 'votes', newVoteId);
@@ -541,10 +535,16 @@ const hasLastWeekVotes = React.useMemo(() => {
     setCurrentDate(new Date());
   };
   
-  const isLoading = areEventsLoading || areVotesLoading || areProfilesLoading;
-  
-  const canSeeAdminPanel = isAdmin;
+  if (!mounted) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-background">
+        <Skeleton className="h-12 w-64" />
+      </div>
+    );
+  }
 
+  const isLoading = areEventsLoading || areVotesLoading || areProfilesLoading;
+  const canSeeAdminPanel = isAdmin;
 
   return (
     <>

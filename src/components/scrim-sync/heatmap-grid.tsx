@@ -40,6 +40,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Button } from '../ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '../ui/separator';
+import { Skeleton } from '../ui/skeleton';
 
 type HeatmapGridProps = {
   allVotes: AllVotes;
@@ -69,8 +70,13 @@ export function HeatmapGrid({
   currentDate,
   allProfiles
 }: HeatmapGridProps) {
+  const [mounted, setMounted] = React.useState(false);
   const [selectedSlot, setSelectedSlot] = React.useState<SelectedSlot>(null);
   const { toast } = useToast();
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const profileMap = React.useMemo(() => {
     if (!allProfiles) return new Map();
@@ -183,6 +189,19 @@ export function HeatmapGrid({
   const unavailablePlayers = selectedSlot ? allPlayerNames
     .map(name => profileMap.get(name))
     .filter(profile => profile && !selectedSlot.players.some(p => p.id === profile.id)) : [];
+
+  if (!mounted) {
+    return (
+      <Card>
+        <CardHeader>
+          <Skeleton className="h-8 w-1/3" />
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="h-64 w-full" />
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>
