@@ -27,7 +27,7 @@ import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { useFirebaseApp, useAuth, useFirestore } from '@/firebase';
 import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL, type UploadTask } from 'firebase/storage';
-import { doc, updateDoc, writeBatch, query, where, getDocs, collection } from 'firebase/firestore';
+import { doc, writeBatch, query, where, getDocs, collection } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import {
   Dialog,

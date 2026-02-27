@@ -323,7 +323,7 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent, a
     setSelectedDate(prev => addDays(prev, 7));
   };
 
-  const handleCopyRoster = () => {
+  const handleRosterCopy = () => {
     if (!selectedRosterDate || !selectedRosterTime || !allVotesData || !allProfiles) return;
 
     const formatPlayerList = (players: string[], profileMap: Map<string, PlayerProfileData>) => {
@@ -627,7 +627,7 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent, a
                                 </SelectContent>
                             </Select>
                         </div>
-                        <Button onClick={handleCopyRoster} disabled={!selectedRosterDate || !selectedRosterTime} className='w-full sm:w-auto shrink-0'>
+                        <Button onClick={handleRosterCopy} disabled={!selectedRosterDate || !selectedRosterTime} className='w-full sm:w-auto shrink-0'>
                             <Copy className='w-4 h-4 mr-2' />
                             Copy Roster
                         </Button>

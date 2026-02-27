@@ -14,8 +14,13 @@ service cloud.firestore {
     }
 
     // Helper function to check if the user is an admin, either by custom claim or by being the hardcoded owner.
+    // Includes hardcoded UIDs for the project owners.
     function isAdmin() {
-      return isSignedIn() && (request.auth.token.admin == true || request.auth.uid == 'BpA8qniZ03YttlnTR25nc6RrWrZ2');
+      return isSignedIn() && (
+        request.auth.token.admin == true || 
+        request.auth.uid == 'vcyHNmY9FNQRq5k0pKoTBDr6vBh2' || 
+        request.auth.uid == 'BpA8qniZ03YttlnTR25nc6RrWrZ2'
+      );
     }
 
     /**
@@ -32,6 +37,7 @@ service cloud.firestore {
                       !('playstyleTags' in request.resource.data));
 
       // Users can update only their own non-admin fields. Admins can update anything.
+      // Use diff().affectedKeys() to ensure rosterStatus and playstyleTags are only changed by admins.
       allow update: if isAdmin() || (isOwner(userId) && 
                       !request.resource.data.diff(resource.data).affectedKeys().hasAny(['rosterStatus', 'playstyleTags']));
 
