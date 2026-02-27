@@ -3,9 +3,13 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
 
-    // Helper function to check if a user is an admin, by custom claim or by being the hardcoded owner.
+    // Helper function to check if a user is an admin.
     function isAdmin() {
-      return request.auth != null && (request.auth.token.admin == true || request.auth.uid == 'BpA8qniZ03YttlnTR25nc6RrWrZ2');
+      return request.auth != null && (
+        request.auth.token.admin == true || 
+        request.auth.uid == 'vcyHNmY9FNQRq5k0pKoTBDr6vBh2' || 
+        request.auth.uid == 'BpA8qniZ03YttlnTR25nc6RrWrZ2'
+      );
     }
 
     // Helper function to check if the requesting user is the owner.
@@ -18,25 +22,15 @@ service firebase.storage {
       return get(/databases/$(database)/documents/scheduledEvents/$(eventId)).data.creatorId;
     }
     
-    // Match any file in a user's avatar directory.
     match /avatars/{userId}/{fileName} {
-      // Anyone can read avatars.
       allow read;
-
-      // Only the authenticated user can write to their own avatar path.
-      // File must be an image and less than 5MB.
       allow write: if isOwner(userId)
                    && request.resource.contentType.matches('image/.*')
                    && request.resource.size < 5 * 1024 * 1024;
     }
 
-    // Rules for event-specific images.
     match /event-images/{eventId}/{fileName} {
-      // Anyone can read event images.
       allow read;
-
-      // Allow write only if the user is an admin OR the creator of the event.
-      // File must be an image and less than 5MB.
       allow write: if request.auth != null
                    && (isAdmin() || request.auth.uid == getEventCreatorId(eventId))
                    && request.resource.contentType.matches('image/.*')

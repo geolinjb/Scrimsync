@@ -1,5 +1,3 @@
-
-
 export type ScheduleEvent = {
   id: string;
   type: 'Training' | 'Tournament';

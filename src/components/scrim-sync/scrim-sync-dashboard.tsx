@@ -27,7 +27,7 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { UserDataPanel } from './user-data-panel';
 import { WelcomeInstructions } from './welcome-instructions';
 import { DailyVotingGrid } from './daily-voting-grid';
-import { ADMIN_UID } from '@/lib/config';
+import { ADMIN_UID, FALLBACK_ADMIN_UID } from '@/lib/config';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -50,7 +50,7 @@ export function TeamSyncDashboard({ user: authUser }: TeamSyncDashboardProps) {
   const firestore = useFirestore();
 
   const [mounted, setMounted] = React.useState(false);
-  const [currentDate, setCurrentDate] = React.useState<Date>(new Date());
+  const [currentDate, setCurrentDate] = React.useState<Date | null>(null);
   const [isAdmin, setIsAdmin] = React.useState(false);
   const [activeTab, setActiveTab] = React.useState('daily');
   const [dayOffset, setDayOffset] = React.useState(0);
@@ -59,9 +59,8 @@ export function TeamSyncDashboard({ user: authUser }: TeamSyncDashboardProps) {
   const [eventToVoteOn, setEventToVoteOn] = React.useState<ScheduleEvent | null>(null);
   const [isEventVotingOpen, setIsEventVotingOpen] = React.useState(false);
   
-  const { user } = useUser(); // useUser provides the full user object with claims
+  const { user } = useUser();
 
-  // Handle hydration
   React.useEffect(() => {
     setMounted(true);
     const now = new Date();
@@ -71,21 +70,26 @@ export function TeamSyncDashboard({ user: authUser }: TeamSyncDashboardProps) {
 
   React.useEffect(() => {
     if (user) {
-      // Pass true to force a refresh of the token, ensuring the latest custom claims are fetched.
       user.getIdTokenResult(true).then(idTokenResult => {
         const claims = idTokenResult.claims;
-        setIsAdmin(claims.admin === true || user.uid === ADMIN_UID);
+        setIsAdmin(claims.admin === true || user.uid === ADMIN_UID || user.uid === FALLBACK_ADMIN_UID);
       });
     } else {
         setIsAdmin(false);
     }
   }, [user]);
 
-  // Firestore References
   const profileRef = useMemoFirebase(() => doc(firestore, 'users', authUser.uid), [firestore, authUser.uid]);
   
-  const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
-  const weekEnd = endOfWeek(currentDate, { weekStartsOn: 1 });
+  const weekStart = React.useMemo(() => {
+    if (!currentDate) return new Date();
+    return startOfWeek(currentDate, { weekStartsOn: 1 });
+  }, [currentDate]);
+
+  const weekEnd = React.useMemo(() => {
+    if (!currentDate) return new Date();
+    return endOfWeek(currentDate, { weekStartsOn: 1 });
+  }, [currentDate]);
 
   const eventsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -97,8 +101,6 @@ export function TeamSyncDashboard({ user: authUser }: TeamSyncDashboardProps) {
     return collection(firestore, 'votes');
   }, [firestore]);
 
-
-  // Firestore Hooks
   const { data: profile, isLoading: isProfileLoading } = useDoc<PlayerProfileData>(profileRef);
   
   const allProfilesForHeatmapRef = useMemoFirebase(() => collection(firestore, 'users'), [firestore]);
@@ -112,32 +114,25 @@ export function TeamSyncDashboard({ user: authUser }: TeamSyncDashboardProps) {
     return scheduledEventsData.map(e => ({...e, date: parseISO(e.date)}));
   }, [scheduledEventsData]);
 
-  // Automatically create a profile for new users.
   React.useEffect(() => {
-    if (firestore && authUser && !isProfileLoading && !profile) {
-      // Profile has loaded and is confirmed to not exist, indicating a new user.
-      const handleCreateProfile = () => {
-        const profileDocRef = doc(firestore, 'users', authUser.uid);
-        const defaultProfile: PlayerProfileData = {
-          id: authUser.uid,
-          username: authUser.displayName || `Player${authUser.uid.slice(0, 5)}`,
-          photoURL: authUser.photoURL || '',
-          favoriteTank: '',
-          role: '',
-        };
-        
-        // This effectively "registers" the user in our database.
-        setDocumentNonBlocking(profileDocRef, defaultProfile, { merge: true });
-        
-        toast({
-          title: 'Welcome to TeamSync!',
-          description: "We've created a profile for you. Please review and save any changes.",
-        });
+    if (firestore && authUser && !isProfileLoading && !profile && mounted) {
+      const profileDocRef = doc(firestore, 'users', authUser.uid);
+      const defaultProfile: PlayerProfileData = {
+        id: authUser.uid,
+        username: authUser.displayName || `Player${authUser.uid.slice(0, 5)}`,
+        photoURL: authUser.photoURL || '',
+        favoriteTank: '',
+        role: '',
       };
-
-      handleCreateProfile();
+      
+      setDocumentNonBlocking(profileDocRef, defaultProfile, { merge: true });
+      
+      toast({
+        title: 'Welcome to TeamSync!',
+        description: "We've created a profile for you. Please review and save any changes.",
+      });
     }
-  }, [firestore, authUser, isProfileLoading, profile, toast]);
+  }, [firestore, authUser, isProfileLoading, profile, toast, mounted]);
 
 
   const handleProfileSave = React.useCallback(
@@ -183,7 +178,6 @@ export function TeamSyncDashboard({ user: authUser }: TeamSyncDashboardProps) {
 
             const [dateKey, slot] = vote.timeslot.split('_');
 
-            // Process for event-specific votes
             if (vote.eventId) {
                 if (!allEventVotes[vote.eventId]) {
                     allEventVotes[vote.eventId] = [];
@@ -197,7 +191,6 @@ export function TeamSyncDashboard({ user: authUser }: TeamSyncDashboardProps) {
                 }
             }
             
-            // Process for combined/general votes (for grids)
             const voteKey = `${dateKey}-${slot}`;
 
             if (!allCombinedVotes[voteKey]) {
@@ -283,12 +276,12 @@ export function TeamSyncDashboard({ user: authUser }: TeamSyncDashboardProps) {
         const voteId = `${authUser.uid}_${timeslotId}`;
         const voteRef = doc(firestore, 'votes', voteId);
 
-        if (allSelected) { // Deselect all general votes
+        if (allSelected) {
             const isEventVote = allVotesData?.some(v => v.timeslot === timeslotId && v.userId === authUser.uid && v.eventId);
             if(!isEventVote) {
                 batch.delete(voteRef);
             }
-        } else { // Select all not already selected
+        } else {
             if (!dayVotes.has(slot)) {
                 const voteData: Vote = {
                     id: voteId,
@@ -302,16 +295,12 @@ export function TeamSyncDashboard({ user: authUser }: TeamSyncDashboardProps) {
     });
 
     batch.commit().catch(e => {
-        const permissionError = new FirestorePermissionError({
-            path: 'votes',
-            operation: 'write',
-        });
-        errorEmitter.emit('permission-error', permissionError);
+        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'votes', operation: 'write' }));
     });
   };
 
   const handleVoteAllTime = async (timeSlot: string) => {
-    if (!firestore) return;
+    if (!firestore || !currentDate) return;
     const weekStartVote = startOfWeek(currentDate, { weekStartsOn: 1 });
     const allSelected = Array.from({length: 7}).every((_, i) => {
         const date = addDays(weekStartVote, i);
@@ -347,11 +336,7 @@ export function TeamSyncDashboard({ user: authUser }: TeamSyncDashboardProps) {
     }
     
     batch.commit().catch(e => {
-        const permissionError = new FirestorePermissionError({
-            path: 'votes',
-            operation: 'write',
-        });
-        errorEmitter.emit('permission-error', permissionError);
+        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'votes', operation: 'write' }));
     });
   };
 
@@ -382,7 +367,7 @@ export function TeamSyncDashboard({ user: authUser }: TeamSyncDashboardProps) {
 
     if (votesToDelete === 0) {
         toast({
-            description: `You have no general availability votes to clear for ${date ? 'this day' : 'this week'}. Event votes are not cleared.`,
+            description: `You have no general availability votes to clear for ${date ? 'this day' : 'this week'}.`,
         });
         return;
     }
@@ -393,16 +378,12 @@ export function TeamSyncDashboard({ user: authUser }: TeamSyncDashboardProps) {
             description: `Your general votes for ${date ? 'this day' : 'this week'} have been removed.`,
         });
     }).catch(e => {
-        const permissionError = new FirestorePermissionError({
-            path: 'votes',
-            operation: 'delete',
-        });
-        errorEmitter.emit('permission-error', permissionError);
+        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'votes', operation: 'delete' }));
     });
 };
 
 const handleCopyLastWeeksVotes = React.useCallback(async () => {
-    if (!firestore || !allVotesData) return;
+    if (!firestore || !allVotesData || !currentDate) return;
 
     const lastWeekStartDate = addDays(weekStart, -7);
     const lastWeekEndDate = endOfWeek(lastWeekStartDate);
@@ -457,16 +438,12 @@ const handleCopyLastWeeksVotes = React.useCallback(async () => {
         await batch.commit();
         toast({
             title: "Votes Copied!",
-            description: `Successfully copied ${newVotesCount} vote(s) from last week as general availability.`,
+            description: `Successfully copied ${newVotesCount} vote(s) from last week.`,
         });
     } catch (error) {
-        const permissionError = new FirestorePermissionError({
-            path: 'votes',
-            operation: 'write',
-        });
-        errorEmitter.emit('permission-error', permissionError);
+        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'votes', operation: 'write' }));
     }
-}, [firestore, allVotesData, weekStart, authUser.uid, userCombinedVotes, toast]);
+}, [firestore, allVotesData, weekStart, authUser.uid, userCombinedVotes, toast, currentDate]);
 
 const hasLastWeekVotes = React.useMemo(() => {
     if (!allVotesData) return false;
@@ -524,18 +501,18 @@ const hasLastWeekVotes = React.useMemo(() => {
   };
 
   const goToPreviousWeek = () => {
-    setCurrentDate(prev => addDays(prev, -7));
+    setCurrentDate(prev => prev ? addDays(prev, -7) : null);
   };
 
   const goToNextWeek = () => {
-    setCurrentDate(prev => addDays(prev, 7));
+    setCurrentDate(prev => prev ? addDays(prev, 7) : null);
   };
 
   const goToToday = () => {
     setCurrentDate(new Date());
   };
   
-  if (!mounted) {
+  if (!mounted || !currentDate) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-background">
         <Skeleton className="h-12 w-64" />
@@ -566,7 +543,7 @@ const hasLastWeekVotes = React.useMemo(() => {
                           <AlertDialogAction onClick={() => {
                               if (eventToVoteOn) {
                                   handleEventVote(eventToVoteOn.id, new Date(eventToVoteOn.date), eventToVoteOn.time);
-                                  setEventToVoteOn(null); // Close dialog on confirm
+                                  setEventToVoteOn(null);
                               }
                           }}>
                               {isVotingOnEvent ? "Yes, I'm Unavailable" : "Yes, I'm Available"}
