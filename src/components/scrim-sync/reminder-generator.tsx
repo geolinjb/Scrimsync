@@ -43,6 +43,14 @@ type ReminderGeneratorProps = {
   currentUser: AuthUser | null;
 };
 
+// Discord Embed Colors (Decimal)
+const EMBED_COLORS = {
+  BLUE: 3892342,      // Training
+  GOLD: 16766720,     // Tournament
+  RED: 15680580,      // Cancelled
+  GREEN: 2278750      // Success/Ready
+};
+
 export function ReminderGenerator({ events, allVotes, allProfiles, availabilityOverrides, isAdmin, currentUser }: ReminderGeneratorProps) {
   const { toast } = useToast();
   const firestore = useFirestore();
@@ -91,10 +99,9 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
     const isCancelled = event.status === 'Cancelled';
     const dsTimestamp = getDiscordTimestamp(event.date, event.time, 'F');
     const dsRelative = getDiscordTimestamp(event.date, event.time, 'R');
-    const mention = event.discordRoleId ? `<@&${event.discordRoleId}> ` : '';
 
     if (isCancelled) {
-        return `${mention}🚫 **EVENT CANCELLED** 🚫\n> The **${event.type}** at ${dsTimestamp} has been cancelled.`;
+        return `🚫 **EVENT CANCELLED** 🚫\n> The **${event.type}** at ${dsTimestamp} has been cancelled.`;
     }
 
     const voteKey = `${format(new Date(event.date), 'yyyy-MM-dd')}-${event.time}`;
@@ -106,7 +113,7 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
         return prof?.discordUsername || name;
     });
 
-    let msg = `${mention}**🔔 REMINDER: ${event.type.toUpperCase()}! 🔔**\n> **When:** ${dsTimestamp} (${dsRelative})\n\n✅ **Available (${availablePlayerNames.length}):**\n${availablePlayerTags.map(p => `- ${p}`).join('\n')}\n\n🔥 **Needed: ${Math.max(0, MINIMUM_PLAYERS - totalAvailable)}**`;
+    let msg = `**When:** ${dsTimestamp} (${dsRelative})\n\n✅ **Available (${availablePlayerNames.length}):**\n${availablePlayerTags.map(p => `- ${p}`).join('\n')}\n\n🔥 **Needed: ${Math.max(0, MINIMUM_PLAYERS - totalAvailable)}**`;
 
     if (includeNudges) {
         const mainRosterPlayers = allProfiles.filter(p => p.rosterStatus === 'Main Roster');
@@ -117,7 +124,6 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
         }
     }
 
-    msg += `\n\n---\nhttps://scrimsync.vercel.app/`;
     return msg;
   };
 
@@ -137,11 +143,36 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
   };
 
   const handleSendToDiscord = async () => {
+    if (!selectedEvent) return;
     setIsSending(true);
     try {
-      const payload: any = { content: reminderMessage };
-      if (imageToSend) payload.embeds = [{ image: { url: imageToSend } }];
-      const res = await fetch(DISCORD_WEBHOOK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      const isCancelled = selectedEvent.status === 'Cancelled';
+      const roleMention = selectedEvent.discordRoleId ? `<@&${selectedEvent.discordRoleId}>` : '';
+      
+      const color = isCancelled 
+        ? EMBED_COLORS.RED 
+        : (selectedEvent.type === 'Tournament' ? EMBED_COLORS.GOLD : EMBED_COLORS.BLUE);
+
+      const payload = {
+        content: roleMention, // Pings must be in content
+        embeds: [{
+          title: `${isCancelled ? '🚫' : '🔔'} ${selectedEvent.type.toUpperCase()} REMINDER`,
+          description: reminderMessage,
+          color: color,
+          image: imageToSend ? { url: imageToSend } : undefined,
+          timestamp: new Date().toISOString(),
+          footer: {
+            text: "TeamSync • Coordination made easy",
+          }
+        }]
+      };
+
+      const res = await fetch(DISCORD_WEBHOOK_URL, { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify(payload) 
+      });
+
       if (res.ok) { 
         setSendSuccess(true); 
         toast({ title: 'Reminder Sent!' }); 
@@ -169,20 +200,29 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
       const voteKey = `${format(new Date(event.date), 'yyyy-MM-dd')}-${event.time}`;
       const availableCount = (allVotes[voteKey] || []).length;
       const isReady = availableCount >= MINIMUM_PLAYERS;
-      const mention = event.discordRoleId ? `<@&${event.discordRoleId}> ` : '';
       const statusIcon = event.status === 'Cancelled' ? '🚫' : (isReady ? '✅' : '⏳');
       const dsTime = getDiscordTimestamp(event.date, event.time, 't');
       
-      return `- **${dsTime}**: ${mention}${event.type} (${availableCount}/${MINIMUM_PLAYERS} Players) ${statusIcon}`;
+      return `- **${dsTime}**: ${event.type} (${availableCount}/${MINIMUM_PLAYERS} Players) ${statusIcon}`;
     });
 
-    const summaryMessage = `📅 **TODAY'S TEAM SCHEDULE (${format(today, 'EEEE, d MMM')})** 📅\n---\n${eventSummaries.join('\n')}\n---\nManage availability: https://scrimsync.vercel.app/`;
+    const payload = {
+      embeds: [{
+        title: `📅 TEAM SCHEDULE: ${format(today, 'EEEE, d MMM')}`,
+        description: eventSummaries.join('\n'),
+        color: EMBED_COLORS.BLUE,
+        timestamp: new Date().toISOString(),
+        footer: {
+          text: "Update your availability at scrimsync.vercel.app",
+        }
+      }]
+    };
 
     try {
       const res = await fetch(DISCORD_WEBHOOK_URL, { 
         method: 'POST', 
         headers: { 'Content-Type': 'application/json' }, 
-        body: JSON.stringify({ content: summaryMessage }) 
+        body: JSON.stringify(payload) 
       });
       if (res.ok) {
         toast({ title: 'Daily Summary Sent!' });

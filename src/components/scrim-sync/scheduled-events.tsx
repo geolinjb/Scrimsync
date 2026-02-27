@@ -96,20 +96,30 @@ export function ScheduledEvents({ events, allEventVotes, userEventVotes, onEvent
         setIsSendingReady(event.id);
         const dsTimestamp = getDiscordTimestamp(event.date, event.time, 'F');
         const dsRelative = getDiscordTimestamp(event.date, event.time, 'R');
-        const mention = event.discordRoleId ? `<@&${event.discordRoleId}> ` : '';
+        const mention = event.discordRoleId ? `<@&${event.discordRoleId}>` : '';
         
         const playerTags = players.map(name => {
             const prof = profileMap.get(name);
             return prof?.discordUsername || name;
         });
 
-        const message = `${mention}✅ **ROSTER READY!** ✅\n> The **${event.type}** at ${dsTimestamp} (${dsRelative}) is officially ready with ${players.length} players!\n\n**Squad:**\n${playerTags.map(p => `- ${p}`).join('\n')}\n\n---\nhttps://scrimsync.vercel.app/`;
+        const payload = {
+            content: mention,
+            embeds: [{
+                title: "✅ ROSTER READY!",
+                description: `The **${event.type}** at ${dsTimestamp} (${dsRelative}) is officially ready with **${players.length} players**!\n\n**Squad:**\n${playerTags.map(p => `- ${p}`).join('\n')}`,
+                color: 2278750, // Green
+                timestamp: new Date().toISOString(),
+                footer: { text: "TeamSync • Coordination made easy" },
+                image: event.imageURL ? { url: event.imageURL } : undefined
+            }]
+        };
 
         try {
             const res = await fetch(DISCORD_WEBHOOK_URL, { 
                 method: 'POST', 
                 headers: { 'Content-Type': 'application/json' }, 
-                body: JSON.stringify({ content: message }) 
+                body: JSON.stringify(payload) 
             });
             if (res.ok) {
                 toast({ title: 'Roster Ready Alert Sent!' });
