@@ -2,7 +2,7 @@
 'use client';
 
 import * as React from 'react';
-import { ShieldCheck, Users, Trash2, Loader, ChevronLeft, ChevronRight, Copy, ClipboardList, CalendarX2, Save, Tags, Check } from 'lucide-react';
+import { ShieldCheck, Users, Trash2, Loader, ChevronLeft, ChevronRight, Copy, CalendarX2, Save, Tags, Check } from 'lucide-react';
 import { collection, doc, writeBatch, query, where, getDocs, updateDoc } from 'firebase/firestore';
 import { format, startOfWeek, endOfWeek, addDays, parseISO, startOfToday, isBefore } from 'date-fns';
 
@@ -73,7 +73,7 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent, a
   const [currentPlaystyleTags, setCurrentPlaystyleTags] = React.useState<string[]>([]);
   const [isSavingTags, setIsSavingTags] = React.useState(false);
 
-  // States for inline Discord editing
+  // States for inline Discord editing for Admins
   const [editingDiscord, setEditingDiscord] = React.useState<{ [userId: string]: string }>({});
   const [savingDiscordId, setSavingDiscordId] = React.useState<string | null>(null);
 
@@ -108,11 +108,6 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent, a
       } catch (e) { return false; }
     });
   }, [allVotesData, weekStart, weekEnd]);
-
-  const allPlayerNames = React.useMemo(() => {
-      if (!allProfiles) return [];
-      return allProfiles.map(p => p.username).filter(Boolean) as string[];
-  }, [allProfiles]);
 
   const sortedEvents = React.useMemo(() => {
       if (!events) return [];

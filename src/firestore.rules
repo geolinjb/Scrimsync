@@ -1,3 +1,4 @@
+
 rules_version = '2';
 
 service cloud.firestore {
@@ -36,7 +37,8 @@ service cloud.firestore {
                       !('rosterStatus' in request.resource.data) && 
                       !('playstyleTags' in request.resource.data));
 
-      // Users can update only their own non-admin fields. Admins can update anything.
+      // Users can update only their own non-admin fields (like username, discordUsername, favoriteTank, role). 
+      // Admins can update anything.
       // Use diff().affectedKeys() to ensure rosterStatus and playstyleTags are only changed by admins.
       allow update: if isAdmin() || (isOwner(userId) && 
                       !request.resource.data.diff(resource.data).affectedKeys().hasAny(['rosterStatus', 'playstyleTags']));
