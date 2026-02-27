@@ -2,10 +2,10 @@
 
 import * as React from 'react';
 import { format, startOfToday, isSameDay } from 'date-fns';
-import { Send, Megaphone, Check, Loader, UploadCloud, Image as ImageIcon, CalendarDays } from 'lucide-react';
+import { Send, Megaphone, Check, Loader, UploadCloud, Image as ImageIcon, CalendarDays, Sparkles } from 'lucide-react';
 import Image from 'next/image';
 import type { User as AuthUser } from 'firebase/auth';
-import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL } from "firebase/storage";
+import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL, uploadString } from "firebase/storage";
 import { doc, setDoc } from 'firebase/firestore';
 
 import type { AllVotes, PlayerProfileData, ScheduleEvent, AvailabilityOverride } from '@/lib/types';
@@ -32,6 +32,7 @@ import { useFirebaseApp, useFirestore } from '@/firebase';
 import { Separator } from '../ui/separator';
 import { DISCORD_WEBHOOK_URL } from '@/lib/config';
 import { getDiscordTimestamp } from '@/lib/utils';
+import { generateEventBanner } from '@/ai/flows/generate-event-banner-flow';
 
 type ReminderGeneratorProps = {
   events: ScheduleEvent[] | null;
@@ -57,6 +58,8 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
   const [sendSuccess, setSendSuccess] = React.useState(false);
 
   const [uploadProgress, setUploadProgress] = React.useState<number | null>(null);
+  const [isGeneratingAI, setIsGeneratingAI] = React.useState(false);
+
   const isUploading = uploadProgress !== null;
 
   React.useEffect(() => {
@@ -170,6 +173,39 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
     }
   };
 
+  const handleGenerateAIBanner = async () => {
+    if (!selectedEvent || !firebaseApp || !firestore) return;
+    setIsGeneratingAI(true);
+    try {
+      const { imageUrl: dataUri } = await generateEventBanner({
+        type: selectedEvent.type,
+        description: selectedEvent.description,
+      });
+
+      // Upload the data URI to Storage to get a permanent URL
+      const storage = getStorage(firebaseApp);
+      const fileRef = storageRef(storage, `event-images/${selectedEvent.id}/ai-banner-${Date.now()}.png`);
+      
+      // Remove the metadata prefix from the data URI
+      const base64Data = dataUri.split(',')[1];
+      
+      await uploadString(fileRef, base64Data, 'base64', {
+        contentType: 'image/png',
+      });
+      
+      const permanentUrl = await getDownloadURL(fileRef);
+      await setDoc(doc(firestore, 'scheduledEvents', selectedEvent.id), { imageURL: permanentUrl }, { merge: true });
+      
+      toast({ title: 'AI Banner Generated!', description: 'The event now has a custom AI-generated image.' });
+      setImageToSend(permanentUrl);
+    } catch (error) {
+      console.error('AI Generation Error:', error);
+      toast({ variant: 'destructive', title: 'AI Generation Failed' });
+    } finally {
+      setIsGeneratingAI(false);
+    }
+  };
+
   const handleUploadClick = () => fileInputRef.current?.click();
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -247,10 +283,18 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
                     </div>
                   )}
                   {canManageEvent && (
-                    <Button onClick={handleUploadClick} disabled={isUploading} variant="outline" size="sm" className="w-full">
-                      {isUploading ? <Loader className='animate-spin mr-2 h-4 w-4' /> : <UploadCloud className='mr-2 h-4 w-4'/>}
-                      {imageToSend ? 'Change Image' : 'Upload Image'}
-                    </Button>
+                    <div className='flex flex-col gap-2'>
+                      <div className='grid grid-cols-2 gap-2'>
+                        <Button onClick={handleUploadClick} disabled={isUploading || isGeneratingAI} variant="outline" size="sm">
+                          {isUploading ? <Loader className='animate-spin mr-2 h-4 w-4' /> : <UploadCloud className='mr-2 h-4 w-4'/>}
+                          {imageToSend ? 'Change' : 'Upload'}
+                        </Button>
+                        <Button onClick={handleGenerateAIBanner} disabled={isUploading || isGeneratingAI} variant="secondary" size="sm">
+                          {isGeneratingAI ? <Loader className='animate-spin mr-2 h-4 w-4' /> : <Sparkles className='mr-2 h-4 w-4'/>}
+                          AI Banner
+                        </Button>
+                      </div>
+                    </div>
                   )}
                   <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
               </div>
