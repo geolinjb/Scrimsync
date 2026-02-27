@@ -3,8 +3,14 @@
     {
       "id": "tank-snow-training",
       "description": "Tank Training - Snowy Ridge",
-      "imageUrl": "https://images.unsplash.com/photo-1599387118329-f8df6f8090a9?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHx0YW5rJTIwc25vd3xlbnwwfHx8fDE3NzIyMDMxOTd8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageUrl": "https://images.unsplash.com/photo-1599387118329-f8df6f8090a9?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHh8fHRhbmslMjBzbm93fGVufDB8fHx8MTc3MjIwMzE5N3ww&ixlib=rb-4.1.0&q=80&w=1080",
       "imageHint": "tank snow"
+    },
+    {
+      "id": "tournament-rewards",
+      "description": "Tournament Rewards - Coins & Victory",
+      "imageUrl": "https://images.unsplash.com/photo-1593005517304-18903867631f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
+      "imageHint": "gold coins"
     },
     {
       "id": "gaming-setup",
