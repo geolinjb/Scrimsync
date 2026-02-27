@@ -30,12 +30,12 @@ service cloud.firestore {
     match /users/{userId} {
       allow read;
 
-      // Admins can create any profile. Users can only create their own profile without admin fields.
+      // Allow creation if it's the owner and they aren't setting admin fields.
       allow create: if isAdmin() || (isOwner(userId) && 
-                      !('rosterStatus' in request.resource.data) && 
-                      !('playstyleTags' in request.resource.data));
+                      !request.resource.data.keys().hasAny(['rosterStatus', 'playstyleTags']));
 
-      // Admins can update any profile. Users can update their own non-admin fields.
+      // Allow update if it's the owner and they aren't CHANGING admin fields.
+      // diff().affectedKeys() only includes keys that are added, removed, or changed.
       allow update: if isAdmin() || (isOwner(userId) && 
                       !request.resource.data.diff(resource.data).affectedKeys().hasAny(['rosterStatus', 'playstyleTags']));
 

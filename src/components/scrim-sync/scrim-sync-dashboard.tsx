@@ -79,7 +79,10 @@ export function TeamSyncDashboard({ user: authUser }: TeamSyncDashboardProps) {
     }
   }, [user]);
 
-  const profileRef = useMemoFirebase(() => doc(firestore, 'users', authUser.uid), [firestore, authUser.uid]);
+  const profileRef = useMemoFirebase(() => {
+    if (!firestore || !authUser) return null;
+    return doc(firestore, 'users', authUser.uid);
+  }, [firestore, authUser.uid]);
   
   const weekStart = React.useMemo(() => {
     if (!currentDate) return new Date();
@@ -103,7 +106,10 @@ export function TeamSyncDashboard({ user: authUser }: TeamSyncDashboardProps) {
 
   const { data: profile, isLoading: isProfileLoading } = useDoc<PlayerProfileData>(profileRef);
   
-  const allProfilesForHeatmapRef = useMemoFirebase(() => collection(firestore, 'users'), [firestore]);
+  const allProfilesForHeatmapRef = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return collection(firestore, 'users');
+  }, [firestore]);
   const { data: allProfiles, isLoading: areProfilesLoading } = useCollection<PlayerProfileData>(allProfilesForHeatmapRef);
 
   const { data: scheduledEventsData, isLoading: areEventsLoading } = useCollection<FirestoreScheduleEvent>(eventsQuery);
@@ -117,7 +123,7 @@ export function TeamSyncDashboard({ user: authUser }: TeamSyncDashboardProps) {
   React.useEffect(() => {
     if (firestore && authUser && !isProfileLoading && !profile && mounted) {
       const profileDocRef = doc(firestore, 'users', authUser.uid);
-      const defaultProfile: PlayerProfileData = {
+      const defaultProfile = {
         id: authUser.uid,
         username: authUser.displayName || `Player${authUser.uid.slice(0, 5)}`,
         photoURL: authUser.photoURL || '',
@@ -125,6 +131,7 @@ export function TeamSyncDashboard({ user: authUser }: TeamSyncDashboardProps) {
         role: '',
       };
       
+      // Specifically OMIT rosterStatus and playstyleTags for normal users
       setDocumentNonBlocking(profileDocRef, defaultProfile, { merge: true });
       
       toast({
@@ -141,6 +148,8 @@ export function TeamSyncDashboard({ user: authUser }: TeamSyncDashboardProps) {
       setIsSavingProfile(true);
       const profileDocRef = doc(firestore, 'users', authUser.uid);
       
+      // Separate admin fields from user fields to ensure the user only sends what they are allowed to.
+      // However, if the user already has them (and isn't an admin), they'll be identical and pass the diff check.
       const dataToSave = { ...newProfile };
       
       setDocumentNonBlocking(profileDocRef, dataToSave, { merge: true });
