@@ -1,3 +1,4 @@
+
 // This file contains global configuration constants for the application.
 
 // The hardcoded admin UIDs are used as "super admin" fallbacks.
