@@ -31,6 +31,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useFirebaseApp, useFirestore } from '@/firebase';
 import { Separator } from '../ui/separator';
 import { DISCORD_WEBHOOK_URL } from '@/lib/config';
+import { getDiscordTimestamp } from '@/lib/utils';
 
 type ReminderGeneratorProps = {
   events: ScheduleEvent[] | null;
@@ -86,12 +87,13 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
 
     setImageToSend(event.imageURL || null);
     const isCancelled = event.status === 'Cancelled';
-    const formattedDate = format(new Date(event.date), 'EEEE, d MMMM');
+    const dsTimestamp = getDiscordTimestamp(event.date, event.time, 'F');
+    const dsRelative = getDiscordTimestamp(event.date, event.time, 'R');
 
     const mention = event.discordRoleId ? `<@&${event.discordRoleId}> ` : '';
 
     if (isCancelled) {
-        setReminderMessage(`${mention}🚫 **EVENT CANCELLED** 🚫\n> The **${event.type}** on ${formattedDate} at **${event.time}** has been cancelled.`);
+        setReminderMessage(`${mention}🚫 **EVENT CANCELLED** 🚫\n> The **${event.type}** at ${dsTimestamp} has been cancelled.`);
         return;
     }
 
@@ -104,7 +106,7 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
         return prof?.discordUsername || name;
     });
 
-    const msg = `${mention}**🔔 REMINDER: ${event.type.toUpperCase()}! 🔔**\n> **When:** ${formattedDate} at **${event.time}**\n\n✅ **Available (${availablePlayerNames.length}):**\n${availablePlayerTags.map(p => `- ${p}`).join('\n')}\n\n🔥 **Needed: ${Math.max(0, MINIMUM_PLAYERS - totalAvailable)}**\n\n---\nhttps://scrimsync.vercel.app/`;
+    const msg = `${mention}**🔔 REMINDER: ${event.type.toUpperCase()}! 🔔**\n> **When:** ${dsTimestamp} (${dsRelative})\n\n✅ **Available (${availablePlayerNames.length}):**\n${availablePlayerTags.map(p => `- ${p}`).join('\n')}\n\n🔥 **Needed: ${Math.max(0, MINIMUM_PLAYERS - totalAvailable)}**\n\n---\nhttps://scrimsync.vercel.app/`;
     setReminderMessage(msg);
   };
   
@@ -145,8 +147,9 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
       const isReady = availableCount >= MINIMUM_PLAYERS;
       const mention = event.discordRoleId ? `<@&${event.discordRoleId}> ` : '';
       const statusIcon = event.status === 'Cancelled' ? '🚫' : (isReady ? '✅' : '⏳');
+      const dsTime = getDiscordTimestamp(event.date, event.time, 't');
       
-      return `- **${event.time}**: ${mention}${event.type} (${availableCount}/${MINIMUM_PLAYERS} Players) ${statusIcon}`;
+      return `- **${dsTime}**: ${mention}${event.type} (${availableCount}/${MINIMUM_PLAYERS} Players) ${statusIcon}`;
     });
 
     const summaryMessage = `📅 **TODAY'S TEAM SCHEDULE (${format(today, 'EEEE, d MMM')})** 📅\n---\n${eventSummaries.join('\n')}\n---\nManage availability: https://scrimsync.vercel.app/`;
@@ -206,7 +209,7 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
             Daily Summary
           </h3>
           <p className="text-xs text-muted-foreground">
-            Post a summary of all events scheduled for today, including player availability counts.
+            Post a summary of all events scheduled for today, including player availability counts and dynamic time handles.
           </p>
           <Button 
             onClick={handleSendTodaySummary} 

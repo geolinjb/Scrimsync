@@ -17,7 +17,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { ScrollArea, ScrollBar } from '../ui/scroll-area';
-import { cn } from '@/lib/utils';
+import { cn, getDiscordTimestamp } from '@/lib/utils';
 import { useCollection, useFirestore, useMemoFirebase, useFirebaseApp } from '@/firebase';
 import { Progress } from '../ui/progress';
 import { Alert, AlertTitle } from '../ui/alert';
@@ -94,7 +94,8 @@ export function ScheduledEvents({ events, allEventVotes, userEventVotes, onEvent
 
     const handleSendRosterReady = async (event: ScheduleEvent, players: string[]) => {
         setIsSendingReady(event.id);
-        const formattedDate = format(new Date(event.date), 'EEEE, d MMMM');
+        const dsTimestamp = getDiscordTimestamp(event.date, event.time, 'F');
+        const dsRelative = getDiscordTimestamp(event.date, event.time, 'R');
         const mention = event.discordRoleId ? `<@&${event.discordRoleId}> ` : '';
         
         const playerTags = players.map(name => {
@@ -102,7 +103,7 @@ export function ScheduledEvents({ events, allEventVotes, userEventVotes, onEvent
             return prof?.discordUsername || name;
         });
 
-        const message = `${mention}✅ **ROSTER READY!** ✅\n> The **${event.type}** on ${formattedDate} at **${event.time}** is officially ready with ${players.length} players!\n\n**Squad:**\n${playerTags.map(p => `- ${p}`).join('\n')}\n\n---\nhttps://scrimsync.vercel.app/`;
+        const message = `${mention}✅ **ROSTER READY!** ✅\n> The **${event.type}** at ${dsTimestamp} (${dsRelative}) is officially ready with ${players.length} players!\n\n**Squad:**\n${playerTags.map(p => `- ${p}`).join('\n')}\n\n---\nhttps://scrimsync.vercel.app/`;
 
         try {
             const res = await fetch(DISCORD_WEBHOOK_URL, { 
