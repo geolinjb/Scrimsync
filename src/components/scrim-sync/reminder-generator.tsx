@@ -1,9 +1,8 @@
-
 'use client';
 
 import * as React from 'react';
-import { format, startOfToday } from 'date-fns';
-import { Send, Megaphone, Check, Loader, UploadCloud, Image as ImageIcon } from 'lucide-react';
+import { format, startOfToday, isSameDay } from 'date-fns';
+import { Send, Megaphone, Check, Loader, UploadCloud, Image as ImageIcon, CalendarDays } from 'lucide-react';
 import Image from 'next/image';
 import type { User as AuthUser } from 'firebase/auth';
 import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL } from "firebase/storage";
@@ -30,6 +29,7 @@ import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebaseApp, useFirestore } from '@/firebase';
+import { Separator } from '../ui/separator';
 
 type ReminderGeneratorProps = {
   events: ScheduleEvent[] | null;
@@ -53,6 +53,7 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
   const [reminderMessage, setReminderMessage] = React.useState<string>('');
   const [imageToSend, setImageToSend] = React.useState<string | null>(null);
   const [isSending, setIsSending] = React.useState(false);
+  const [isSendingSummary, setIsSendingSummary] = React.useState(false);
   const [sendSuccess, setSendSuccess] = React.useState(false);
 
   const [uploadProgress, setUploadProgress] = React.useState<number | null>(null);
@@ -116,9 +117,55 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
       const payload: any = { content: reminderMessage };
       if (imageToSend) payload.embeds = [{ image: { url: imageToSend } }];
       const res = await fetch(DISCORD_WEBHOOK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-      if (res.ok) { setSendSuccess(true); toast({ title: 'Reminder Sent!' }); setTimeout(() => setSendSuccess(false), 3000); }
+      if (res.ok) { 
+        setSendSuccess(true); 
+        toast({ title: 'Reminder Sent!' }); 
+        setTimeout(() => setSendSuccess(false), 3000); 
+      }
     } catch (error) { toast({ variant: 'destructive', title: 'Send Failed' }); }
     finally { setIsSending(false); }
+  };
+
+  const handleSendTodaySummary = async () => {
+    if (!events) return;
+    setIsSendingSummary(true);
+    
+    const today = startOfToday();
+    const todayEvents = events.filter(e => isSameDay(new Date(e.date), today))
+      .sort((a, b) => a.time.localeCompare(b.time));
+
+    if (todayEvents.length === 0) {
+      toast({ description: "No events scheduled for today." });
+      setIsSendingSummary(false);
+      return;
+    }
+
+    const eventSummaries = todayEvents.map(event => {
+      const voteKey = `${format(new Date(event.date), 'yyyy-MM-dd')}-${event.time}`;
+      const availableCount = (allVotes[voteKey] || []).length;
+      const isReady = availableCount >= MINIMUM_PLAYERS;
+      const mention = event.discordRoleId ? `<@&${event.discordRoleId}> ` : '';
+      const statusIcon = event.status === 'Cancelled' ? '🚫' : (isReady ? '✅' : '⏳');
+      
+      return `- **${event.time}**: ${mention}${event.type} (${availableCount}/${MINIMUM_PLAYERS} Players) ${statusIcon}`;
+    });
+
+    const summaryMessage = `📅 **TODAY'S TEAM SCHEDULE (${format(today, 'EEEE, d MMM')})** 📅\n---\n${eventSummaries.join('\n')}\n---\nManage availability: https://scrimsync.vercel.app/`;
+
+    try {
+      const res = await fetch(DISCORD_WEBHOOK_URL, { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify({ content: summaryMessage }) 
+      });
+      if (res.ok) {
+        toast({ title: 'Daily Summary Sent!' });
+      }
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Summary Failed' });
+    } finally {
+      setIsSendingSummary(false);
+    }
   };
 
   const handleUploadClick = () => fileInputRef.current?.click();
@@ -144,22 +191,88 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
 
   return (
     <Card>
-      <CardHeader><div className="flex items-center gap-3"><Megaphone className="w-6 h-6 text-gold" /><CardTitle>Reminder Generator</CardTitle></div></CardHeader>
-      <CardContent className="space-y-4">
-        <Select value={selectedEventId} onValueChange={setSelectedEventId}>
-          <SelectTrigger><SelectValue placeholder="Select an event..." /></SelectTrigger>
-          <SelectContent>{upcomingEvents.map(e => <SelectItem key={e.id} value={e.id}>{e.type} - {format(new Date(e.date), 'EEE, d MMM')} @ {e.time}</SelectItem>)}</SelectContent>
-        </Select>
-        {selectedEventId && (
+      <CardHeader>
+        <div className="flex items-center gap-3">
+          <Megaphone className="w-6 h-6 text-gold" />
+          <CardTitle>Discord Integrations</CardTitle>
+        </div>
+        <CardDescription>
+          Send event reminders and daily summaries directly to your Discord server.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="space-y-4">
+          <h3 className="text-sm font-semibold flex items-center gap-2">
+            <CalendarDays className="w-4 h-4 text-primary" />
+            Daily Summary
+          </h3>
+          <p className="text-xs text-muted-foreground">
+            Post a summary of all events scheduled for today, including player availability counts.
+          </p>
+          <Button 
+            onClick={handleSendTodaySummary} 
+            variant="outline" 
+            className="w-full" 
+            disabled={isSendingSummary || !events}
+          >
+            {isSendingSummary ? <Loader className="animate-spin mr-2 h-4 w-4" /> : <Send className="mr-2 h-4 w-4" />}
+            Post Today's Summary to Discord
+          </Button>
+        </div>
+
+        <Separator />
+
+        <div className="space-y-4">
+          <h3 className="text-sm font-semibold flex items-center gap-2">
+            <Megaphone className="w-4 h-4 text-primary" />
+            Event Reminder
+          </h3>
+          <Select value={selectedEventId} onValueChange={setSelectedEventId}>
+            <SelectTrigger><SelectValue placeholder="Select an event..." /></SelectTrigger>
+            <SelectContent>{upcomingEvents.map(e => <SelectItem key={e.id} value={e.id}>{e.type} - {format(new Date(e.date), 'EEE, d MMM')} @ {e.time}</SelectItem>)}</SelectContent>
+          </Select>
+          
+          {selectedEventId && (
+              <div className="space-y-2">
+                  {imageToSend ? (
+                    <div className="relative aspect-video rounded-md overflow-hidden border">
+                      <Image src={imageToSend} alt="Event" fill style={{ objectFit: 'cover' }} />
+                    </div>
+                  ) : (
+                    <div className="border-2 border-dashed rounded-lg h-32 flex items-center justify-center text-muted-foreground">
+                      <ImageIcon className="mr-2" />
+                      No image
+                    </div>
+                  )}
+                  {canManageEvent && (
+                    <Button onClick={handleUploadClick} disabled={isUploading} variant="outline" size="sm" className="w-full">
+                      {isUploading ? <Loader className='animate-spin mr-2 h-4 w-4' /> : <UploadCloud className='mr-2 h-4 w-4'/>}
+                      {imageToSend ? 'Change Image' : 'Upload Image'}
+                    </Button>
+                  )}
+                  <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
+              </div>
+          )}
+          
+          {reminderMessage && (
             <div className="space-y-2">
-                {imageToSend ? <div className="relative aspect-video rounded-md overflow-hidden border"><Image src={imageToSend} alt="Event" fill style={{ objectFit: 'cover' }} /></div> : <div className="border-2 border-dashed rounded-lg h-32 flex items-center justify-center text-muted-foreground"><ImageIcon className="mr-2" />No image</div>}
-                {canManageEvent && <Button onClick={handleUploadClick} disabled={isUploading} variant="outline" className="w-full">{isUploading ? <Loader className='animate-spin mr-2' /> : <UploadCloud className='mr-2'/>} {imageToSend ? 'Change Image' : 'Upload Image'}</Button>}
-                <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
+              <Textarea 
+                value={reminderMessage} 
+                readOnly 
+                className="min-h-[150px] text-[10px] font-mono leading-tight bg-muted/50" 
+              />
+              <Button 
+                onClick={handleSendToDiscord} 
+                className="w-full" 
+                disabled={isSending || sendSuccess}
+              >
+                {isSending ? <Loader className="animate-spin mr-2 h-4 w-4" /> : <Send className="mr-2 h-4 w-4" />}
+                {sendSuccess ? 'Sent!' : 'Send Reminder to Discord'}
+              </Button>
             </div>
-        )}
-        {reminderMessage && <Textarea value={reminderMessage} readOnly className="min-h-[200px] text-xs font-mono" />}
+          )}
+        </div>
       </CardContent>
-      {reminderMessage && <CardFooter><Button onClick={handleSendToDiscord} className="w-full" disabled={isSending || sendSuccess}>{isSending ? <Loader className="animate-spin" /> : 'Send to Discord'}</Button></CardFooter>}
     </Card>
   );
 }
