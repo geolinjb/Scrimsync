@@ -26,6 +26,7 @@ import { Separator } from '../ui/separator';
 import { Alert, AlertTitle, AlertDescription } from '../ui/alert';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
+import { Skeleton } from '../ui/skeleton';
 
 type ScheduledEventsProps = {
   events: ScheduleEvent[];
@@ -228,7 +229,7 @@ export function ScheduledEvents({ events, allEventVotes, userEventVotes, onEvent
         return result === 'in' ? 'Starting now' : result;
     };
     
-    const handleCopyList = (event: ScheduleEvent, availablePlayers: string[], possiblyAvailablePlayers: PlayerProfileData[]) => {
+    const handleCopyRoster = (event: ScheduleEvent, availablePlayers: string[], possiblyAvailablePlayers: PlayerProfileData[]) => {
         const formatPlayerList = (players: string[], profileMap: Map<string, PlayerProfileData>) => {
             if (players.length === 0) return '- None';
             return players
@@ -509,7 +510,7 @@ export function ScheduledEvents({ events, allEventVotes, userEventVotes, onEvent
                                                             )}
                                                             <Tooltip>
                                                                 <TooltipTrigger asChild>
-                                                                    <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleCopyList(event, availablePlayers, possiblyAvailablePlayers)}><Copy className="w-4 h-4" /></Button>
+                                                                    <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleCopyRoster(event, availablePlayers, possiblyAvailablePlayers)}><Copy className="w-4 h-4" /></Button>
                                                                 </TooltipTrigger>
                                                                 <TooltipContent><p>Copy Roster</p></TooltipContent>
                                                             </Tooltip>
