@@ -26,13 +26,14 @@ service cloud.firestore {
       // Anyone can read user profiles.
       allow read;
 
-      // Users can create their own profile.
-      allow create: if isOwner(userId);
+      // Users can create their own profile. Admins can create any.
+      allow create: if isAdmin() || (isOwner(userId) && 
+                      !('rosterStatus' in request.resource.data) && 
+                      !('playstyleTags' in request.resource.data));
 
       // Users can update only their own non-admin fields. Admins can update anything.
       allow update: if isAdmin() || (isOwner(userId) && 
-                      request.resource.data.rosterStatus == resource.data.rosterStatus &&
-                      request.resource.data.playstyleTags == resource.data.playstyleTags);
+                      !request.resource.data.diff(resource.data).affectedKeys().hasAny(['rosterStatus', 'playstyleTags']));
 
       // Owner or admin can delete user profiles.
       allow delete: if isOwner(userId) || isAdmin();
