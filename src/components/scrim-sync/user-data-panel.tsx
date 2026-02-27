@@ -43,11 +43,12 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Separator } from '../ui/separator';
 import { Badge } from '../ui/badge';
-import { ScrollArea } from '../ui/scroll-area';
+import { ScrollArea, ScrollBar } from '../ui/scroll-area';
 import { ReminderGenerator } from './reminder-generator';
 import type { User as AuthUser } from 'firebase/auth';
 import { MultiSelect } from '../ui/multi-select';
 import { Label } from '../ui/label';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 
 
 type UserDataPanelProps = {
@@ -467,78 +468,90 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent, a
                 <CardTitle>Manage Player Roster</CardTitle>
                 </div>
                 <CardDescription>
-                Manage user roles and roster status.
+                Manage user roles and roster status. The <b>Delete User</b> option is located in the Actions column for each player.
                 </CardDescription>
             </CardHeader>
             <CardContent>
                 {allProfiles && allProfiles.length > 0 ? (
-                <ScrollArea className="border rounded-lg h-[60vh]">
-                    <Table>
-                    <TableHeader className="sticky top-0 bg-muted/80 backdrop-blur-sm z-10">
-                        <TableRow>
-                            <TableHead className='min-w-[150px]'>Username</TableHead>
-                            <TableHead className='min-w-[180px]'>Roster Status</TableHead>
-                            <TableHead className='text-right'>Actions</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {allProfiles.map(profile => (
-                        <TableRow key={profile.id}>
-                            <TableCell className="font-medium">
-                                <div className='flex flex-col'>
-                                    <span className='font-bold'>{profile.username || '(Not set)'}</span>
-                                    <span className='text-xs text-muted-foreground'>{profile.id}</span>
-                                </div>
-                            </TableCell>
-                            <TableCell>
-                                <Select
-                                    value={profile.rosterStatus}
-                                    onValueChange={(value) => handleRosterStatusChange(profile.id, value)}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Assign Status" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {rosterStatuses.map(tag => (
-                                            <SelectItem key={tag} value={tag}>
-                                                {tag}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </TableCell>
-                            <TableCell className='text-right'>
-                                <AlertDialog>
-                                    <AlertDialogTrigger asChild>
-                                        <Button 
-                                            variant="ghost" 
-                                            size="icon" 
-                                            className="text-destructive hover:text-destructive"
-                                            disabled={!!deletingUserId}
+                <ScrollArea className="border rounded-lg h-[60vh] w-full">
+                    <div className="min-w-[600px]">
+                        <Table>
+                            <TableHeader className="sticky top-0 bg-muted/80 backdrop-blur-sm z-10">
+                                <TableRow>
+                                    <TableHead className='min-w-[200px]'>Username & UID</TableHead>
+                                    <TableHead className='min-w-[200px]'>Roster Status</TableHead>
+                                    <TableHead className='text-right w-[100px]'>Actions</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {allProfiles.map(profile => (
+                                <TableRow key={profile.id}>
+                                    <TableCell className="font-medium">
+                                        <div className='flex flex-col'>
+                                            <span className='font-bold'>{profile.username || '(Not set)'}</span>
+                                            <span className='text-[10px] text-muted-foreground truncate max-w-[150px]'>{profile.id}</span>
+                                        </div>
+                                    </TableCell>
+                                    <TableCell>
+                                        <Select
+                                            value={profile.rosterStatus}
+                                            onValueChange={(value) => handleRosterStatusChange(profile.id, value)}
                                         >
-                                            {deletingUserId === profile.id ? <Loader className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                                        </Button>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                        <AlertDialogHeader>
-                                            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                                            <AlertDialogDescription>
-                                                This will permanently delete the user <span className='font-bold'>{profile.username}</span> and all of their data. This action cannot be undone.
-                                            </AlertDialogDescription>
-                                        </AlertDialogHeader>
-                                        <AlertDialogFooter>
-                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                            <AlertDialogAction onClick={() => handleDeleteUser(profile.id, profile.username || 'user')} className="bg-destructive hover:bg-destructive/90">
-                                                Yes, Delete User
-                                            </AlertDialogAction>
-                                        </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                </AlertDialog>
-                            </TableCell>
-                        </TableRow>
-                        ))}
-                    </TableBody>
-                    </Table>
+                                            <SelectTrigger className="h-8 text-xs">
+                                                <SelectValue placeholder="Assign Status" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {rosterStatuses.map(tag => (
+                                                    <SelectItem key={tag} value={tag}>
+                                                        {tag}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </TableCell>
+                                    <TableCell className='text-right'>
+                                        <AlertDialog>
+                                            <TooltipProvider>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <AlertDialogTrigger asChild>
+                                                            <Button 
+                                                                variant="ghost" 
+                                                                size="icon" 
+                                                                className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                                                disabled={!!deletingUserId}
+                                                            >
+                                                                {deletingUserId === profile.id ? <Loader className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                                                            </Button>
+                                                        </AlertDialogTrigger>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>
+                                                        <p>Permanently delete user and data</p>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            </TooltipProvider>
+                                            <AlertDialogContent>
+                                                <AlertDialogHeader>
+                                                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                                    <AlertDialogDescription>
+                                                        This will permanently delete the user <span className='font-bold text-foreground'>{profile.username || profile.id}</span> and all of their voting and availability data. This action cannot be undone.
+                                                    </AlertDialogDescription>
+                                                </AlertDialogHeader>
+                                                <AlertDialogFooter>
+                                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                    <AlertDialogAction onClick={() => handleDeleteUser(profile.id, profile.username || 'user')} className="bg-destructive hover:bg-destructive/90">
+                                                        Yes, Delete User
+                                                    </AlertDialogAction>
+                                                </AlertDialogFooter>
+                                            </AlertDialogContent>
+                                        </AlertDialog>
+                                    </TableCell>
+                                </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
+                    <ScrollBar orientation="horizontal" />
                 </ScrollArea>
                 ) : (
                 <div className="flex flex-col items-center justify-center text-center py-12 border rounded-lg">
@@ -599,82 +612,85 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent, a
         <Card>
             <CardHeader>
                  <CardTitle>Data Management</CardTitle>
-                 <CardDescription>Generate rosters and perform data cleanup.</CardDescription>
+                 <CardDescription>Generate rosters and perform data cleanup. Scroll right on mobile to see all options.</CardDescription>
             </CardHeader>
-             <CardContent className="flex-col items-start gap-4">
+             <CardContent className="space-y-6">
                  <div className="w-full space-y-2">
                     <h4 className='text-sm font-medium'>Generate Roster Summary</h4>
-                    <div className='flex flex-col sm:flex-row items-center gap-2 p-2 border rounded-lg'>
-                        <div className='grid grid-cols-2 gap-2 w-full'>
-                            <Select value={selectedRosterDate} onValueChange={setSelectedRosterDate}>
-                                <SelectTrigger><SelectValue placeholder="Select Date" /></SelectTrigger>
-                                <SelectContent>
-                                    {weekDates.map(date => (
-                                        <SelectItem key={date.toISOString()} value={format(date, 'yyyy-MM-dd')}>
-                                            {format(date, 'EEE, d MMM')}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            <Select value={selectedRosterTime} onValueChange={setSelectedRosterTime}>
-                                <SelectTrigger><SelectValue placeholder="Select Time" /></SelectTrigger>
-                                <SelectContent>
-                                    {timeSlots.map(time => (
-                                        <SelectItem key={time} value={time}>
-                                            {time}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                    <div className='overflow-x-auto pb-2'>
+                        <div className='flex flex-col sm:flex-row items-center gap-2 min-w-[500px] p-2 border rounded-lg'>
+                            <div className='grid grid-cols-2 gap-2 w-full'>
+                                <Select value={selectedRosterDate} onValueChange={setSelectedRosterDate}>
+                                    <SelectTrigger><SelectValue placeholder="Select Date" /></SelectTrigger>
+                                    <SelectContent>
+                                        {weekDates.map(date => (
+                                            <SelectItem key={date.toISOString()} value={format(date, 'yyyy-MM-dd')}>
+                                                {format(date, 'EEE, d MMM')}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <Select value={selectedRosterTime} onValueChange={setSelectedRosterTime}>
+                                    <SelectTrigger><SelectValue placeholder="Select Time" /></SelectTrigger>
+                                    <SelectContent>
+                                        {timeSlots.map(time => (
+                                            <SelectItem key={time} value={time}>
+                                                {time}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <Button onClick={handleRosterCopy} disabled={!selectedRosterDate || !selectedRosterTime} className='w-full sm:w-auto shrink-0'>
+                                <Copy className='w-4 h-4 mr-2' />
+                                Copy Roster
+                            </Button>
                         </div>
-                        <Button onClick={handleRosterCopy} disabled={!selectedRosterDate || !selectedRosterTime} className='w-full sm:w-auto shrink-0'>
-                            <Copy className='w-4 h-4 mr-2' />
-                            Copy Roster
-                        </Button>
                     </div>
                 </div>
 
-                <Separator className="my-4" />
+                <Separator />
                 
                 <div className="w-full space-y-2">
                     <h4 className='text-sm font-medium'>Copy All Player Names</h4>
-                    <div className='flex items-center justify-between gap-2 p-2 border rounded-lg'>
-                        <p className='text-sm text-muted-foreground'>Copy a simple list of all players.</p>
-                        <Button onClick={handleCopyAllPlayers} disabled={!allPlayerNames || allPlayerNames.length === 0}>
+                    <div className='flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border rounded-lg bg-muted/30'>
+                        <p className='text-xs text-muted-foreground'>Copy a simple list of all players currently registered in TeamSync.</p>
+                        <Button onClick={handleCopyAllPlayers} disabled={!allPlayerNames || allPlayerNames.length === 0} variant="outline">
                             <ClipboardList className='w-4 h-4 mr-2' />
                             Copy Players
                         </Button>
                     </div>
                 </div>
 
-                <Separator className="my-4" />
+                <Separator />
 
                 <div className="w-full space-y-2">
                     <h4 className='text-sm font-medium'>Delete Weekly Votes</h4>
-                    <div className='flex items-center justify-between gap-2 p-2 border rounded-lg'>
-                        <div className='flex items-center gap-1'>
+                    <div className='flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border rounded-lg bg-destructive/5'>
+                        <div className='flex items-center gap-2'>
                             <Button variant="outline" size="icon" onClick={goToPreviousWeek} className="h-8 w-8">
-                                <ChevronLeft className="h-4 h-4" />
+                                <ChevronLeft className="h-4 w-4" />
                             </Button>
+                            <div className="text-center text-sm font-semibold min-w-[150px]">
+                                {format(weekStart, 'd MMM')} - {format(weekEnd, 'd MMM')}
+                            </div>
                             <Button variant="outline" size="icon" onClick={goToNextWeek} className="h-8 w-8">
-                                <ChevronRight className="h-4 h-4" />
+                                <ChevronRight className="h-4 w-4" />
                             </Button>
                         </div>
-                        <div className="text-center text-sm font-medium text-foreground">
-                            {format(weekStart, 'd MMM')} - {format(weekEnd, 'd MMM, yyyy')}
-                        </div>
+                        
                         <AlertDialog>
                             <AlertDialogTrigger asChild>
                                 <Button variant="destructive" size="sm" disabled={isDeleting || votesInSelectedWeek.length === 0}>
                                 {isDeleting ? <Loader className="w-4 h-4 mr-2 animate-spin" /> : <Trash2 className="w-4 h-4 mr-2" />}
-                                Delete
+                                Delete {votesInSelectedWeek.length} Votes
                                 </Button>
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                                 <AlertDialogHeader>
-                                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                <AlertDialogTitle>Delete all votes for this week?</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                    This will delete all {votesInSelectedWeek.length} vote(s) for the week of {format(weekStart, 'd MMM')} - {format(weekEnd, 'd MMM')}. This action cannot be undone.
+                                    This will permanently remove all {votesInSelectedWeek.length} availability vote(s) recorded for the week of {format(weekStart, 'd MMM')} to {format(weekEnd, 'd MMM')}.
                                 </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
@@ -712,25 +728,25 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent, a
                     <ScrollArea className="border rounded-lg h-[40vh]">
                         <div className='p-2 space-y-2'>
                         {sortedEvents.map(event => (
-                            <div key={event.id} className="flex items-center justify-between p-2 rounded-md hover:bg-muted">
+                            <div key={event.id} className="flex items-center justify-between p-2 rounded-md hover:bg-muted group">
                                 <div className="flex flex-col">
-                                    <div className="flex items-center gap-2">
-                                        <Badge variant={event.type === 'Tournament' ? 'default' : 'secondary'}>{event.type}</Badge>
-                                        <span className="font-semibold">{format(new Date(event.date), 'MMM d, yyyy')}</span>
-                                        <span className="text-sm text-muted-foreground">{event.time}</span>
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <Badge variant={event.type === 'Tournament' ? 'default' : 'secondary'} className="text-[10px] h-4">{event.type}</Badge>
+                                        <span className="font-semibold text-sm">{format(new Date(event.date), 'MMM d, yyyy')}</span>
+                                        <span className="text-xs text-muted-foreground">{event.time}</span>
                                     </div>
                                 </div>
                                 <AlertDialog>
                                     <AlertDialogTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive h-8 w-8 shrink-0">
+                                        <Button variant="ghost" size="icon" className="text-destructive opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8 shrink-0">
                                             <Trash2 className="w-4 h-4" />
                                         </Button>
                                     </AlertDialogTrigger>
                                     <AlertDialogContent>
                                         <AlertDialogHeader>
-                                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                            <AlertDialogTitle>Delete scheduled event?</AlertDialogTitle>
                                             <AlertDialogDescription>
-                                                This will permanently delete the {event.type.toLowerCase()} on {format(new Date(event.date), 'MMM d')}. This action cannot be undone.
+                                                This will permanently delete the {event.type.toLowerCase()} scheduled for {format(new Date(event.date), 'MMMM d')}.
                                             </AlertDialogDescription>
                                         </AlertDialogHeader>
                                         <AlertDialogFooter>
@@ -755,22 +771,22 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent, a
             <CardFooter>
                  <AlertDialog>
                     <AlertDialogTrigger asChild>
-                        <Button variant="destructive" disabled={isDeletingEvents || pastEvents.length === 0}>
+                        <Button variant="destructive" className="w-full" disabled={isDeletingEvents || pastEvents.length === 0}>
                             {isDeletingEvents ? <Loader className="w-4 h-4 mr-2 animate-spin" /> : <Trash2 className="w-4 h-4 mr-2" />}
                             Delete {pastEvents.length} Past Event(s)
                         </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                         <AlertDialogHeader>
-                            <AlertDialogTitle>Delete all past events?</AlertDialogTitle>
+                            <AlertDialogTitle>Clear all past events?</AlertDialogTitle>
                             <AlertDialogDescription>
-                                This will permanently delete {pastEvents.length} event(s) that occurred before today. This action cannot be undone.
+                                This will remove all {pastEvents.length} event(s) that occurred before today. This action helps keep the calendar clean.
                             </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                             <AlertDialogCancel>Cancel</AlertDialogCancel>
                             <AlertDialogAction onClick={handleDeletePastEvents} className="bg-destructive hover:bg-destructive/90">
-                                Yes, Delete Events
+                                Yes, Clear Events
                             </AlertDialogAction>
                         </AlertDialogFooter>
                     </AlertDialogContent>

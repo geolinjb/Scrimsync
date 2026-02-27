@@ -70,9 +70,18 @@ export function TeamSyncDashboard({ user: authUser }: TeamSyncDashboardProps) {
 
   React.useEffect(() => {
     if (user) {
-      user.getIdTokenResult(true).then(idTokenResult => {
+      // Prioritize hardcoded UIDs for immediate access
+      if (user.uid === ADMIN_UID || user.uid === FALLBACK_ADMIN_UID) {
+          setIsAdmin(true);
+          return;
+      }
+      
+      // Fallback to custom claims
+      user.getIdTokenResult().then(idTokenResult => {
         const claims = idTokenResult.claims;
-        setIsAdmin(claims.admin === true || user.uid === ADMIN_UID || user.uid === FALLBACK_ADMIN_UID);
+        setIsAdmin(claims.admin === true);
+      }).catch(err => {
+          console.error("Error fetching token claims:", err);
       });
     } else {
         setIsAdmin(false);
@@ -131,7 +140,6 @@ export function TeamSyncDashboard({ user: authUser }: TeamSyncDashboardProps) {
         role: '',
       };
       
-      // Specifically OMIT rosterStatus and playstyleTags for normal users
       setDocumentNonBlocking(profileDocRef, defaultProfile, { merge: true });
       
       toast({
@@ -148,10 +156,7 @@ export function TeamSyncDashboard({ user: authUser }: TeamSyncDashboardProps) {
       setIsSavingProfile(true);
       const profileDocRef = doc(firestore, 'users', authUser.uid);
       
-      // Separate admin fields from user fields to ensure the user only sends what they are allowed to.
-      // However, if the user already has them (and isn't an admin), they'll be identical and pass the diff check.
       const dataToSave = { ...newProfile };
-      
       setDocumentNonBlocking(profileDocRef, dataToSave, { merge: true });
 
       toast({
