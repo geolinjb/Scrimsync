@@ -1,3 +1,4 @@
+
 'use client';
 
 import { LogOut, Trophy, Users, Copy } from 'lucide-react';
