@@ -37,9 +37,13 @@ const generateEventBannerFlow = ai.defineFlow(
     Aesthetic: Futuristic, digital, team-oriented, with dramatic lighting and professional eSports feel. 
     No text in the image. High contrast, epic scale.`;
 
+    // Using gemini-2.5-flash-image which supports image generation on the free tier
     const { media } = await ai.generate({
-      model: 'googleai/imagen-4.0-fast-generate-001',
+      model: 'googleai/gemini-2.5-flash-image',
       prompt: prompt,
+      config: {
+        responseModalities: ['TEXT', 'IMAGE'],
+      },
     });
 
     if (!media || !media.url) {
