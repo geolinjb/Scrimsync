@@ -1,9 +1,10 @@
+
 'use client';
 
 import * as React from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { format, isSameDay, startOfWeek, addDays, isToday } from 'date-fns';
-import { Calendar as CalendarIcon, CalendarPlus } from 'lucide-react';
+import { Calendar as CalendarIcon, CalendarPlus, Info } from 'lucide-react';
 import { useForm, useWatch } from 'react-hook-form';
 import * as z from 'zod';
 
@@ -41,6 +42,8 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { timeSlots } from '@/lib/types';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const formSchema = z.object({
   type: z.enum(['Training', 'Tournament']),
@@ -49,6 +52,7 @@ const formSchema = z.object({
   }),
   time: z.string().min(1, 'A time is required.'),
   description: z.string().max(500, "Description must be 500 characters or less.").optional(),
+  discordRoleId: z.string().optional(),
 });
 
 type ScheduleFormProps = {
@@ -63,6 +67,7 @@ export function ScheduleForm({ onAddEvent, currentDate }: ScheduleFormProps) {
       type: 'Training',
       time: '',
       description: '',
+      discordRoleId: '',
     },
   });
 
@@ -80,6 +85,7 @@ export function ScheduleForm({ onAddEvent, currentDate }: ScheduleFormProps) {
         time: '',
         date: undefined,
         description: '',
+        discordRoleId: '',
     });
   }
 
@@ -202,6 +208,32 @@ export function ScheduleForm({ onAddEvent, currentDate }: ScheduleFormProps) {
                       ))}
                     </SelectContent>
                   </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="discordRoleId"
+              render={({ field }) => (
+                <FormItem>
+                  <div className="flex items-center gap-2">
+                    <FormLabel>Discord Role ID (Optional)</FormLabel>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="max-w-xs">Enter the numeric ID of the role to mention (e.g. 123456789). Enable Developer Mode in Discord to right-click a role and copy its ID.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  <FormControl>
+                    <Input placeholder="e.g. 1073088734335039865" {...field} />
+                  </FormControl>
+                  <FormDescription>Mention a specific role when posting to Discord.</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}

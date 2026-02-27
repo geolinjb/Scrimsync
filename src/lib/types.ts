@@ -1,3 +1,4 @@
+
 export type ScheduleEvent = {
   id: string;
   type: 'Training' | 'Tournament';
@@ -8,6 +9,7 @@ export type ScheduleEvent = {
   imageURL?: string;
   description?: string;
   status?: 'Active' | 'Cancelled';
+  discordRoleId?: string;
 };
 
 export type FirestoreScheduleEvent = Omit<ScheduleEvent, 'date'> & {

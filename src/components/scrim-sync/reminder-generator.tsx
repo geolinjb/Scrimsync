@@ -1,11 +1,12 @@
+
 'use client';
 
 import * as React from 'react';
-import { format, startOfToday, differenceInMinutes } from 'date-fns';
+import { format, startOfToday } from 'date-fns';
 import { Send, Megaphone, Check, Loader, UploadCloud, Image as ImageIcon } from 'lucide-react';
 import Image from 'next/image';
 import type { User as AuthUser } from 'firebase/auth';
-import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL, type UploadTask } from "firebase/storage";
+import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { doc, setDoc } from 'firebase/firestore';
 
 import type { AllVotes, PlayerProfileData, ScheduleEvent, AvailabilityOverride } from '@/lib/types';
@@ -28,9 +29,7 @@ import {
 import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Separator } from '../ui/separator';
 import { useFirebaseApp, useFirestore } from '@/firebase';
-import { Progress } from '../ui/progress';
 
 type ReminderGeneratorProps = {
   events: ScheduleEvent[] | null;
@@ -55,15 +54,12 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
   const [imageToSend, setImageToSend] = React.useState<string | null>(null);
   const [isSending, setIsSending] = React.useState(false);
   const [sendSuccess, setSendSuccess] = React.useState(false);
-  const [now, setNow] = React.useState(new Date());
 
   const [uploadProgress, setUploadProgress] = React.useState<number | null>(null);
   const isUploading = uploadProgress !== null;
 
   React.useEffect(() => {
     setMounted(true);
-    const timer = setInterval(() => setNow(new Date()), 60000);
-    return () => clearInterval(timer);
   }, []);
 
   const upcomingEvents = React.useMemo(() => {
@@ -88,8 +84,10 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
     const isCancelled = event.status === 'Cancelled';
     const formattedDate = format(new Date(event.date), 'EEEE, d MMMM');
 
+    const mention = event.discordRoleId ? `<@&${event.discordRoleId}> ` : '';
+
     if (isCancelled) {
-        setReminderMessage(`🚫 **EVENT CANCELLED** 🚫\n> The **${event.type}** on ${formattedDate} at **${event.time}** has been cancelled.`);
+        setReminderMessage(`${mention}🚫 **EVENT CANCELLED** 🚫\n> The **${event.type}** on ${formattedDate} at **${event.time}** has been cancelled.`);
         return;
     }
 
@@ -97,7 +95,7 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
     const availablePlayers = allVotes[voteKey] || [];
     const totalAvailable = availablePlayers.length;
 
-    const msg = `**🔔 REMINDER: ${event.type.toUpperCase()}! 🔔**\n> **When:** ${formattedDate} at **${event.time}**\n\n✅ **Available (${availablePlayers.length}):**\n${availablePlayers.map(p => `- ${p}`).join('\n')}\n\n🔥 **Needed: ${Math.max(0, MINIMUM_PLAYERS - totalAvailable)}**\n\n---\nhttps://scrimsync.vercel.app/`;
+    const msg = `${mention}**🔔 REMINDER: ${event.type.toUpperCase()}! 🔔**\n> **When:** ${formattedDate} at **${event.time}**\n\n✅ **Available (${availablePlayers.length}):**\n${availablePlayers.map(p => `- ${p}`).join('\n')}\n\n🔥 **Needed: ${Math.max(0, MINIMUM_PLAYERS - totalAvailable)}**\n\n---\nhttps://scrimsync.vercel.app/`;
     setReminderMessage(msg);
   };
   

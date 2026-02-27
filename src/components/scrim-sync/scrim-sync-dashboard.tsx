@@ -1,12 +1,13 @@
+
 'use client';
 
 import * as React from 'react';
-import { format, addDays, startOfWeek, endOfWeek, parseISO, addWeeks } from 'date-fns';
+import { format, addDays, startOfWeek, endOfWeek, parseISO } from 'date-fns';
 import { ChevronLeft, ChevronRight, CalendarCheck } from 'lucide-react';
 import type { User as AuthUser } from 'firebase/auth';
 import { collection, doc, writeBatch } from 'firebase/firestore';
 
-import type { PlayerProfileData, ScheduleEvent, UserVotes, AllVotes, Vote, FirestoreScheduleEvent, AvailabilityOverride } from '@/lib/types';
+import type { PlayerProfileData, ScheduleEvent, UserVotes, AllVotes, Vote, FirestoreScheduleEvent } from '@/lib/types';
 import { timeSlots } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -475,7 +476,7 @@ const hasLastWeekVotes = React.useMemo(() => {
     });
 }, [allVotesData, authUser.uid, weekStart]);
 
-  const handleAddEvent = (data: { type: 'Training' | 'Tournament'; date: Date; time: string; description?: string }) => {
+  const handleAddEvent = (data: { type: 'Training' | 'Tournament'; date: Date; time: string; description?: string; discordRoleId?: string }) => {
     if (!firestore) return;
 
     const newEvent: Omit<FirestoreScheduleEvent, 'id'> = {
@@ -486,6 +487,7 @@ const hasLastWeekVotes = React.useMemo(() => {
       isRecurring: false,
       description: data.description,
       status: 'Active',
+      discordRoleId: data.discordRoleId,
     };
     const eventsRef = collection(firestore, 'scheduledEvents');
     addDocumentNonBlocking(eventsRef, newEvent);

@@ -137,6 +137,10 @@
             "Active",
             "Cancelled"
           ]
+        },
+        "discordRoleId": {
+          "type": "string",
+          "description": "The ID of the Discord role to mention in notifications (e.g., '1234567890')."
         }
       },
       "required": [
