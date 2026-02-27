@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -19,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Loader, Save, Shield, Swords, UploadCloud, Copy, Trash2 } from 'lucide-react';
+import { Loader, Save, Shield, Swords, UploadCloud, Copy, Trash2, Info } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Skeleton } from '../ui/skeleton';
 import { Badge } from '../ui/badge';
@@ -52,6 +53,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { signOut } from 'firebase/auth';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 
 type PlayerProfileProps = {
   initialProfile: PlayerProfileData & { email?: string | null };
@@ -171,6 +173,26 @@ export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: P
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2"><Label>Username</Label><Input value={profile.username} onChange={(e) => handleInputChange('username', e.target.value)} /></div>
+        <div className="space-y-2">
+            <div className='flex items-center gap-2'>
+                <Label>Discord Username/ID</Label>
+                <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            <p className="max-w-xs text-xs">Enter your Discord username (e.g., @user) or User ID (e.g., &lt;@123456&gt;) so admins can tag you in notifications.</p>
+                        </TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
+            </div>
+            <Input 
+                value={profile.discordUsername ?? ''} 
+                placeholder="e.g. @username or <@123456789>"
+                onChange={(e) => handleInputChange('discordUsername', e.target.value)} 
+            />
+        </div>
         <div className="space-y-2"><Label>Favorite Tank</Label><Input value={profile.favoriteTank} onChange={(e) => handleInputChange('favoriteTank', e.target.value)} /></div>
         <div className="space-y-2"><Label>Favorite Role</Label><Select value={profile.role} onValueChange={(v) => handleInputChange('role', v)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{gameRoles.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent></Select></div>
         <div className="flex flex-wrap gap-2 pt-2">

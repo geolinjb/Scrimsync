@@ -19,6 +19,7 @@ export type FirestoreScheduleEvent = Omit<ScheduleEvent, 'date'> & {
 export type PlayerProfileData = {
   id: string;
   username: string;
+  discordUsername?: string;
   photoURL?: string;
   favoriteTank: string;
   role: (typeof gameRoles)[number] | '';

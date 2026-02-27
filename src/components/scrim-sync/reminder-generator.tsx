@@ -62,6 +62,10 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
     setMounted(true);
   }, []);
 
+  const profileMap = React.useMemo(() => {
+      return new Map(allProfiles.map(p => [p.username, p]));
+  }, [allProfiles]);
+
   const upcomingEvents = React.useMemo(() => {
     if (!events) return [];
     return events
@@ -92,10 +96,15 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
     }
 
     const voteKey = `${format(new Date(event.date), 'yyyy-MM-dd')}-${event.time}`;
-    const availablePlayers = allVotes[voteKey] || [];
-    const totalAvailable = availablePlayers.length;
+    const availablePlayerNames = allVotes[voteKey] || [];
+    const totalAvailable = availablePlayerNames.length;
 
-    const msg = `${mention}**🔔 REMINDER: ${event.type.toUpperCase()}! 🔔**\n> **When:** ${formattedDate} at **${event.time}**\n\n✅ **Available (${availablePlayers.length}):**\n${availablePlayers.map(p => `- ${p}`).join('\n')}\n\n🔥 **Needed: ${Math.max(0, MINIMUM_PLAYERS - totalAvailable)}**\n\n---\nhttps://scrimsync.vercel.app/`;
+    const availablePlayerTags = availablePlayerNames.map(name => {
+        const prof = profileMap.get(name);
+        return prof?.discordUsername || name;
+    });
+
+    const msg = `${mention}**🔔 REMINDER: ${event.type.toUpperCase()}! 🔔**\n> **When:** ${formattedDate} at **${event.time}**\n\n✅ **Available (${availablePlayerNames.length}):**\n${availablePlayerTags.map(p => `- ${p}`).join('\n')}\n\n🔥 **Needed: ${Math.max(0, MINIMUM_PLAYERS - totalAvailable)}**\n\n---\nhttps://scrimsync.vercel.app/`;
     setReminderMessage(msg);
   };
   
