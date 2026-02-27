@@ -3,7 +3,7 @@
 
 import * as React from 'react';
 import { format, startOfToday, isSameDay } from 'date-fns';
-import { Send, Megaphone, Check, Loader, UploadCloud, Image as ImageIcon, CalendarDays, Sparkles, BellRing } from 'lucide-react';
+import { Send, Megaphone, Check, Loader, UploadCloud, Image as ImageIcon, CalendarDays, Sparkles, BellRing, LayoutGrid } from 'lucide-react';
 import Image from 'next/image';
 import type { User as AuthUser } from 'firebase/auth';
 import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL, uploadString } from "firebase/storage";
@@ -34,6 +34,16 @@ import { Separator } from '../ui/separator';
 import { DISCORD_WEBHOOK_URL } from '@/lib/config';
 import { getDiscordTimestamp } from '@/lib/utils';
 import { generateEventBanner } from '@/ai/flows/generate-event-banner-flow';
+import { PlaceHolderImages } from '@/lib/placeholder-images';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { ScrollArea } from '../ui/scroll-area';
 
 type ReminderGeneratorProps = {
   events: ScheduleEvent[] | null;
@@ -68,6 +78,7 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
 
   const [uploadProgress, setUploadProgress] = React.useState<number | null>(null);
   const [isGeneratingAI, setIsGeneratingAI] = React.useState(false);
+  const [isGalleryOpen, setIsGalleryOpen] = React.useState(false);
 
   const isUploading = uploadProgress !== null;
 
@@ -256,7 +267,6 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
       toast({ title: 'AI Banner Generated!', description: 'The event now has a custom AI-generated image.' });
       setImageToSend(permanentUrl);
     } catch (error: any) {
-      // Do not use console.error as it triggers the Next.js error overlay in development
       toast({ 
         variant: 'destructive', 
         title: 'AI Generation Unavailable', 
@@ -264,6 +274,18 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
       });
     } finally {
       setIsGeneratingAI(false);
+    }
+  };
+
+  const handleSelectPlaceholder = async (url: string) => {
+    if (!selectedEvent || !firestore) return;
+    try {
+      await setDoc(doc(firestore, 'scheduledEvents', selectedEvent.id), { imageURL: url }, { merge: true });
+      setImageToSend(url);
+      setIsGalleryOpen(false);
+      toast({ title: 'Banner Updated!', description: 'Gallery image selected.' });
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Update Failed' });
     }
   };
 
@@ -345,12 +367,53 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
                     </div>
                   )}
                   {canManageEvent && (
-                    <div className='grid grid-cols-2 gap-2'>
+                    <div className='grid grid-cols-1 sm:grid-cols-3 gap-2'>
+                        <Dialog open={isGalleryOpen} onOpenChange={setIsGalleryOpen}>
+                          <DialogTrigger asChild>
+                            <Button variant="secondary" size="sm" className="text-xs">
+                              <LayoutGrid className="mr-2 h-3 w-3" />
+                              Gallery
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="max-w-2xl">
+                            <DialogHeader>
+                              <DialogTitle>Select Event Banner</DialogTitle>
+                              <DialogDescription>Quickly pick a high-quality gaming banner from our preset library.</DialogDescription>
+                            </DialogHeader>
+                            <ScrollArea className="h-[60vh]">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-1">
+                                {PlaceHolderImages.map((img) => (
+                                  <div 
+                                    key={img.id} 
+                                    className="group relative cursor-pointer rounded-lg overflow-hidden border transition-all hover:ring-2 hover:ring-primary"
+                                    onClick={() => handleSelectPlaceholder(img.imageUrl)}
+                                  >
+                                    <Image 
+                                      src={img.imageUrl} 
+                                      alt={img.description} 
+                                      width={400} 
+                                      height={225} 
+                                      data-ai-hint={img.imageHint}
+                                      className="aspect-video object-cover"
+                                    />
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                      <span className="text-white text-xs font-bold uppercase tracking-widest">Select Banner</span>
+                                    </div>
+                                    <div className="p-2 bg-card text-xs font-medium text-center border-t">
+                                      {img.description}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </ScrollArea>
+                          </DialogContent>
+                        </Dialog>
+
                         <Button onClick={handleUploadClick} disabled={isUploading || isGeneratingAI} variant="outline" size="sm" className="text-xs">
                           {isUploading ? <Loader className='animate-spin mr-2 h-4 w-4' /> : <UploadCloud className='mr-2 h-3 w-3'/>}
                           {imageToSend ? 'Replace' : 'Upload'}
                         </Button>
-                        <Button onClick={handleGenerateAIBanner} disabled={isUploading || isGeneratingAI} variant="secondary" size="sm" className="text-xs">
+                        <Button onClick={handleGenerateAIBanner} disabled={isUploading || isGeneratingAI} variant="outline" size="sm" className="text-xs">
                           {isGeneratingAI ? <Loader className='animate-spin mr-2 h-4 w-4' /> : <Sparkles className='mr-2 h-3 w-3'/>}
                           AI Banner
                         </Button>
