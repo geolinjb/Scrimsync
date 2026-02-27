@@ -3,7 +3,7 @@
     {
       "id": "tank-snow-training",
       "description": "Tank Training - Snowy Ridge",
-      "imageUrl": "https://images.unsplash.com/photo-1599387118329-f8df6f8090a9?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHh8fHRhbmslMjBzbm93fGVufDB8fHx8MTc3MjIwMzE5N3ww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageUrl": "https://images.unsplash.com/photo-1599387118329-f8df6f8090a9?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
       "imageHint": "tank snow"
     },
     {
@@ -13,39 +13,45 @@
       "imageHint": "gold coins"
     },
     {
+      "id": "neon-gamer-arena",
+      "description": "Neon Gamer Arena - Hype Mode",
+      "imageUrl": "https://images.unsplash.com/photo-1538481199705-c710c4e965fc?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
+      "imageHint": "neon gamer"
+    },
+    {
       "id": "gaming-setup",
       "description": "Professional Gaming Setup",
-      "imageUrl": "https://images.unsplash.com/photo-1617507171089-6cb9aa5add36?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxnYW1pbmclMjBzZXR1cHxlbnwwfHx8fDE3NzIxNTI3NDl8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageUrl": "https://images.unsplash.com/photo-1617507171089-6cb9aa5add36?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
       "imageHint": "gaming setup"
     },
     {
       "id": "esports-stadium",
       "description": "Esports Stadium Atmosphere",
-      "imageUrl": "https://images.unsplash.com/photo-1759701547687-45af72f44e7e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHxlc3BvcnRzJTIwYXJlbmF8ZW58MHx8fHwxNzcyMDg3ODg3fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageUrl": "https://images.unsplash.com/photo-1759701547687-45af72f44e7e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
       "imageHint": "esports arena"
     },
     {
       "id": "cyberpunk-city",
       "description": "Futuristic Neon Cityscape",
-      "imageUrl": "https://images.unsplash.com/photo-1601042879364-f3947d3f9c16?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxjeWJlcnB1bmslMjBjaXR5fGVufDB8fHx8MTc3MjEzNDYwNnww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageUrl": "https://images.unsplash.com/photo-1601042879364-f3947d3f9c16?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
       "imageHint": "cyberpunk city"
     },
     {
       "id": "team-strategy",
       "description": "Digital Strategy and Data",
-      "imageUrl": "https://images.unsplash.com/photo-1771189957022-63bb560121ab?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw4fHxkYXRhJTIwdGVjaG5vbG9neXxlbnwwfHx8fDE3NzIxNDk1ODZ8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageUrl": "https://images.unsplash.com/photo-1771189957022-63bb560121ab?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
       "imageHint": "data technology"
     },
     {
       "id": "abstract-energy",
       "description": "High Energy Abstract Waves",
-      "imageUrl": "https://images.unsplash.com/photo-1533371452382-d45a9da51ad9?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxlbmVyZ3klMjB3YXZlc3xlbnwwfHx8fDE3NzIxOTcxMzF8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageUrl": "https://images.unsplash.com/photo-1533371452382-d45a9da51ad9?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
       "imageHint": "energy waves"
     },
     {
       "id": "victory-trophy",
       "description": "Golden Victory Concept",
-      "imageUrl": "https://images.unsplash.com/photo-1720299580598-b379d782e785?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHx2aWN0b3J5JTIwdHJvcGh5fGVufDB8fHx8MTc3MjE5NzEzMXww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageUrl": "https://images.unsplash.com/photo-1720299580598-b379d782e785?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
       "imageHint": "victory trophy"
     }
   ]
