@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { format, startOfToday, isSameDay } from 'date-fns';
-import { Send, Megaphone, Check, Loader, UploadCloud, Image as ImageIcon, CalendarDays, Sparkles } from 'lucide-react';
+import { Send, Megaphone, Check, Loader, UploadCloud, Image as ImageIcon, CalendarDays, Sparkles, BellRing } from 'lucide-react';
 import Image from 'next/image';
 import type { User as AuthUser } from 'firebase/auth';
 import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL, uploadString } from "firebase/storage";
@@ -84,20 +84,17 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
 
     const canManageEvent = React.useMemo(() => isAdmin || (selectedEvent && currentUser && currentUser.uid === selectedEvent.creatorId), [selectedEvent, currentUser, isAdmin]);
 
-  const generateReminder = (eventId: string) => {
+  const buildReminderMessage = (eventId: string, includeNudges: boolean = false) => {
     const event = upcomingEvents.find(e => e.id === eventId);
-    if (!event) { setReminderMessage(''); setImageToSend(null); return; }
+    if (!event) return '';
 
-    setImageToSend(event.imageURL || null);
     const isCancelled = event.status === 'Cancelled';
     const dsTimestamp = getDiscordTimestamp(event.date, event.time, 'F');
     const dsRelative = getDiscordTimestamp(event.date, event.time, 'R');
-
     const mention = event.discordRoleId ? `<@&${event.discordRoleId}> ` : '';
 
     if (isCancelled) {
-        setReminderMessage(`${mention}🚫 **EVENT CANCELLED** 🚫\n> The **${event.type}** at ${dsTimestamp} has been cancelled.`);
-        return;
+        return `${mention}🚫 **EVENT CANCELLED** 🚫\n> The **${event.type}** at ${dsTimestamp} has been cancelled.`;
     }
 
     const voteKey = `${format(new Date(event.date), 'yyyy-MM-dd')}-${event.time}`;
@@ -109,11 +106,35 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
         return prof?.discordUsername || name;
     });
 
-    const msg = `${mention}**🔔 REMINDER: ${event.type.toUpperCase()}! 🔔**\n> **When:** ${dsTimestamp} (${dsRelative})\n\n✅ **Available (${availablePlayerNames.length}):**\n${availablePlayerTags.map(p => `- ${p}`).join('\n')}\n\n🔥 **Needed: ${Math.max(0, MINIMUM_PLAYERS - totalAvailable)}**\n\n---\nhttps://scrimsync.vercel.app/`;
-    setReminderMessage(msg);
+    let msg = `${mention}**🔔 REMINDER: ${event.type.toUpperCase()}! 🔔**\n> **When:** ${dsTimestamp} (${dsRelative})\n\n✅ **Available (${availablePlayerNames.length}):**\n${availablePlayerTags.map(p => `- ${p}`).join('\n')}\n\n🔥 **Needed: ${Math.max(0, MINIMUM_PLAYERS - totalAvailable)}**`;
+
+    if (includeNudges) {
+        const mainRosterPlayers = allProfiles.filter(p => p.rosterStatus === 'Main Roster');
+        const missingMainRoster = mainRosterPlayers.filter(p => !availablePlayerNames.includes(p.username));
+        
+        if (missingMainRoster.length > 0) {
+            msg += `\n\n⏰ **Awaiting Response (Main Roster):**\n${missingMainRoster.map(p => `- ${p.discordUsername || p.username}`).join('\n')}`;
+        }
+    }
+
+    msg += `\n\n---\nhttps://scrimsync.vercel.app/`;
+    return msg;
+  };
+
+  const generateReminder = (eventId: string) => {
+    const event = upcomingEvents.find(e => e.id === eventId);
+    if (!event) { setReminderMessage(''); setImageToSend(null); return; }
+    setImageToSend(event.imageURL || null);
+    setReminderMessage(buildReminderMessage(eventId));
   };
   
-    React.useEffect(() => { if (selectedEventId) generateReminder(selectedEventId); }, [events, selectedEventId]);
+  React.useEffect(() => { if (selectedEventId) generateReminder(selectedEventId); }, [events, selectedEventId]);
+
+  const handleNudge = () => {
+      if (!selectedEventId) return;
+      setReminderMessage(buildReminderMessage(selectedEventId, true));
+      toast({ description: "Added 'Main Roster' nudges to the message." });
+  };
 
   const handleSendToDiscord = async () => {
     setIsSending(true);
@@ -182,16 +203,11 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
         description: selectedEvent.description,
       });
 
-      // Upload the data URI to Storage to get a permanent URL
       const storage = getStorage(firebaseApp);
       const fileRef = storageRef(storage, `event-images/${selectedEvent.id}/ai-banner-${Date.now()}.png`);
-      
-      // Remove the metadata prefix from the data URI
       const base64Data = dataUri.split(',')[1];
       
-      await uploadString(fileRef, base64Data, 'base64', {
-        contentType: 'image/png',
-      });
+      await uploadString(fileRef, base64Data, 'base64', { contentType: 'image/png' });
       
       const permanentUrl = await getDownloadURL(fileRef);
       await setDoc(doc(firestore, 'scheduledEvents', selectedEvent.id), { imageURL: permanentUrl }, { merge: true });
@@ -220,6 +236,7 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
         await uploadTask;
         const imageURL = await getDownloadURL(uploadTask.snapshot.ref);
         await setDoc(doc(firestore, 'scheduledEvents', selectedEventId), { imageURL }, { merge: true });
+        setImageToSend(imageURL);
         toast({ title: 'Image Uploaded!' });
     } catch (error) { toast({ variant: 'destructive', title: 'Upload Failed' }); }
     finally { setUploadProgress(null); }
@@ -245,7 +262,7 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
             Daily Summary
           </h3>
           <p className="text-xs text-muted-foreground">
-            Post a summary of all events scheduled for today, including player availability counts and dynamic time handles.
+            Post a summary of all events scheduled for today, including player availability counts.
           </p>
           <Button 
             onClick={handleSendTodaySummary} 
@@ -254,7 +271,7 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
             disabled={isSendingSummary || !events}
           >
             {isSendingSummary ? <Loader className="animate-spin mr-2 h-4 w-4" /> : <Send className="mr-2 h-4 w-4" />}
-            Post Today's Summary to Discord
+            Post Today's Summary
           </Button>
         </div>
 
@@ -271,41 +288,46 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
           </Select>
           
           {selectedEventId && (
-              <div className="space-y-2">
+              <div className="space-y-3">
                   {imageToSend ? (
-                    <div className="relative aspect-video rounded-md overflow-hidden border">
+                    <div className="relative aspect-video rounded-md overflow-hidden border bg-muted">
                       <Image src={imageToSend} alt="Event" fill style={{ objectFit: 'cover' }} />
                     </div>
                   ) : (
-                    <div className="border-2 border-dashed rounded-lg h-32 flex items-center justify-center text-muted-foreground">
-                      <ImageIcon className="mr-2" />
-                      No image
+                    <div className="border-2 border-dashed rounded-lg h-32 flex flex-col items-center justify-center text-muted-foreground bg-muted/30">
+                      <ImageIcon className="mb-2 w-6 h-6 opacity-50" />
+                      <span className="text-xs">No banner image</span>
                     </div>
                   )}
                   {canManageEvent && (
-                    <div className='flex flex-col gap-2'>
-                      <div className='grid grid-cols-2 gap-2'>
-                        <Button onClick={handleUploadClick} disabled={isUploading || isGeneratingAI} variant="outline" size="sm">
-                          {isUploading ? <Loader className='animate-spin mr-2 h-4 w-4' /> : <UploadCloud className='mr-2 h-4 w-4'/>}
-                          {imageToSend ? 'Change' : 'Upload'}
+                    <div className='grid grid-cols-2 gap-2'>
+                        <Button onClick={handleUploadClick} disabled={isUploading || isGeneratingAI} variant="outline" size="sm" className="text-xs">
+                          {isUploading ? <Loader className='animate-spin mr-2 h-4 w-4' /> : <UploadCloud className='mr-2 h-3 w-3'/>}
+                          {imageToSend ? 'Replace' : 'Upload'}
                         </Button>
-                        <Button onClick={handleGenerateAIBanner} disabled={isUploading || isGeneratingAI} variant="secondary" size="sm">
-                          {isGeneratingAI ? <Loader className='animate-spin mr-2 h-4 w-4' /> : <Sparkles className='mr-2 h-4 w-4'/>}
+                        <Button onClick={handleGenerateAIBanner} disabled={isUploading || isGeneratingAI} variant="secondary" size="sm" className="text-xs">
+                          {isGeneratingAI ? <Loader className='animate-spin mr-2 h-4 w-4' /> : <Sparkles className='mr-2 h-3 w-3'/>}
                           AI Banner
                         </Button>
-                      </div>
                     </div>
                   )}
-                  <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
+                  <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
               </div>
           )}
           
-          {reminderMessage && (
-            <div className="space-y-2">
+          {selectedEventId && reminderMessage && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Preview</span>
+                  <Button variant="ghost" size="sm" className="h-6 text-[10px]" onClick={handleNudge}>
+                      <BellRing className="w-3 h-3 mr-1" />
+                      Add Nudges
+                  </Button>
+              </div>
               <Textarea 
                 value={reminderMessage} 
-                readOnly 
-                className="min-h-[150px] text-[10px] font-mono leading-tight bg-muted/50" 
+                onChange={(e) => setReminderMessage(e.target.value)}
+                className="min-h-[150px] text-[10px] font-mono leading-tight bg-muted/30" 
               />
               <Button 
                 onClick={handleSendToDiscord} 
@@ -313,7 +335,7 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
                 disabled={isSending || sendSuccess}
               >
                 {isSending ? <Loader className="animate-spin mr-2 h-4 w-4" /> : <Send className="mr-2 h-4 w-4" />}
-                {sendSuccess ? 'Sent!' : 'Send Reminder to Discord'}
+                {sendSuccess ? 'Sent!' : 'Post Reminder to Discord'}
               </Button>
             </div>
           )}
