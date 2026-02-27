@@ -2,7 +2,7 @@
 'use client';
 
 import * as React from 'react';
-import { ShieldCheck, Users, Trash2, Loader, ChevronLeft, ChevronRight, Copy, ClipboardList, CalendarX2, Save, Tags } from 'lucide-react';
+import { ShieldCheck, Users, Trash2, Loader, ChevronLeft, ChevronRight, Copy, ClipboardList, CalendarX2, Save, Tags, Check } from 'lucide-react';
 import { collection, doc, writeBatch, query, where, getDocs, updateDoc } from 'firebase/firestore';
 import { format, startOfWeek, endOfWeek, addDays, parseISO, startOfToday, isBefore } from 'date-fns';
 
@@ -26,6 +26,7 @@ import { Skeleton } from '../ui/skeleton';
 import type { PlayerProfileData, Vote, ScheduleEvent, AllVotes, AvailabilityOverride } from '@/lib/types';
 import { timeSlots, MINIMUM_PLAYERS, rosterStatuses, playstyleTags } from '@/lib/types';
 import { Button } from '../ui/button';
+import { Input } from '../ui/input';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -47,8 +48,6 @@ import { ScrollArea, ScrollBar } from '../ui/scroll-area';
 import { ReminderGenerator } from './reminder-generator';
 import type { User as AuthUser } from 'firebase/auth';
 import { MultiSelect } from '../ui/multi-select';
-import { Label } from '../ui/label';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 
 type UserDataPanelProps = {
   allProfiles: PlayerProfileData[] | null;
@@ -73,6 +72,10 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent, a
   const [selectedPlayerForTags, setSelectedPlayerForTags] = React.useState<string>('');
   const [currentPlaystyleTags, setCurrentPlaystyleTags] = React.useState<string[]>([]);
   const [isSavingTags, setIsSavingTags] = React.useState(false);
+
+  // States for inline Discord editing
+  const [editingDiscord, setEditingDiscord] = React.useState<{ [userId: string]: string }>({});
+  const [savingDiscordId, setSavingDiscordId] = React.useState<string | null>(null);
 
   const weekStart = React.useMemo(() => startOfWeek(selectedDate, { weekStartsOn: 1 }), [selectedDate]);
   const weekEnd = React.useMemo(() => endOfWeek(selectedDate, { weekStartsOn: 1 }), [selectedDate]);
@@ -147,8 +150,35 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent, a
       await updateDoc(userDocRef, { rosterStatus: value });
       toast({ title: 'Player Updated', description: `Player's roster status has been updated.` });
     } catch (error) {
-      toast({ variant: 'destructive', title: 'Update Failed', description: 'Could not update the player status.' });
+      toast({ variant: 'destructive', title: 'Update Failed' });
       errorEmitter.emit('permission-error', new FirestorePermissionError({ path: userDocRef.path, operation: 'update', requestResourceData: { rosterStatus: value } }));
+    }
+  };
+
+  const handleDiscordChange = (userId: string, value: string) => {
+    setEditingDiscord(prev => ({ ...prev, [userId]: value }));
+  };
+
+  const handleSaveDiscord = async (userId: string) => {
+    if (!firestore || savingDiscordId) return;
+    const value = editingDiscord[userId];
+    if (value === undefined) return;
+
+    setSavingDiscordId(userId);
+    const userDocRef = doc(firestore, 'users', userId);
+    try {
+      await updateDoc(userDocRef, { discordUsername: value });
+      toast({ title: 'Discord Updated', description: "The player's Discord handle has been updated." });
+      setEditingDiscord(prev => {
+        const next = { ...prev };
+        delete next[userId];
+        return next;
+      });
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Update Failed' });
+      errorEmitter.emit('permission-error', new FirestorePermissionError({ path: userDocRef.path, operation: 'update', requestResourceData: { discordUsername: value } }));
+    } finally {
+      setSavingDiscordId(null);
     }
   };
 
@@ -158,9 +188,9 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent, a
     const userDocRef = doc(firestore, 'users', selectedPlayerForTags);
     try {
         await updateDoc(userDocRef, { playstyleTags: currentPlaystyleTags });
-        toast({ title: 'Tags Saved!', description: "The player's playstyle tags have been updated." });
+        toast({ title: 'Tags Saved!' });
     } catch (error) {
-        toast({ variant: 'destructive', title: 'Update Failed', description: 'Could not update the playstyle tags.' });
+        toast({ variant: 'destructive', title: 'Update Failed' });
         errorEmitter.emit('permission-error', new FirestorePermissionError({ path: userDocRef.path, operation: 'update', requestResourceData: { playstyleTags: currentPlaystyleTags } }));
     } finally {
         setIsSavingTags(false);
@@ -184,9 +214,8 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent, a
         overridesSnapshot.forEach(overrideDoc => batch.delete(overrideDoc.ref));
 
         await batch.commit();
-        toast({ title: 'User Deleted', description: `User '${username}' and all associated data have been removed.` });
+        toast({ title: 'User Deleted' });
     } catch (error: any) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Could not delete user. Check console for details.' });
         errorEmitter.emit('permission-error', new FirestorePermissionError({ path: `/users/${userId}`, operation: 'delete' }));
     } finally {
         setDeletingUserId(null);
@@ -219,7 +248,7 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent, a
     pastEvents.forEach(event => batch.delete(doc(firestore, 'scheduledEvents', event.id)));
     try {
         await batch.commit();
-        toast({ title: "Past Events Cleared", description: `Successfully deleted ${pastEvents.length} past event(s).` });
+        toast({ title: "Past Events Cleared" });
     } catch(error) {
         errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'scheduledEvents', operation: 'delete' }));
     } finally {
@@ -234,8 +263,6 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent, a
     if (!selectedRosterDate || !selectedRosterTime || !allVotesData || !allProfiles) return;
     
     const profileMap = new Map(allProfiles.map(p => [p.id, p]));
-    const usernameProfileMap = new Map(allProfiles.map(p => [p.username, p]));
-
     const availablePlayerIds = allVotesData
         .filter(v => v.timeslot === `${selectedRosterDate}_${selectedRosterTime}`)
         .map(v => v.userId);
@@ -282,14 +309,6 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent, a
     });
   };
 
-  const handleCopyAllPlayers = () => {
-    if (!allProfiles || !allProfiles.length) return;
-    const fullText = `All Players:\n\n${allProfiles.map(p => `- ${p.discordUsername || p.username}`).join('\n')}\n\n---\nGenerated by TeamSync`;
-    navigator.clipboard.writeText(fullText).then(() => {
-      toast({ title: 'Copied All Players' });
-    });
-  };
-
   if (isLoading) {
     return <div className="space-y-8"><Skeleton className="h-[400px] w-full" /><Skeleton className="h-[200px] w-full" /></div>;
   }
@@ -304,16 +323,17 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent, a
                     <ShieldCheck className="w-6 h-6 text-gold" />
                     <CardTitle>Manage Player Roster</CardTitle>
                 </div>
-                <CardDescription>Manage user roles and statuses. Scroll right to see the delete option.</CardDescription>
+                <CardDescription>Update roles, Discord handles, or remove players from the team.</CardDescription>
             </CardHeader>
             <CardContent>
                 <ScrollArea className="border rounded-lg h-[60vh] w-full">
-                    <div className="min-w-[700px]">
+                    <div className="min-w-[900px]">
                         <Table>
                             <TableHeader className="sticky top-0 bg-muted/95 backdrop-blur-sm z-10">
                                 <TableRow>
-                                    <TableHead>Username & Discord</TableHead>
-                                    <TableHead>Roster Status</TableHead>
+                                    <TableHead className="w-[200px]">Username</TableHead>
+                                    <TableHead className="w-[250px]">Discord Handle</TableHead>
+                                    <TableHead className="w-[200px]">Roster Status</TableHead>
                                     <TableHead className='text-right'>Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -323,8 +343,28 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent, a
                                     <TableCell>
                                         <div className='flex flex-col'>
                                             <span className='font-bold'>{profile.username || '(Not set)'}</span>
-                                            {profile.discordUsername && <span className='text-xs text-primary'>{profile.discordUsername}</span>}
                                             <span className='text-[10px] text-muted-foreground'>{profile.id}</span>
+                                        </div>
+                                    </TableCell>
+                                    <TableCell>
+                                        <div className="flex items-center gap-2">
+                                          <Input 
+                                            className="h-8 text-xs font-mono"
+                                            placeholder="@username or <@ID>"
+                                            value={editingDiscord[profile.id] ?? profile.discordUsername ?? ''}
+                                            onChange={(e) => handleDiscordChange(profile.id, e.target.value)}
+                                          />
+                                          {editingDiscord[profile.id] !== undefined && (
+                                            <Button 
+                                              size="icon" 
+                                              variant="ghost" 
+                                              className="h-8 w-8 shrink-0 text-primary"
+                                              disabled={savingDiscordId === profile.id}
+                                              onClick={() => handleSaveDiscord(profile.id)}
+                                            >
+                                              {savingDiscordId === profile.id ? <Loader className="w-3 h-3 animate-spin" /> : <Check className="w-4 h-4" />}
+                                            </Button>
+                                          )}
                                         </div>
                                     </TableCell>
                                     <TableCell>
@@ -335,22 +375,15 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent, a
                                     </TableCell>
                                     <TableCell className='text-right'>
                                         <AlertDialog>
-                                            <TooltipProvider>
-                                                <Tooltip>
-                                                    <TooltipTrigger asChild>
-                                                        <AlertDialogTrigger asChild>
-                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" disabled={!!deletingUserId}>
-                                                                {deletingUserId === profile.id ? <Loader className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                                                            </Button>
-                                                        </AlertDialogTrigger>
-                                                    </TooltipTrigger>
-                                                    <TooltipContent><p>Permanently delete user</p></TooltipContent>
-                                                </Tooltip>
-                                            </TooltipProvider>
+                                            <AlertDialogTrigger asChild>
+                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" disabled={!!deletingUserId}>
+                                                    {deletingUserId === profile.id ? <Loader className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                                                </Button>
+                                            </AlertDialogTrigger>
                                             <AlertDialogContent>
                                                 <AlertDialogHeader>
                                                     <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                                    <AlertDialogDescription>This will permanently delete {profile.username || profile.id} and all their votes. This cannot be undone.</AlertDialogDescription>
+                                                    <AlertDialogDescription>This will permanently delete {profile.username || profile.id} and all their data. This cannot be undone.</AlertDialogDescription>
                                                 </AlertDialogHeader>
                                                 <AlertDialogFooter>
                                                     <AlertDialogCancel>Cancel</AlertDialogCancel>
@@ -400,11 +433,6 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent, a
                     </div>
                     <ScrollBar orientation="horizontal" />
                 </ScrollArea>
-                <Separator />
-                <div className='flex items-center justify-between gap-4 p-4 border rounded-lg bg-muted/30'>
-                    <p className='text-xs text-muted-foreground'>Copy a simple list of all players (using Discord tags where available).</p>
-                    <Button onClick={handleCopyAllPlayers} disabled={!allProfiles?.length} variant="outline"><ClipboardList className='w-4 h-4 mr-2' />Copy Players</Button>
-                </div>
                 <Separator />
                 <div className='flex items-center justify-between gap-4 p-4 border rounded-lg bg-destructive/5'>
                     <div className='flex items-center gap-2'>
