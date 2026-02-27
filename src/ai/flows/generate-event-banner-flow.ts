@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview A flow to generate thematic event banners using AI.
@@ -47,7 +48,7 @@ const generateEventBannerFlow = ai.defineFlow(
     });
 
     if (!media || !media.url) {
-      throw new Error('AI failed to generate an image.');
+      throw new Error('AI failed to generate an image. This might be due to project-level quota restrictions.');
     }
 
     return {

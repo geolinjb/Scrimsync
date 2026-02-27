@@ -255,9 +255,13 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
       
       toast({ title: 'AI Banner Generated!', description: 'The event now has a custom AI-generated image.' });
       setImageToSend(permanentUrl);
-    } catch (error) {
-      console.error('AI Generation Error:', error);
-      toast({ variant: 'destructive', title: 'AI Generation Failed' });
+    } catch (error: any) {
+      // Do not use console.error as it triggers the Next.js error overlay in development
+      toast({ 
+        variant: 'destructive', 
+        title: 'AI Generation Unavailable', 
+        description: 'Image generation is currently restricted on the free tier for this project.'
+      });
     } finally {
       setIsGeneratingAI(false);
     }
