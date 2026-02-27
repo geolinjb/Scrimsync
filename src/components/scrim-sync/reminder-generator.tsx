@@ -8,7 +8,6 @@ import type { User as AuthUser } from 'firebase/auth';
 import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL, type UploadTask } from "firebase/storage";
 import { doc, setDoc } from 'firebase/firestore';
 
-
 import type { AllVotes, PlayerProfileData, ScheduleEvent, AvailabilityOverride } from '@/lib/types';
 import { MINIMUM_PLAYERS } from '@/lib/types';
 import {
@@ -69,10 +68,8 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
 
   const upcomingEvents = React.useMemo(() => {
     if (!events) return [];
-    const today = startOfToday();
-    // Include cancelled events so they can be selected for cancellation notices.
     return events
-      .filter(event => new Date(event.date) >= today)
+      .filter(event => new Date(event.date) >= startOfToday())
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [events]);
 
@@ -81,346 +78,81 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
         return events.find(e => e.id === selectedEventId);
     }, [selectedEventId, events]);
 
-    const canManageEvent = React.useMemo(() => {
-        if (!selectedEvent || !currentUser) return false;
-        return isAdmin || currentUser.uid === selectedEvent.creatorId;
-    }, [selectedEvent, currentUser, isAdmin]);
+    const canManageEvent = React.useMemo(() => isAdmin || (selectedEvent && currentUser && currentUser.uid === selectedEvent.creatorId), [selectedEvent, currentUser, isAdmin]);
 
   const generateReminder = (eventId: string) => {
-    if (!eventId) {
-      setReminderMessage('');
-      setImageToSend(null);
-      return;
-    }
     const event = upcomingEvents.find(e => e.id === eventId);
-    if (!event) return;
+    if (!event) { setReminderMessage(''); setImageToSend(null); return; }
 
     setImageToSend(event.imageURL || null);
-    
     const isCancelled = event.status === 'Cancelled';
     const formattedDate = format(new Date(event.date), 'EEEE, d MMMM');
 
     if (isCancelled) {
-        const header = `🚫 **EVENT CANCELLED** 🚫`;
-        const eventInfo = `> The **${event.type}** on ${formattedDate} at **${event.time}** has been cancelled.`;
-        const descriptionLine = event.description ? `> **Original Notes:** ${event.description}` : null;
-        const footer = `\n---\nhttps://scrimsync.vercel.app/`;
-
-        const messageParts = [
-            header,
-            eventInfo,
-            descriptionLine,
-            footer
-        ];
-
-        const fullMessage = messageParts.filter(line => line !== null).join('\n');
-        setReminderMessage(fullMessage);
-        setSendSuccess(false);
+        setReminderMessage(`🚫 **EVENT CANCELLED** 🚫\n> The **${event.type}** on ${formattedDate} at **${event.time}** has been cancelled.`);
         return;
     }
 
-    const profileIdMap = new Map(allProfiles.map(p => [p.id, p]));
-    const profileUsernameMap = new Map(allProfiles.map(p => [p.username, p]));
-    const allPlayerNames = allProfiles.map(p => p.username).filter(Boolean) as string[];
-
-    // Logic to get players
-    const dateKey = format(new Date(event.date), 'yyyy-MM-dd');
-    const voteKey = `${dateKey}-${event.time}`;
+    const voteKey = `${format(new Date(event.date), 'yyyy-MM-dd')}-${event.time}`;
     const availablePlayers = allVotes[voteKey] || [];
+    const totalAvailable = availablePlayers.length;
 
-    const eventOverrides = availabilityOverrides.filter(o => o.eventId === eventId);
-    const possiblyAvailablePlayerUsernames = eventOverrides
-        .map(o => profileIdMap.get(o.userId)?.username)
-        .filter((name): name is string => !!name);
-
-    const unavailablePlayers = allPlayerNames.filter(p => !availablePlayers.includes(p) && !possiblyAvailablePlayerUsernames.includes(p));
-    const totalAvailable = availablePlayers.length + possiblyAvailablePlayerUsernames.length;
-    const neededPlayers = Math.max(0, MINIMUM_PLAYERS - totalAvailable);
-    
-    // Time formatting
-    const timeRemaining = formatTimeRemaining(new Date(event.date), event.time);
-
-    const formatPlayerList = (players: string[]) => {
-      if (players.length === 0) return '> - *None*';
-      return players
-        .map(p => {
-          const profile = profileUsernameMap.get(p);
-          if (profile?.rosterStatus === 'Main Roster') return `- ${p} (Main)`;
-          if (profile?.rosterStatus === 'Standby Player') return `- ${p} (Standby)`;
-          return `- ${p}`;
-        })
-        .join('\n');
-    };
-
-    // Message construction (Discord Markdown)
-    const header = `**🔔 REMINDER: ${event.type.toUpperCase()}! 🔔**`;
-    const eventInfo = `> **When:** ${formattedDate} at **${event.time}** (Starts ${timeRemaining})`;
-    const descriptionLine = event.description ? `> **Notes:** ${event.description}` : null;
-    const rosterHeader = `--- \n**ROSTER (${totalAvailable}/${MINIMUM_PLAYERS})**`;
-    
-    const availableHeader = `✅ **Available Players (${availablePlayers.length}):**`;
-    const availableList = availablePlayers.length > 0 ? formatPlayerList(availablePlayers) : '> - *None yet*';
-    
-    const possiblyAvailableHeader = `🤔 **Possibly Available (${possiblyAvailablePlayerUsernames.length}):**`;
-    const possiblyAvailableList = formatPlayerList(possiblyAvailablePlayerUsernames);
-
-    const unavailableHeader = `❌ **Unavailable Players (${unavailablePlayers.length}):**`;
-    const unavailableList = unavailablePlayers.length > 0 ? formatPlayerList(unavailablePlayers) : '> - *Everyone is available!*';
-    
-    const neededText = `🔥 **Players Needed: ${neededPlayers}**`;
-    const footer = `\n---\nVote or update your availability:\nhttps://scrimsync.vercel.app/`;
-
-    const messageParts = [
-      header,
-      eventInfo,
-      descriptionLine,
-      rosterHeader,
-      neededText,
-      '',
-      availableHeader,
-      availableList,
-      '',
-      possiblyAvailableHeader,
-      possiblyAvailableList,
-      '',
-      unavailableHeader,
-      unavailableList,
-      footer,
-    ];
-    
-    const fullMessage = messageParts.filter(line => line !== null).join('\n');
-    
-    setReminderMessage(fullMessage);
-    setSendSuccess(false);
+    const msg = `**🔔 REMINDER: ${event.type.toUpperCase()}! 🔔**\n> **When:** ${formattedDate} at **${event.time}**\n\n✅ **Available (${availablePlayers.length}):**\n${availablePlayers.map(p => `- ${p}`).join('\n')}\n\n🔥 **Needed: ${Math.max(0, MINIMUM_PLAYERS - totalAvailable)}**\n\n---\nhttps://scrimsync.vercel.app/`;
+    setReminderMessage(msg);
   };
   
-    React.useEffect(() => {
-        // This effect will re-generate the reminder when the event data (like imageURL) changes.
-        if (selectedEventId) {
-            generateReminder(selectedEventId);
-        }
-    }, [events, selectedEventId]); // Rerun when events list changes
-
-  const handleEventChange = (eventId: string) => {
-    setSelectedEventId(eventId);
-    generateReminder(eventId);
-  };
+    React.useEffect(() => { if (selectedEventId) generateReminder(selectedEventId); }, [events, selectedEventId]);
 
   const handleSendToDiscord = async () => {
-    if (!reminderMessage) return;
-
     setIsSending(true);
-    setSendSuccess(false);
-
     try {
-      const payload: { content: string; embeds?: { image: { url: string } }[] } = {
-        content: reminderMessage,
-      };
-      
-      if (imageToSend) {
-        payload.embeds = [{
-          image: { url: imageToSend }
-        }];
-      }
-
-      const response = await fetch(DISCORD_WEBHOOK_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (response.ok) {
-        setSendSuccess(true);
-        toast({
-          title: 'Reminder Sent!',
-          description: 'The message was successfully sent to Discord.',
-        });
-        setTimeout(() => setSendSuccess(false), 3000);
-      } else {
-        throw new Error(`Discord API responded with ${response.status}`);
-      }
-    } catch (error) {
-      console.error("Error sending to Discord:", error);
-      toast({
-        variant: 'destructive',
-        title: 'Send Failed',
-        description: 'Could not send the reminder. Check the console for details.',
-      });
-    } finally {
-      setIsSending(false);
-    }
+      const payload: any = { content: reminderMessage };
+      if (imageToSend) payload.embeds = [{ image: { url: imageToSend } }];
+      const res = await fetch(DISCORD_WEBHOOK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      if (res.ok) { setSendSuccess(true); toast({ title: 'Reminder Sent!' }); setTimeout(() => setSendSuccess(false), 3000); }
+    } catch (error) { toast({ variant: 'destructive', title: 'Send Failed' }); }
+    finally { setIsSending(false); }
   };
 
-  const formatTimeRemaining = (eventDate: Date, eventTime: string) => {
-    if (!mounted) return 'soon';
-    const [time, modifier] = eventTime.split(' ');
-    if (!time) return 'soon';
-    let [hours, minutes] = time.split(':').map(Number);
-
-    if (modifier === 'PM' && hours !== 12) hours += 12;
-    if (modifier === 'AM' && hours === 12) hours = 0;
-
-    const eventDateTime = new Date(eventDate);
-    eventDateTime.setHours(hours, minutes, 0, 0);
-
-    const totalMinutes = differenceInMinutes(eventDateTime, now);
-    if (totalMinutes <= 0) return 'Already Started';
-
-    const days = Math.floor(totalMinutes / 1440);
-    const hoursLeft = Math.floor((totalMinutes % 1440) / 60);
-    const minutesLeft = totalMinutes % 60;
-    
-    let result = 'in';
-    if (days > 0) result += ` ${days}d`;
-    if (hoursLeft > 0) result += ` ${hoursLeft}h`;
-    if (days === 0 && minutesLeft > 0) result += ` ${minutesLeft}m`;
-    
-    return result === 'in' ? 'starting now' : result;
-  };
-
-  const handleUploadClick = () => {
-    if (!currentUser) {
-        toast({ variant: 'destructive', title: 'Authentication Error', description: 'You must be logged in to upload an image.' });
-        return;
-    }
-    fileInputRef.current?.click();
-  };
+  const handleUploadClick = () => fileInputRef.current?.click();
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file || !firebaseApp || !currentUser || !selectedEventId || !firestore) {
-        toast({ variant: 'destructive', title: 'Upload Error', description: 'Could not start upload. Select an event first.' });
-        return;
-    }
-    
-    const eventId = selectedEventId;
-
-    if (file.size > 5 * 1024 * 1024) { // 5MB limit
-        toast({ variant: 'destructive', title: 'File Too Large', description: 'Please select an image smaller than 5MB.' });
-        return;
-    }
-
+    if (!file || !firebaseApp || !selectedEventId || !firestore) return;
     setUploadProgress(0);
-
     try {
         const storage = getStorage(firebaseApp);
-        const filePath = `event-images/${eventId}/${file.name}`;
-        const fileRef = storageRef(storage, filePath);
-        const uploadTask: UploadTask = uploadBytesResumable(fileRef, file);
-
-        uploadTask.on('state_changed',
-            (snapshot) => {
-                const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                setUploadProgress(progress);
-            }
-        );
-        
+        const fileRef = storageRef(storage, `event-images/${selectedEventId}/${file.name}`);
+        const uploadTask = uploadBytesResumable(fileRef, file);
+        uploadTask.on('state_changed', (s) => setUploadProgress((s.bytesTransferred / s.totalBytes) * 100));
         await uploadTask;
-
         const imageURL = await getDownloadURL(uploadTask.snapshot.ref);
-        const eventDocRef = doc(firestore, 'scheduledEvents', eventId);
-        
-        await setDoc(eventDocRef, { imageURL }, { merge: true });
-
-        toast({ title: 'Image Uploaded!', description: 'The event image has been updated and will appear in the preview shortly.' });
-        
-    } catch (error) {
-        console.error("Error uploading file or updating doc:", error);
-         toast({
-            variant: 'destructive',
-            title: 'Upload Failed',
-            description: 'Could not upload the image or save the link. You may not have permission.',
-        });
-    } finally {
-        setUploadProgress(null);
-        if(fileInputRef.current) fileInputRef.current.value = "";
-    }
+        await setDoc(doc(firestore, 'scheduledEvents', selectedEventId), { imageURL }, { merge: true });
+        toast({ title: 'Image Uploaded!' });
+    } catch (error) { toast({ variant: 'destructive', title: 'Upload Failed' }); }
+    finally { setUploadProgress(null); }
   };
 
   if (!mounted) return null;
 
   return (
     <Card>
-      <CardHeader>
-        <div className="flex items-center gap-3">
-          <Megaphone className="w-6 h-6 text-gold" />
-          <CardTitle>Reminder Generator</CardTitle>
-        </div>
-        <CardDescription>
-          Select an event to generate a reminder. You can upload an image which will be embedded in the Discord message.
-        </CardDescription>
-      </CardHeader>
+      <CardHeader><div className="flex items-center gap-3"><Megaphone className="w-6 h-6 text-gold" /><CardTitle>Reminder Generator</CardTitle></div></CardHeader>
       <CardContent className="space-y-4">
-        <Select value={selectedEventId} onValueChange={handleEventChange}>
-          <SelectTrigger>
-            <SelectValue placeholder="Select an upcoming event..." />
-          </SelectTrigger>
-          <SelectContent>
-            {upcomingEvents.length > 0 ? (
-              upcomingEvents.map(event => (
-                <SelectItem key={event.id} value={event.id}>
-                  {event.type} - {format(new Date(event.date), 'EEE, d MMM')} @ {event.time}
-                  {event.status === 'Cancelled' && ' (Cancelled)'}
-                </SelectItem>
-              ))
-            ) : (
-              <div className='p-4 text-center text-sm text-muted-foreground'>No upcoming events.</div>
-            )}
-          </SelectContent>
+        <Select value={selectedEventId} onValueChange={setSelectedEventId}>
+          <SelectTrigger><SelectValue placeholder="Select an event..." /></SelectTrigger>
+          <SelectContent>{upcomingEvents.map(e => <SelectItem key={e.id} value={e.id}>{e.type} - {format(new Date(e.date), 'EEE, d MMM')} @ {e.time}</SelectItem>)}</SelectContent>
         </Select>
-
         {selectedEventId && (
-            <>
-                <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/png, image/jpeg, image/gif" className="hidden" />
-                <Separator />
-                <div className="space-y-2">
-                    <h4 className='text-sm font-medium'>Event Image</h4>
-                    {imageToSend ? (
-                        <div className="relative aspect-video w-full rounded-md overflow-hidden border">
-                            <Image src={imageToSend} alt="Event image" fill style={{ objectFit: 'cover' }} />
-                        </div>
-                    ) : (
-                        <div className="flex items-center justify-center text-sm text-muted-foreground border-2 border-dashed rounded-lg h-32">
-                            <ImageIcon className="w-6 h-6 mr-2" />
-                            No image attached to this event.
-                        </div>
-                    )}
-                    {canManageEvent && (
-                        <div className="pt-2 space-y-2">
-                            <Button onClick={handleUploadClick} disabled={isUploading} variant="outline" className="w-full">
-                                {isUploading ? <Loader className='w-4 h-4 animate-spin mr-2' /> : <UploadCloud className='w-4 h-4 mr-2'/>}
-                                {isUploading ? `Uploading... ${Math.round(uploadProgress!)}%` : (imageToSend ? 'Change Image' : 'Upload Image')}
-                            </Button>
-                            {isUploading && <Progress value={uploadProgress} className="h-2" />}
-                        </div>
-                    )}
-                </div>
-            </>
-        )}
-        
-        {reminderMessage && (
-            <div className='space-y-2'>
-                 <Separator />
-                 <h4 className='text-sm font-medium pt-2'>Generated Message:</h4>
-                <Textarea
-                    value={reminderMessage}
-                    onChange={(e) => setReminderMessage(e.target.value)}
-                    className="min-h-[250px] font-mono text-xs bg-muted/50"
-                />
+            <div className="space-y-2">
+                {imageToSend ? <div className="relative aspect-video rounded-md overflow-hidden border"><Image src={imageToSend} alt="Event" fill style={{ objectFit: 'cover' }} /></div> : <div className="border-2 border-dashed rounded-lg h-32 flex items-center justify-center text-muted-foreground"><ImageIcon className="mr-2" />No image</div>}
+                {canManageEvent && <Button onClick={handleUploadClick} disabled={isUploading} variant="outline" className="w-full">{isUploading ? <Loader className='animate-spin mr-2' /> : <UploadCloud className='mr-2'/>} {imageToSend ? 'Change Image' : 'Upload Image'}</Button>}
+                <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
             </div>
         )}
-
+        {reminderMessage && <Textarea value={reminderMessage} readOnly className="min-h-[200px] text-xs font-mono" />}
       </CardContent>
-      {reminderMessage && (
-        <CardFooter>
-          <Button onClick={handleSendToDiscord} className="w-full" disabled={isSending || sendSuccess}>
-            {isSending ? <Loader className="w-4 h-4 mr-2 animate-spin" /> : (sendSuccess ? <Check className="w-4 h-4 mr-2" /> : <Send className="w-4 h-4 mr-2" />)}
-            {isSending ? 'Sending...' : (sendSuccess ? 'Sent!' : 'Send to Discord')}
-          </Button>
-        </CardFooter>
-      )}
+      {reminderMessage && <CardFooter><Button onClick={handleSendToDiscord} className="w-full" disabled={isSending || sendSuccess}>{isSending ? <Loader className="animate-spin" /> : 'Send to Discord'}</Button></CardFooter>}
     </Card>
   );
 }

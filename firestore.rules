@@ -34,12 +34,12 @@ service cloud.firestore {
       allow create: if isAdmin() || (isOwner(userId) && 
                       !request.resource.data.keys().hasAny(['rosterStatus', 'playstyleTags']));
 
-      // Allow update if it's the owner and they aren't CHANGING admin fields.
-      // diff().affectedKeys() only includes keys that are added, removed, or changed.
+      // Allow update if it's the admin OR if it's the owner and they aren't CHANGING admin fields.
       allow update: if isAdmin() || (isOwner(userId) && 
-                      !request.resource.data.diff(resource.data).affectedKeys().hasAny(['rosterStatus', 'playstyleTags']));
+                      (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['rosterStatus', 'playstyleTags'])));
 
-      allow delete: if isAdmin() || isOwner(userId);
+      // Allow delete if it's the owner (deleting self) or an admin.
+      allow delete: if isOwner(userId) || isAdmin();
     }
 
     /**
@@ -54,7 +54,7 @@ service cloud.firestore {
 
     /**
      * @description Manages scheduled events.
-     * @path /scheduledEvents/{eventId}
+     * @path /scheduledEvents/{eventId} {
      */
     match /scheduledEvents/{eventId} {
       allow read: if isSignedIn();
