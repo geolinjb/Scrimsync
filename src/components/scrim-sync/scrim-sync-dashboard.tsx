@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -648,6 +649,7 @@ const hasLastWeekVotes = React.useMemo(() => {
                       dayOffset={dayOffset}
                       setDayOffset={setDayOffset}
                       onEventVoteTrigger={setEventToVoteOn}
+                      availabilityOverrides={availabilityOverridesData || []}
                   />
               )}
             </TabsContent>

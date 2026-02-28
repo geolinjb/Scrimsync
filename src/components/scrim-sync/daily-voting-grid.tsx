@@ -1,11 +1,12 @@
+
 'use client';
 
 import * as React from 'react';
 import { motion } from 'framer-motion';
-import { Vote, Check, CheckCircle, Circle, Swords, Trophy, Trash2, ClipboardCopy, ChevronLeft, ChevronRight, CalendarX2 } from 'lucide-react';
+import { Vote, Check, CheckCircle, Circle, Swords, Trophy, Trash2, ClipboardCopy, ChevronLeft, ChevronRight, CalendarX2, HelpCircle } from 'lucide-react';
 import { format, isToday } from 'date-fns';
 
-import type { UserVotes, ScheduleEvent } from '@/lib/types';
+import type { UserVotes, ScheduleEvent, AvailabilityOverride } from '@/lib/types';
 import { timeSlots } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import {
@@ -31,6 +32,7 @@ type DailyVotingGridProps = {
   dayOffset: number;
   setDayOffset: (offset: number | ((prev: number) => number)) => void;
   onEventVoteTrigger: (event: ScheduleEvent) => void;
+  availabilityOverrides: AvailabilityOverride[];
 };
 
 export function DailyVotingGrid({
@@ -45,6 +47,7 @@ export function DailyVotingGrid({
   dayOffset,
   setDayOffset,
   onEventVoteTrigger,
+  availabilityOverrides,
 }: DailyVotingGridProps) {
     
   const weekDates = React.useMemo(() => {
@@ -158,6 +161,7 @@ export function DailyVotingGrid({
                     const isVoted = userVotes[dateKey]?.has(slot);
                     const event = getEventForSlot(selectedDate, slot);
                     const isCancelled = event?.status === 'Cancelled';
+                    const eventOverrides = event ? availabilityOverrides.filter(o => o.eventId === event.id) : [];
 
                     return (
                         <motion.div
@@ -177,7 +181,22 @@ export function DailyVotingGrid({
                                     <div className='flex items-center gap-3'>
                                         {event.type === 'Training' ? <Swords className="w-5 h-5 text-blue-400" /> : <Trophy className="w-5 h-5 text-gold" />}
                                         <div className='flex flex-col'>
-                                            <span className={cn('font-medium', isCancelled && 'line-through text-muted-foreground')}>{event.type} at {slot}</span>
+                                            <div className="flex items-center gap-2">
+                                                <span className={cn('font-medium', isCancelled && 'line-through text-muted-foreground')}>{event.type} at {slot}</span>
+                                                {eventOverrides.length > 0 && !isCancelled && (
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <Badge variant="outline" className="text-[10px] h-4 py-0 border-dashed">
+                                                                <HelpCircle className="w-2.5 h-2.5 mr-1" />
+                                                                {eventOverrides.length} Possible
+                                                            </Badge>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>
+                                                            <p>Admins have marked {eventOverrides.length} players as possibly available.</p>
+                                                        </TooltipContent>
+                                                    </Tooltip>
+                                                )}
+                                            </div>
                                             {isCancelled && <Badge variant="destructive" className="w-fit text-xs">Cancelled</Badge>}
                                         </div>
                                     </div>

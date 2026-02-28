@@ -1,8 +1,9 @@
+
 'use client';
 
 import * as React from 'react';
 import { format, startOfToday, isToday } from 'date-fns';
-import { CalendarCheck, Trash2, UploadCloud, Loader, CalendarX2, Undo2, Ban, Vote, Check, Send, Sparkles, UserPlus, UserMinus, HelpCircle } from 'lucide-react';
+import { CalendarCheck, Trash2, UploadCloud, Loader, CalendarX2, Undo2, Ban, Vote, Check, Send, Sparkles, UserPlus, UserMinus, HelpCircle, Info } from 'lucide-react';
 import type { User } from 'firebase/auth';
 import { collection, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL } from "firebase/storage";
@@ -26,6 +27,7 @@ import { Skeleton } from '../ui/skeleton';
 import { DISCORD_WEBHOOK_URL } from '@/lib/config';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Separator } from '../ui/separator';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 
 type ScheduledEventsProps = {
   events: ScheduleEvent[];
@@ -236,6 +238,11 @@ export function ScheduledEvents({
                                                                 <Check className="w-3 h-3" /> Ready
                                                             </Badge>
                                                         )}
+                                                        {eventOverrides.length > 0 && !isCancelled && (
+                                                            <Badge variant="outline" className="text-muted-foreground border-dashed flex items-center gap-1">
+                                                                <HelpCircle className="w-3 h-3" /> {eventOverrides.length} Possible
+                                                            </Badge>
+                                                        )}
                                                     </div>
                                                     <span className="text-sm text-muted-foreground">{event.time}</span>
                                                 </div>
@@ -335,6 +342,16 @@ export function ScheduledEvents({
                                                                 <UserPlus className="w-3 h-3 mr-2" />
                                                                 Add Override
                                                             </Button>
+                                                            <TooltipProvider>
+                                                              <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                  <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                                                                </TooltipTrigger>
+                                                                <TooltipContent>
+                                                                  <p className="max-w-xs text-xs">Admins can manually mark players as "Possibly Available" to help track potential roster strength.</p>
+                                                                </TooltipContent>
+                                                              </Tooltip>
+                                                            </TooltipProvider>
                                                         </div>
                                                     </div>
                                                 )}
