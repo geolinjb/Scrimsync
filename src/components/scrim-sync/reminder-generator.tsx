@@ -46,6 +46,7 @@ import { ScrollArea } from '../ui/scroll-area';
 import { Checkbox } from '../ui/checkbox';
 import { Label } from '../ui/label';
 import { addDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { Progress } from '../ui/progress';
 
 type ReminderGeneratorProps = {
   events: ScheduleEvent[] | null;
