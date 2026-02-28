@@ -90,6 +90,7 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
   const [isGeneratingAI, setIsGeneratingAI] = React.useState(false);
   const [isGalleryOpen, setIsGalleryOpen] = React.useState(false);
   const [saveToGallery, setSaveToGallery] = React.useState(true);
+  const [includeNudges, setIncludeNudges] = React.useState(false);
 
   const isUploading = uploadStatus !== null;
 
@@ -124,9 +125,7 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
         return events.find(e => e.id === selectedEventId);
     }, [selectedEventId, events]);
 
-    const canManageEvent = React.useMemo(() => isAdmin || (selectedEvent && currentUser && currentUser.uid === selectedEvent.creatorId), [selectedEvent, currentUser, isAdmin]);
-
-  const buildReminderMessage = (eventId: string, includeNudges: boolean = false) => {
+  const buildReminderMessage = (eventId: string, nudges: boolean = false) => {
     const event = upcomingEvents.find(e => e.id === eventId);
     if (!event) return '';
 
@@ -151,7 +150,7 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
         msg += `\n\n❓ **Possibly Available (${possiblePlayerTags.length}):**\n${possiblePlayerTags.join('\n')}`;
     }
 
-    if (includeNudges) {
+    if (nudges) {
         const mainRoster = allProfiles.filter(p => p.rosterStatus === 'Main Roster');
         const missing = mainRoster.filter(p => !availablePlayerNames.includes(p.username) && !eventOverrides.some(o => o.userId === p.id));
         if (missing.length > 0) {
@@ -164,14 +163,14 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
     return msg;
   };
 
-  const generateReminder = (eventId: string) => {
+  const generateReminder = (eventId: string, nudges: boolean) => {
     const event = upcomingEvents.find(e => e.id === eventId);
     if (!event) return;
     setImageToSend(event.imageURL || null);
-    setReminderMessage(buildReminderMessage(eventId));
+    setReminderMessage(buildReminderMessage(eventId, nudges));
   };
   
-  React.useEffect(() => { if (selectedEventId) generateReminder(selectedEventId); }, [events, selectedEventId]);
+  React.useEffect(() => { if (selectedEventId) generateReminder(selectedEventId, includeNudges); }, [events, selectedEventId, includeNudges]);
 
   const handleSendToDiscord = async () => {
     if (!selectedEvent) return;
@@ -317,6 +316,14 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
                     <Button onClick={handleGenerateAIBanner} variant="outline" size="sm">AI Generate</Button>
                   </div>
                   <input type="file" ref={fileInputRef} onChange={(e) => handleFileChange(e, false)} className="hidden" />
+                  
+                  <div className="flex items-center space-x-2 py-1">
+                    <Checkbox id="nudge" checked={includeNudges} onCheckedChange={(v) => setIncludeNudges(v === true)} />
+                    <Label htmlFor="nudge" className="text-xs font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                      Nudge missing Main Roster players
+                    </Label>
+                  </div>
+
                   <Textarea value={reminderMessage} onChange={(e) => setReminderMessage(e.target.value)} className="min-h-[120px] text-xs font-mono" />
                   <Button onClick={handleSendToDiscord} className="w-full"><Send className="mr-2 h-4 w-4" /> Post Reminder</Button>
               </div>

@@ -168,7 +168,7 @@ export function ScheduledEvents({
             content: mention,
             embeds: [{
                 title: "✅ ROSTER READY!",
-                description: `The **${event.type}** at ${dsTimestamp} is officially ready!\n\n**Confirmed Squad:**\n${playerTags.join('\n')}${possibleTags.length > 0 ? `\n\n**Possible:**\n${possibleTags.join('\n')}` : ''}\n\n🔗 **Vote:** ${WEBSITE_URL}`,
+                description: `The **${event.type}** at ${dsTimestamp} is officially ready!\n\n**Confirmed Squad:**\n${playerTags.length > 0 ? playerTags.join('\n') : '- None'}${possibleTags.length > 0 ? `\n\n**Possible:**\n${possibleTags.join('\n')}` : ''}\n\n🔗 **Vote:** ${WEBSITE_URL}`,
                 color: 2278750,
                 timestamp: new Date().toISOString(),
                 footer: { text: `TeamSync • ${WEBSITE_URL}` }

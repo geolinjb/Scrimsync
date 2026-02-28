@@ -461,7 +461,6 @@ const handleCopyLastWeeksVotes = React.useCallback(async () => {
     setIsSavingProfile(true);
     const userDocRef = doc(firestore, 'users', authUser.uid);
     
-    // Non-admins cannot update rosterStatus or playstyleTags
     const dataToSave: any = {
       username: updatedProfile.username,
       discordUsername: updatedProfile.discordUsername,
