@@ -3,7 +3,7 @@
 
 import * as React from 'react';
 import { motion } from 'framer-motion';
-import { Vote, Check, CheckCircle, Circle, Swords, Trophy, Trash2, ClipboardCopy, ChevronLeft, ChevronRight, CalendarX2, HelpCircle } from 'lucide-react';
+import { Vote, Check, CheckCircle, Circle, Swords, Trophy, Trash2, ClipboardCopy, ChevronLeft, ChevronRight, HelpCircle } from 'lucide-react';
 import { format, isToday } from 'date-fns';
 
 import type { UserVotes, ScheduleEvent, AvailabilityOverride } from '@/lib/types';
@@ -126,7 +126,7 @@ export function DailyVotingGrid({
               </div>
           </div>
           <CardDescription>
-            Focus on one day at a time. Click an event's button to vote for it, or click a timeslot to mark your general availability. There's also a "Weekly View" tab for a broader look.
+            Focus on one day at a time. Click an event's button to vote for it, or click a timeslot to mark your general availability.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -184,17 +184,10 @@ export function DailyVotingGrid({
                                             <div className="flex items-center gap-2">
                                                 <span className={cn('font-medium', isCancelled && 'line-through text-muted-foreground')}>{event.type} at {slot}</span>
                                                 {eventOverrides.length > 0 && !isCancelled && (
-                                                    <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                            <Badge variant="outline" className="text-[10px] h-4 py-0 border-dashed">
-                                                                <HelpCircle className="w-2.5 h-2.5 mr-1" />
-                                                                {eventOverrides.length} Possible
-                                                            </Badge>
-                                                        </TooltipTrigger>
-                                                        <TooltipContent>
-                                                            <p>Admins have marked {eventOverrides.length} players as possibly available.</p>
-                                                        </TooltipContent>
-                                                    </Tooltip>
+                                                    <Badge variant="outline" className="text-[10px] h-4 py-0 border-dashed bg-background/50">
+                                                        <HelpCircle className="w-2.5 h-2.5 mr-1" />
+                                                        {eventOverrides.length} Possible
+                                                    </Badge>
                                                 )}
                                             </div>
                                             {isCancelled && <Badge variant="destructive" className="w-fit text-xs">Cancelled</Badge>}

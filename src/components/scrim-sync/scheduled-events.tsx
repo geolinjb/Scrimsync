@@ -22,7 +22,7 @@ import { cn, getDiscordTimestamp, formatBytes } from '@/lib/utils';
 import { useCollection, useFirestore, useMemoFirebase, useFirebaseApp } from '@/firebase';
 import { Progress } from '../ui/progress';
 import { Alert, AlertTitle } from '../ui/alert';
-import { addDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Skeleton } from '../ui/skeleton';
 import { DISCORD_WEBHOOK_URL } from '@/lib/config';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';

@@ -1,9 +1,10 @@
+
 'use client';
 
 import * as React from 'react';
 import { format, isToday } from 'date-fns';
-import { CalendarCheck, Trophy, Swords, Vote, Check, Ban } from 'lucide-react';
-import type { ScheduleEvent } from '@/lib/types';
+import { CalendarCheck, Trophy, Swords, Vote, Check, Ban, HelpCircle } from 'lucide-react';
+import type { ScheduleEvent, AvailabilityOverride } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -21,6 +22,8 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { collection } from 'firebase/firestore';
 
 type EventVotingDialogProps = {
   isOpen: boolean;
@@ -37,6 +40,13 @@ export function EventVotingDialog({
   userEventVotes,
   onEventVoteTrigger,
 }: EventVotingDialogProps) {
+  const firestore = useFirestore();
+  
+  const overridesQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return collection(firestore, 'availabilityOverrides');
+  }, [firestore]);
+  const { data: availabilityOverrides } = useCollection<AvailabilityOverride>(overridesQuery);
 
   const upcomingEvents = React.useMemo(() => {
     return events
@@ -63,6 +73,8 @@ export function EventVotingDialog({
                 {upcomingEvents.map(event => {
                   const isVoted = userEventVotes.has(event.id);
                   const isCancelled = event.status === 'Cancelled';
+                  const eventOverrides = availabilityOverrides?.filter(o => o.eventId === event.id) || [];
+
                   return (
                     <div
                       key={event.id}
@@ -79,9 +91,15 @@ export function EventVotingDialog({
                           <Swords className="h-6 w-6 text-blue-400 shrink-0 mt-0.5" />
                         )}
                         <div className="flex flex-col flex-1 min-w-0">
-                          <div className={cn("font-semibold", isCancelled && 'line-through text-muted-foreground')}>
+                          <div className={cn("font-semibold flex items-center gap-2", isCancelled && 'line-through text-muted-foreground')}>
                             {event.type}
-                            {isToday(new Date(event.date)) && <Badge variant="outline" className='ml-2'>Today</Badge>}
+                            {isToday(new Date(event.date)) && <Badge variant="outline" className='h-4 text-[10px]'>Today</Badge>}
+                            {eventOverrides.length > 0 && !isCancelled && (
+                                <Badge variant="outline" className="h-4 text-[10px] border-dashed text-muted-foreground">
+                                    <HelpCircle className="w-2.5 h-2.5 mr-1" />
+                                    {eventOverrides.length} Possible
+                                </Badge>
+                            )}
                           </div>
                           <p className={cn("text-sm text-muted-foreground", isCancelled && 'line-through')}>
                             {format(new Date(event.date), 'EEEE, d MMM')} at {event.time}
