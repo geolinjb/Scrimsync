@@ -15,7 +15,6 @@ service cloud.firestore {
     }
 
     // Helper function to check if the user is an admin, either by custom claim or by being the hardcoded owner.
-    // Includes hardcoded UIDs for the project owners.
     function isAdmin() {
       return isSignedIn() && (
         request.auth.token.admin == true || 
@@ -29,20 +28,12 @@ service cloud.firestore {
      * @path /users/{userId}
      */
     match /users/{userId} {
-      // Anyone can read user profiles.
       allow read;
-
-      // Users can create their own profile. Admins can create any.
       allow create: if isAdmin() || (isOwner(userId) && 
                       !('rosterStatus' in request.resource.data) && 
                       !('playstyleTags' in request.resource.data));
-
-      // Users can update only their own non-admin fields. Admins can update anything.
-      // Use diff().affectedKeys() to ensure rosterStatus and playstyleTags are only changed by admins.
       allow update: if isAdmin() || (isOwner(userId) && 
                       !request.resource.data.diff(resource.data).affectedKeys().hasAny(['rosterStatus', 'playstyleTags']));
-
-      // Owner or admin can delete user profiles.
       allow delete: if isOwner(userId) || isAdmin();
     }
 
@@ -51,13 +42,8 @@ service cloud.firestore {
      * @path /votes/{voteId}
      */
     match /votes/{voteId} {
-      // Any authenticated user can read all votes.
       allow read: if isSignedIn();
-
-      // A user can write (create, update) to a vote if they are the owner of that vote.
       allow create, update: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      
-      // A user can delete their own vote, or an admin can delete any vote.
       allow delete: if (isSignedIn() && resource.data.userId == request.auth.uid) || isAdmin();
     }
 
@@ -66,10 +52,7 @@ service cloud.firestore {
      * @path /scheduledEvents/{eventId}
      */
     match /scheduledEvents/{eventId} {
-      // Any authenticated user can read events.
       allow read: if isSignedIn();
-
-      // Only an admin can create, update or delete an event.
       allow create, update, delete: if isAdmin();
     }
 
@@ -78,23 +61,24 @@ service cloud.firestore {
      * @path /availabilityOverrides/{overrideId}
      */
     match /availabilityOverrides/{overrideId} {
-        // Any authenticated user can read overrides.
         allow read: if isSignedIn();
-        // Only admins can create, update, or delete overrides.
         allow create, update, delete: if isAdmin();
     }
 
     /**
      * @description Manages application-wide notifications.
-     * @path /appNotifications/{notificationId}
      */
     match /appNotifications/{notificationId} {
-        // Any authenticated user can read notifications.
         allow read: if isSignedIn();
-        // Only admins can create notifications.
-        allow create: if isAdmin();
-        // Only admins can update or delete notifications to manage the feed.
-        allow update, delete: if isAdmin();
+        allow create, update, delete: if isAdmin();
+    }
+
+    /**
+     * @description Shared team gallery for reusable banners.
+     */
+    match /eventBanners/{bannerId} {
+        allow read: if isSignedIn();
+        allow create, update, delete: if isAdmin();
     }
   }
 }
