@@ -133,45 +133,6 @@ export function TeamSyncDashboard({ user: authUser }: TeamSyncDashboardProps) {
     return scheduledEventsData.map(e => ({...e, date: parseISO(e.date)}));
   }, [scheduledEventsData]);
 
-  React.useEffect(() => {
-    if (firestore && authUser && !isProfileLoading && !profile && mounted) {
-      const profileDocRef = doc(firestore, 'users', authUser.uid);
-      const defaultProfile = {
-        id: authUser.uid,
-        username: authUser.displayName || `Player${authUser.uid.slice(0, 5)}`,
-        photoURL: authUser.photoURL || '',
-        favoriteTank: '',
-        role: '',
-      };
-      
-      setDocumentNonBlocking(profileDocRef, defaultProfile, { merge: true });
-      
-      toast({
-        title: 'Welcome to TeamSync!',
-        description: "We've created a profile for you. Please review and save any changes.",
-      });
-    }
-  }, [firestore, authUser, isProfileLoading, profile, toast, mounted]);
-
-
-  const handleProfileSave = React.useCallback(
-    (newProfile: PlayerProfileData) => {
-      if (!firestore) return;
-      setIsSavingProfile(true);
-      const profileDocRef = doc(firestore, 'users', authUser.uid);
-      
-      const dataToSave = { ...newProfile };
-      setDocumentNonBlocking(profileDocRef, dataToSave, { merge: true });
-
-      toast({
-        title: 'Profile Saved!',
-        description: 'Your profile has been successfully updated.',
-      });
-      setTimeout(() => setIsSavingProfile(false), 1000);
-    },
-    [firestore, authUser.uid, toast]
-  );
-
     const { userCombinedVotes, userEventVotes, allCombinedVotes, allEventVotes } = React.useMemo(() => {
         if (!allVotesData || !allProfiles) {
             return { 
@@ -463,22 +424,6 @@ const handleCopyLastWeeksVotes = React.useCallback(async () => {
     }
 }, [firestore, allVotesData, weekStart, authUser.uid, userCombinedVotes, toast, currentDate]);
 
-const hasLastWeekVotes = React.useMemo(() => {
-    if (!allVotesData) return false;
-    const lastWeekStartDate = addDays(weekStart, -7);
-    const lastWeekEndDate = endOfWeek(lastWeekStartDate);
-
-    return allVotesData.some(vote => {
-        if (vote.userId !== authUser.uid) return false;
-        try {
-            const voteDate = parseISO(vote.timeslot.split('_')[0]);
-            return voteDate >= lastWeekStartDate && voteDate <= lastWeekEndDate;
-        } catch(e) {
-            return false;
-        }
-    });
-}, [allVotesData, authUser.uid, weekStart]);
-
   const handleAddEvent = (data: { type: 'Training' | 'Tournament'; date: Date; time: string; description?: string; discordRoleId?: string }) => {
     if (!firestore) return;
 
@@ -495,17 +440,9 @@ const hasLastWeekVotes = React.useMemo(() => {
     const eventsRef = collection(firestore, 'scheduledEvents');
     addDocumentNonBlocking(eventsRef, newEvent);
 
-    const notificationsRef = collection(firestore, 'appNotifications');
-    addDocumentNonBlocking(notificationsRef, {
-        message: `${data.type} on ${format(data.date, 'd MMM')} at ${data.time} was scheduled.`,
-        icon: 'CalendarPlus',
-        createdBy: profile?.username || authUser.displayName || 'A user',
-        timestamp: new Date().toISOString()
-    });
-
     toast({
       title: 'Event Scheduled!',
-      description: `${data.type} on ${format(data.date, 'd MMM, yyyy')} at ${data.time} has been added.`,
+      description: `${data.type} on ${format(data.date, 'd MMM, yyyy')} has been added.`,
     });
   };
 
@@ -596,17 +533,17 @@ const hasLastWeekVotes = React.useMemo(() => {
               availabilityOverrides={availabilityOverridesData || []}
           />
 
-          <div className="flex flex-col sm:flex-row justify-between items-center gap-6">
-              <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-center sm:text-left">
+          <div className="flex flex-col items-center justify-center gap-6">
+              <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-center">
                   Availability: {format(weekStart, 'd MMM')} - {format(weekEnd, 'd MMM, yyyy')}
               </h2>
               <div className='flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto'>
-                  <Button onClick={() => setIsEventVotingOpen(true)} className="w-full sm:w-auto order-first sm:order-none">
+                  <Button onClick={() => setIsEventVotingOpen(true)} className="w-full sm:w-auto">
                     <CalendarCheck className="mr-2 h-4 w-4" />
                     Vote on Events
                   </Button>
-                  <div className='flex items-center gap-2 justify-center w-full sm:w-auto'>
-                    <Button variant="outline" onClick={goToToday} className="flex-1 sm:flex-none">Today</Button>
+                  <div className='flex items-center gap-2 justify-center'>
+                    <Button variant="outline" onClick={goToToday}>Today</Button>
                     <div className='flex items-center'>
                         <Button variant="outline" size="icon" onClick={goToPreviousWeek} className="rounded-r-none">
                             <ChevronLeft className="h-4 w-4" />
@@ -642,7 +579,7 @@ const hasLastWeekVotes = React.useMemo(() => {
                       onVoteAllDay={handleVoteAllDay}
                       onClearAllVotes={handleClearAllVotes}
                       onCopyLastWeeksVotes={handleCopyLastWeeksVotes}
-                      hasLastWeekVotes={hasLastWeekVotes}
+                      hasLastWeekVotes={!!allVotesData?.length}
                       currentDate={currentDate}
                       scheduledEvents={scheduledEvents}
                       dayOffset={dayOffset}
@@ -671,7 +608,7 @@ const hasLastWeekVotes = React.useMemo(() => {
                       onVoteAllTime={handleVoteAllTime}
                       onClearAllVotes={() => handleClearAllVotes()}
                       onCopyLastWeeksVotes={handleCopyLastWeeksVotes}
-                      hasLastWeekVotes={hasLastWeekVotes}
+                      hasLastWeekVotes={!!allVotesData?.length}
                       currentDate={currentDate}
                       scheduledEvents={scheduledEvents}
                       onEventVoteTrigger={setEventToVoteOn}

@@ -39,7 +39,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog"
 import { ScrollArea } from '../ui/scroll-area';
 import { Checkbox } from '../ui/checkbox';
@@ -131,18 +130,10 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
     const event = upcomingEvents.find(e => e.id === eventId);
     if (!event) return '';
 
-    const isCancelled = event.status === 'Cancelled';
     const dsTimestamp = getDiscordTimestamp(event.date, event.time, 'F');
-    const dsRelative = getDiscordTimestamp(event.date, event.time, 'R');
-
-    if (isCancelled) {
-        return `🚫 **EVENT CANCELLED** 🚫\n> The **${event.type}** at ${dsTimestamp} has been cancelled.\n\n🔗 **View dashboard:** ${WEBSITE_URL}`;
-    }
-
     const voteKey = `${format(new Date(event.date), 'yyyy-MM-dd')}-${event.time}`;
     const availablePlayerNames = allVotes[voteKey] || [];
-    const totalAvailable = availablePlayerNames.length;
-
+    
     const availablePlayerTags = availablePlayerNames.map(name => {
         const prof = profileMap.get(name);
         return formatDiscordMention(prof?.discordUsername || name);
@@ -154,22 +145,17 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
         return formatDiscordMention(prof?.discordUsername || prof?.username || 'Unknown');
     });
 
-    let msg = `**When:** ${dsTimestamp} (${dsRelative})\n\n✅ **Available (${availablePlayerNames.length}):**\n${availablePlayerTags.length > 0 ? availablePlayerTags.map(p => `- ${p}`).join('\n') : '- No one yet'}`;
+    let msg = `**When:** ${dsTimestamp}\n\n✅ **Available (${availablePlayerNames.length}):**\n${availablePlayerTags.join('\n')}`;
 
     if (possiblePlayerTags.length > 0) {
-        msg += `\n\n❓ **Possibly Available (${possiblePlayerTags.length}):**\n${possiblePlayerTags.map(p => `- ${p}`).join('\n')}`;
+        msg += `\n\n❓ **Possibly Available (${possiblePlayerTags.length}):**\n${possiblePlayerTags.join('\n')}`;
     }
 
-    msg += `\n\n🔥 **Needed: ${Math.max(0, MINIMUM_PLAYERS - totalAvailable)}**`;
-
     if (includeNudges) {
-        const mainRosterPlayers = allProfiles.filter(p => p.rosterStatus === 'Main Roster');
-        const missingMainRoster = mainRosterPlayers.filter(p => 
-            !availablePlayerNames.includes(p.username) && 
-            !eventOverrides.some(o => o.userId === p.id)
-        );
-        if (missingMainRoster.length > 0) {
-            msg += `\n\n⏰ **Awaiting Response (Main Roster):**\n${missingMainRoster.map(p => `- ${formatDiscordMention(p.discordUsername || p.username)}`).join('\n')}`;
+        const mainRoster = allProfiles.filter(p => p.rosterStatus === 'Main Roster');
+        const missing = mainRoster.filter(p => !availablePlayerNames.includes(p.username) && !eventOverrides.some(o => o.userId === p.id));
+        if (missing.length > 0) {
+            msg += `\n\n⏰ **Awaiting Response (Main):**\n${missing.map(p => formatDiscordMention(p.discordUsername || p.username)).join('\n')}`;
         }
     }
 
@@ -180,18 +166,12 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
 
   const generateReminder = (eventId: string) => {
     const event = upcomingEvents.find(e => e.id === eventId);
-    if (!event) { setReminderMessage(''); setImageToSend(null); return; }
+    if (!event) return;
     setImageToSend(event.imageURL || null);
     setReminderMessage(buildReminderMessage(eventId));
   };
   
-  React.useEffect(() => { if (selectedEventId) generateReminder(selectedEventId); }, [events, selectedEventId, availabilityOverrides]);
-
-  const handleNudge = () => {
-      if (!selectedEventId) return;
-      setReminderMessage(buildReminderMessage(selectedEventId, true));
-      toast({ description: "Added 'Main Roster' nudges to the message." });
-  };
+  React.useEffect(() => { if (selectedEventId) generateReminder(selectedEventId); }, [events, selectedEventId]);
 
   const handleSendToDiscord = async () => {
     if (!selectedEvent) return;
@@ -199,20 +179,19 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
     try {
       const isCancelled = selectedEvent.status === 'Cancelled';
       const roleMention = selectedEvent.discordRoleId ? `<@&${selectedEvent.discordRoleId}>` : '';
-      const color = isCancelled ? EMBED_COLORS.RED : (selectedEvent.type === 'Tournament' ? EMBED_COLORS.GOLD : EMBED_COLORS.BLUE);
       const payload = {
         content: roleMention,
         embeds: [{
           title: `${isCancelled ? '🚫' : '🔔'} ${selectedEvent.type.toUpperCase()} REMINDER`,
           description: reminderMessage,
-          color: color,
+          color: isCancelled ? EMBED_COLORS.RED : EMBED_COLORS.BLUE,
           image: imageToSend ? { url: imageToSend } : undefined,
           timestamp: new Date().toISOString(),
           footer: { text: `TeamSync • ${WEBSITE_URL}` }
         }]
       };
       const res = await fetch(DISCORD_WEBHOOK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-      if (res.ok) { setSendSuccess(true); toast({ title: 'Reminder Sent!' }); setTimeout(() => setSendSuccess(false), 3000); }
+      if (res.ok) toast({ title: 'Reminder Sent!' });
     } catch (error) { toast({ variant: 'destructive', title: 'Send Failed' }); }
     finally { setIsSending(false); }
   };
@@ -221,20 +200,13 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
     if (!events) return;
     setIsSendingSummary(true);
     const today = startOfToday();
-    const todayEvents = events.filter(e => isSameDay(new Date(e.date), today)).sort((a, b) => a.time.localeCompare(b.time));
-    if (todayEvents.length === 0) { toast({ description: "No events scheduled for today." }); setIsSendingSummary(false); return; }
-    const eventSummaries = todayEvents.map(event => {
-      const voteKey = `${format(new Date(event.date), 'yyyy-MM-dd')}-${event.time}`;
-      const availableCount = (allVotes[voteKey] || []).length;
-      const isReady = availableCount >= MINIMUM_PLAYERS;
-      const statusIcon = event.status === 'Cancelled' ? '🚫' : (isReady ? '✅' : '⏳');
-      const dsTime = getDiscordTimestamp(event.date, event.time, 't');
-      return `- **${dsTime}**: ${event.type} (${availableCount}/${MINIMUM_PLAYERS} Players) ${statusIcon}`;
-    });
+    const todayEvents = events.filter(e => isSameDay(new Date(e.date), today));
+    const summaries = todayEvents.map(e => `- ${e.time}: ${e.type} (${(allVotes[`${format(new Date(e.date), 'yyyy-MM-dd')}-${e.time}`] || []).length}/${MINIMUM_PLAYERS})`);
+    
     const payload = {
       embeds: [{
-        title: `📅 TEAM SCHEDULE: ${format(today, 'EEEE, d MMM')}`,
-        description: `${eventSummaries.join('\n')}\n\n🔗 **Full Schedule:** ${WEBSITE_URL}`,
+        title: `📅 SCHEDULE FOR ${format(today, 'EEEE, d MMM')}`,
+        description: `${summaries.join('\n')}\n\n🔗 **Full Dashboard:** ${WEBSITE_URL}`,
         color: EMBED_COLORS.BLUE,
         timestamp: new Date().toISOString(),
         footer: { text: `TeamSync • ${WEBSITE_URL}` }
@@ -242,7 +214,7 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
     };
     try {
       const res = await fetch(DISCORD_WEBHOOK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-      if (res.ok) toast({ title: 'Daily Summary Sent!' });
+      if (res.ok) toast({ title: 'Summary Sent!' });
     } catch (error) { toast({ variant: 'destructive', title: 'Summary Failed' }); }
     finally { setIsSendingSummary(false); }
   };
@@ -258,64 +230,29 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
       await uploadString(fileRef, base64Data, 'base64', { contentType: 'image/png' });
       const permanentUrl = await getDownloadURL(fileRef);
       await setDoc(doc(firestore, 'scheduledEvents', selectedEvent.id), { imageURL: permanentUrl }, { merge: true });
-      if (saveToGallery) {
-          addDocumentNonBlocking(collection(firestore, 'eventBanners'), { id: `ai-${Date.now()}`, url: permanentUrl, description: `AI Banner for ${selectedEvent.type}`, uploadedBy: currentUser?.displayName || 'AI', timestamp: new Date().toISOString() });
-      }
-      toast({ title: 'AI Banner Generated!' });
       setImageToSend(permanentUrl);
-    } catch (error: any) { toast({ variant: 'destructive', title: 'AI Generation Failed' }); }
+      toast({ title: 'AI Banner Generated!' });
+    } catch (error) { toast({ variant: 'destructive', title: 'AI Generation Failed' }); }
     finally { setIsGeneratingAI(false); }
   };
-
-  const handleSelectGalleryImage = async (url: string) => {
-    if (!selectedEvent || !firestore) return;
-    try {
-      await setDoc(doc(firestore, 'scheduledEvents', selectedEvent.id), { imageURL: url }, { merge: true });
-      setImageToSend(url);
-      setIsGalleryOpen(false);
-      toast({ title: 'Banner Updated from Gallery' });
-    } catch (error) { toast({ variant: 'destructive', title: 'Update Failed' }); }
-  };
-
-  const handleRemoveGallery = (bannerId: string) => {
-    if (!firestore || !isAdmin) return;
-    deleteDocumentNonBlocking(doc(firestore, 'eventBanners', bannerId));
-    toast({ title: 'Removed from Gallery' });
-  };
-
-  const handleUploadClick = () => fileInputRef.current?.click();
-  const handleGalleryUploadClick = () => galleryUploadRef.current?.click();
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>, isDirectToGallery = false) => {
     const file = event.target.files?.[0];
     if (!file || !firebaseApp || !firestore) return;
 
-    if (!isDirectToGallery && !selectedEventId) {
-        toast({ variant: 'destructive', description: "Please select an event first." });
-        return;
-    }
-
     setUploadStatus({ progress: 0, transferred: 0, total: file.size, fileName: file.name });
     try {
         const storage = getStorage(firebaseApp);
-        const path = isDirectToGallery 
-            ? `team-gallery/${Date.now()}-${file.name}`
-            : `event-images/${selectedEventId}/${file.name}`;
-            
+        const path = isDirectToGallery ? `team-gallery/${Date.now()}-${file.name}` : `event-images/${selectedEventId}/${file.name}`;
         const fileRef = storageRef(storage, path);
-        const uploadTask = uploadBytesResumable(fileRef, file);
+        const task = uploadBytesResumable(fileRef, file);
         
-        uploadTask.on('state_changed', (s) => {
-            setUploadStatus({
-                progress: (s.bytesTransferred / s.totalBytes) * 100,
-                transferred: s.bytesTransferred,
-                total: s.totalBytes,
-                fileName: file.name
-            });
+        task.on('state_changed', (s) => {
+            setUploadStatus({ progress: (s.bytesTransferred / s.totalBytes) * 100, transferred: s.bytesTransferred, total: s.totalBytes, fileName: file.name });
         });
         
-        await uploadTask;
-        const imageURL = await getDownloadURL(uploadTask.snapshot.ref);
+        await task;
+        const imageURL = await getDownloadURL(task.snapshot.ref);
         
         if (!isDirectToGallery && selectedEventId) {
             await setDoc(doc(firestore, 'scheduledEvents', selectedEventId), { imageURL }, { merge: true });
@@ -323,16 +260,9 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
         }
 
         if (isDirectToGallery || saveToGallery) {
-            addDocumentNonBlocking(collection(firestore, 'eventBanners'), { 
-                id: `upload-${Date.now()}`, 
-                url: imageURL, 
-                description: file.name, 
-                uploadedBy: currentUser?.displayName || 'User', 
-                timestamp: new Date().toISOString() 
-            });
+            addDocumentNonBlocking(collection(firestore, 'eventBanners'), { id: `upload-${Date.now()}`, url: imageURL, description: file.name, uploadedBy: currentUser?.displayName || 'User', timestamp: new Date().toISOString() });
         }
-        
-        toast({ title: isDirectToGallery ? 'Added to Gallery!' : 'Event Banner Updated!' });
+        toast({ title: 'Upload Complete!' });
     } catch (error) { toast({ variant: 'destructive', title: 'Upload Failed' }); }
     finally { setUploadStatus(null); }
   };
@@ -346,50 +276,27 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
           <Megaphone className="w-6 h-6 text-gold" />
           <CardTitle>Discord Integrations</CardTitle>
         </div>
-        <CardDescription>Post event reminders and schedules. Pick from your team gallery or upload new banners.</CardDescription>
+        <CardDescription>Post reminders and summaries to your server.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        <div className="space-y-4">
-          <h3 className="text-sm font-semibold flex items-center gap-2">
-            <CalendarDays className="w-4 h-4 text-primary" />
-            Daily Summary
-          </h3>
-          <Button onClick={handleSendTodaySummary} variant="outline" className="w-full" disabled={isSendingSummary || !events}>
-            {isSendingSummary ? <Loader className="animate-spin mr-2 h-4 w-4" /> : <Send className="mr-2 h-4 w-4" />}
-            Post Today's Summary
-          </Button>
-        </div>
+        <Button onClick={handleSendTodaySummary} variant="outline" className="w-full">
+            <Send className="mr-2 h-4 w-4" /> Post Today's Summary
+        </Button>
 
         <Separator />
 
         <div className="space-y-4">
           <div className='flex items-center justify-between'>
-            <h3 className="text-sm font-semibold flex items-center gap-2">
-                <LayoutGrid className="w-4 h-4 text-primary" />
-                Team Gallery
-            </h3>
-            <div className='flex items-center gap-2'>
-                <Button onClick={handleGalleryUploadClick} disabled={isUploading} variant="ghost" size="sm" className="h-8 text-xs">
-                    <PlusCircle className='mr-2 h-3 w-3' />
-                    Quick Upload
-                </Button>
-                <input type="file" ref={galleryUploadRef} onChange={(e) => handleFileChange(e, true)} className="hidden" accept="image/*" />
-            </div>
+            <h3 className="text-sm font-semibold">Team Gallery</h3>
+            <Button onClick={() => galleryUploadRef.current?.click()} size="sm" variant="ghost">Quick Upload</Button>
+            <input type="file" ref={galleryUploadRef} onChange={(e) => handleFileChange(e, true)} className="hidden" />
           </div>
+          <Button variant="secondary" className="w-full" onClick={() => setIsGalleryOpen(true)}>Open Gallery</Button>
           
-          <Button variant="secondary" className="w-full" onClick={() => setIsGalleryOpen(true)}>
-            <LayoutGrid className="mr-2 h-4 w-4" />
-            Open Team Gallery
-          </Button>
-
           {isUploading && uploadStatus && (
-              <div className="space-y-2 p-3 border rounded-lg bg-muted/30">
-                  <div className='flex items-center justify-between text-[10px]'>
-                      <span className='font-medium truncate max-w-[150px]'>{uploadStatus.fileName}</span>
-                      <span className='font-mono'>{formatBytes(uploadStatus.transferred)} / {formatBytes(uploadStatus.total)}</span>
-                  </div>
+              <div className="space-y-2 p-3 border rounded-lg bg-muted/30 text-xs">
+                  <div className='flex justify-between'><span>{uploadStatus.fileName}</span><span>{formatBytes(uploadStatus.transferred)} / {formatBytes(uploadStatus.total)}</span></div>
                   <Progress value={uploadStatus.progress} className="h-1.5" />
-                  <p className='text-center text-[10px] text-muted-foreground'>Uploading... {Math.round(uploadStatus.progress)}%</p>
               </div>
           )}
         </div>
@@ -397,109 +304,36 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
         <Separator />
 
         <div className="space-y-4">
-          <h3 className="text-sm font-semibold flex items-center gap-2">
-            <Megaphone className="w-4 h-4 text-primary" />
-            Event Reminder
-          </h3>
           <Select value={selectedEventId} onValueChange={setSelectedEventId}>
-            <SelectTrigger><SelectValue placeholder="Select an event..." /></SelectTrigger>
+            <SelectTrigger><SelectValue placeholder="Select event..." /></SelectTrigger>
             <SelectContent>{upcomingEvents.map(e => <SelectItem key={e.id} value={e.id}>{e.type} - {format(new Date(e.date), 'EEE, d MMM')} @ {e.time}</SelectItem>)}</SelectContent>
           </Select>
           
           {selectedEventId && (
               <div className="space-y-3">
-                  {imageToSend ? (
-                    <div className="relative aspect-video rounded-md overflow-hidden border bg-muted">
-                      <Image src={imageToSend} alt="Event" fill style={{ objectFit: 'cover' }} unoptimized />
-                    </div>
-                  ) : (
-                    <div className="border-2 border-dashed rounded-lg h-32 flex flex-col items-center justify-center text-muted-foreground bg-muted/30">
-                      <ImageIcon className="mb-2 w-6 h-6 opacity-50" />
-                      <span className="text-xs">No banner image</span>
-                    </div>
-                  )}
-                  {canManageEvent && (
-                    <div className='space-y-3'>
-                        <div className='grid grid-cols-1 sm:grid-cols-2 gap-2'>
-                            <Button onClick={handleUploadClick} disabled={isUploading || isGeneratingAI} variant="outline" size="sm" className="text-xs">
-                              {isUploading ? <Loader className='animate-spin mr-2 h-4 w-4' /> : <UploadCloud className='mr-2 h-3 w-3'/>}
-                              {imageToSend ? 'Replace Image' : 'Upload Banner'}
-                            </Button>
-                            <Button onClick={handleGenerateAIBanner} disabled={isUploading || isGeneratingAI} variant="outline" size="sm" className="text-xs">
-                              {isGeneratingAI ? <Loader className='animate-spin mr-2 h-4 w-4' /> : <Sparkles className='mr-2 h-3 w-3'/>}
-                              AI Generate
-                            </Button>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                            <Checkbox id="save-gallery" checked={saveToGallery} onCheckedChange={(v) => setSaveToGallery(!!v)} />
-                            <Label htmlFor="save-gallery" className="text-xs font-normal cursor-pointer">Save uploads to Team Gallery</Label>
-                        </div>
-                    </div>
-                  )}
-                  <input type="file" ref={fileInputRef} onChange={(e) => handleFileChange(e, false)} className="hidden" accept="image/*" />
+                  {imageToSend && <div className="relative aspect-video rounded-md overflow-hidden border"><Image src={imageToSend} alt="Event" fill style={{ objectFit: 'cover' }} unoptimized /></div>}
+                  <div className='grid grid-cols-2 gap-2'>
+                    <Button onClick={() => fileInputRef.current?.click()} variant="outline" size="sm">Upload</Button>
+                    <Button onClick={handleGenerateAIBanner} variant="outline" size="sm">AI Generate</Button>
+                  </div>
+                  <input type="file" ref={fileInputRef} onChange={(e) => handleFileChange(e, false)} className="hidden" />
+                  <Textarea value={reminderMessage} onChange={(e) => setReminderMessage(e.target.value)} className="min-h-[120px] text-xs font-mono" />
+                  <Button onClick={handleSendToDiscord} className="w-full"><Send className="mr-2 h-4 w-4" /> Post Reminder</Button>
               </div>
-          )}
-          
-          {selectedEventId && reminderMessage && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Preview</span>
-                  <Button variant="ghost" size="sm" className="h-6 text-[10px]" onClick={handleNudge}>
-                      <BellRing className="w-3 h-3 mr-1" />
-                      Add Nudges
-                  </Button>
-              </div>
-              <Textarea value={reminderMessage} onChange={(e) => setReminderMessage(e.target.value)} className="min-h-[150px] text-[10px] font-mono leading-tight bg-muted/30" />
-              <Button onClick={handleSendToDiscord} className="w-full" disabled={isSending || sendSuccess}>
-                {isSending ? <Loader className="animate-spin mr-2 h-4 w-4" /> : <Send className="mr-2 h-4 w-4" />}
-                {sendSuccess ? 'Sent!' : 'Post Reminder to Discord'}
-              </Button>
-            </div>
           )}
         </div>
       </CardContent>
 
       <Dialog open={isGalleryOpen} onOpenChange={setIsGalleryOpen}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Team Banner Gallery</DialogTitle>
-              <DialogDescription>Images your team has uploaded. Select one to use it as the banner for the active event.</DialogDescription>
-            </DialogHeader>
-            <ScrollArea className="h-[60vh]">
-              {isGalleryLoading ? (
-                <div className="flex items-center justify-center py-20">
-                  <Loader className="w-8 h-8 animate-spin text-primary" />
-                </div>
-              ) : teamGallery && teamGallery.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-1">
-                  {teamGallery.map((img) => (
-                    <div key={img.id} className="group relative rounded-lg overflow-hidden border bg-muted">
-                        <div className="relative aspect-video w-full cursor-pointer" onClick={() => handleSelectGalleryImage(img.url)}>
-                            <Image src={img.url} alt={img.description} fill className="object-cover" unoptimized />
-                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                <span className="text-white text-xs font-bold uppercase tracking-widest">{selectedEventId ? 'Select Banner' : 'Uploaded'}</span>
-                            </div>
+          <DialogContent className="max-w-xl">
+            <ScrollArea className="h-[50vh]">
+                <div className="grid grid-cols-2 gap-4 p-1">
+                    {teamGallery?.map(img => (
+                        <div key={img.id} className="cursor-pointer border rounded p-1 hover:border-primary" onClick={() => { if(selectedEventId) { setDoc(doc(firestore!, 'scheduledEvents', selectedEventId), { imageURL: img.url }, { merge: true }); setImageToSend(img.url); setIsGalleryOpen(false); } }}>
+                            <div className="relative aspect-video"><Image src={img.url} alt="Gallery" fill className="object-cover" unoptimized /></div>
                         </div>
-                        <div className="p-2 bg-card text-[10px] flex items-center justify-between border-t">
-                            <div className="truncate flex-1">
-                                <p className="font-semibold truncate">{img.description}</p>
-                                <p className="text-muted-foreground">by {img.uploadedBy}</p>
-                            </div>
-                            {isAdmin && (
-                                <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => handleRemoveGallery(img.id)}>
-                                    <Trash2 className="w-3 h-3" />
-                                </Button>
-                            )}
-                        </div>
-                    </div>
-                  ))}
+                    ))}
                 </div>
-              ) : (
-                <div className="text-center py-20 text-muted-foreground">
-                    <ImageIcon className="mx-auto h-10 w-10 opacity-20 mb-4" />
-                    <p>Gallery is empty. Upload an image through the Integration panel.</p>
-                </div>
-              )}
             </ScrollArea>
           </DialogContent>
         </Dialog>

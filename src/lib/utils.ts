@@ -7,64 +7,36 @@ export function cn(...inputs: ClassValue[]) {
 
 /**
  * Generates a Discord dynamic timestamp string.
- * @param date The date of the event.
- * @param timeStr The time string in "H:mm AM/PM" format.
- * @param flag Discord timestamp flag (e.g., 'F' for full date/time, 'R' for relative).
- * @returns A formatted Discord timestamp string like <t:123456789:F>
  */
 export function getDiscordTimestamp(date: Date | string, timeStr: string, flag: 't' | 'T' | 'd' | 'D' | 'f' | 'F' | 'R' = 'F') {
   const d = typeof date === 'string' ? new Date(date) : new Date(date);
-  
-  // Parse "4:30 PM"
   const [time, modifier] = timeStr.split(' ');
   let [hours, minutes] = time.split(':').map(Number);
   
   if (modifier === 'PM' && hours < 12) hours += 12;
   if (modifier === 'AM' && hours === 12) hours = 0;
   
-  // Set the hours and minutes in the local timezone of the browser creating the message
   d.setHours(hours, minutes, 0, 0);
-  
-  const unix = Math.floor(d.getTime() / 1000);
-  return `<t:${unix}:${flag}>`;
+  return `<t:${Math.floor(d.getTime() / 1000)}:${flag}>`;
 }
 
 /**
- * Formats bytes into human-readable string (KB, MB, GB).
+ * Formats bytes into human-readable string.
  */
 export function formatBytes(bytes: number, decimals = 2) {
   if (bytes === 0) return '0 Bytes';
-
-  const k = 1024;
-  const dm = decimals < 0 ? 0 : decimals;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-
+  const k = 1024, dm = decimals < 0 ? 0 : decimals, sizes = ['Bytes', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-
   return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
 }
 
 /**
- * Formats a Discord mention string.
- * If the input is numeric, it wraps it in <@...>.
- * If it already looks like a mention, it leaves it alone.
+ * Formats a Discord mention string for numeric IDs.
  */
 export function formatDiscordMention(input?: string) {
   if (!input) return 'Unknown';
   const trimmed = input.trim();
-  
-  // If it's already a mention format <@...>, <@!...>, or <@&...>
-  if (trimmed.startsWith('<@') && trimmed.endsWith('>')) return trimmed;
-  
-  // If it's just numbers, it's a User ID
   if (/^\d+$/.test(trimmed)) return `<@${trimmed}>`;
-  
-  // If it starts with @, check if the rest is numeric
-  if (trimmed.startsWith('@')) {
-    const maybeId = trimmed.slice(1);
-    if (/^\d+$/.test(maybeId)) return `<@${maybeId}>`;
-  }
-  
-  // Otherwise, return as plain text
+  if (trimmed.startsWith('@') && /^\d+$/.test(trimmed.slice(1))) return `<@${trimmed.slice(1)}>`;
   return trimmed;
 }

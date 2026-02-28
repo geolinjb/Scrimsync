@@ -24,9 +24,6 @@ import { Alert, AlertTitle } from '../ui/alert';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Skeleton } from '../ui/skeleton';
 import { DISCORD_WEBHOOK_URL } from '@/lib/config';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { Separator } from '../ui/separator';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 
 type ScheduledEventsProps = {
   events: ScheduleEvent[];
@@ -121,12 +118,6 @@ export function ScheduledEvents({
         if (!firestore) return;
         const newStatus = event.status === 'Cancelled' ? 'Active' : 'Cancelled';
         setDoc(doc(firestore, 'scheduledEvents', event.id), { status: newStatus }, { merge: true });
-        addDocumentNonBlocking(collection(firestore, 'appNotifications'), {
-            message: `Event ${newStatus.toLowerCase()}: ${event.type} on ${format(new Date(event.date), 'd MMM')}`,
-            icon: newStatus === 'Cancelled' ? 'CalendarX2' : 'CalendarPlus',
-            createdBy: currentUser?.displayName || 'Admin',
-            timestamp: new Date().toISOString()
-        });
     };
 
     const handleAddOverride = async (eventId: string) => {
@@ -161,7 +152,6 @@ export function ScheduledEvents({
     const handleSendRosterReady = async (event: ScheduleEvent, players: string[], possiblePlayers: string[]) => {
         setIsSendingReady(event.id);
         const dsTimestamp = getDiscordTimestamp(event.date, event.time, 'F');
-        const dsRelative = getDiscordTimestamp(event.date, event.time, 'R');
         const mention = event.discordRoleId ? `<@&${event.discordRoleId}>` : '';
         
         const playerTags = players.map(name => {
@@ -178,23 +168,16 @@ export function ScheduledEvents({
             content: mention,
             embeds: [{
                 title: "✅ ROSTER READY!",
-                description: `The **${event.type}** at ${dsTimestamp} (${dsRelative}) is officially ready with **${players.length} confirmed players**!\n\n**Confirmed Squad:**\n${playerTags.map(p => `- ${p}`).join('\n')}${possibleTags.length > 0 ? `\n\n**❓ Possibly Available:**\n${possibleTags.map(p => `- ${p}`).join('\n')}` : ''}\n\n🔗 **View and Vote:** ${WEBSITE_URL}`,
-                color: 2278750, // Green
+                description: `The **${event.type}** at ${dsTimestamp} is officially ready!\n\n**Confirmed Squad:**\n${playerTags.join('\n')}${possibleTags.length > 0 ? `\n\n**Possible:**\n${possibleTags.join('\n')}` : ''}\n\n🔗 **Vote:** ${WEBSITE_URL}`,
+                color: 2278750,
                 timestamp: new Date().toISOString(),
-                footer: { text: `TeamSync • ${WEBSITE_URL}` },
-                image: event.imageURL ? { url: event.imageURL } : undefined
+                footer: { text: `TeamSync • ${WEBSITE_URL}` }
             }]
         };
 
         try {
-            const res = await fetch(DISCORD_WEBHOOK_URL, { 
-                method: 'POST', 
-                headers: { 'Content-Type': 'application/json' }, 
-                body: JSON.stringify(payload) 
-            });
-            if (res.ok) {
-                toast({ title: 'Roster Ready Alert Sent!' });
-            }
+            const res = await fetch(DISCORD_WEBHOOK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            if (res.ok) toast({ title: 'Discord Alert Sent!' });
         } catch (error) {
             toast({ variant: 'destructive', title: 'Failed to send alert' });
         } finally {
@@ -202,12 +185,7 @@ export function ScheduledEvents({
         }
     };
 
-    if (!mounted) return (
-        <Card>
-            <CardHeader><div className="flex items-center gap-3"><CalendarCheck className="w-6 h-6 text-gold" /><CardTitle>Upcoming Events</CardTitle></div></CardHeader>
-            <CardContent><Skeleton className="h-[200px] w-full" /></CardContent>
-        </Card>
-    );
+    if (!mounted) return <Skeleton className="h-[200px] w-full" />;
 
     return (
         <Card>
@@ -215,107 +193,78 @@ export function ScheduledEvents({
             <CardContent>
                 <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
                 {upcomingEvents.length > 0 ? (
-                    <ScrollArea className="border rounded-lg h-[500px]">
-                        <Accordion type="single" collapsible className="w-full min-w-0">
+                    <ScrollArea className="border rounded-lg h-[450px]">
+                        <Accordion type="single" collapsible className="w-full">
                             {upcomingEvents.map((event) => {
                                 const isVoted = userEventVotes.has(event.id);
                                 const availablePlayers = allEventVotes[event.id] || [];
                                 const isCancelled = event.status === 'Cancelled';
                                 const isRosterFull = availablePlayers.length >= MINIMUM_PLAYERS;
-                                
                                 const eventOverrides = availabilityOverrides.filter(o => o.eventId === event.id);
 
                                 return (
                                     <AccordionItem key={event.id} value={event.id}>
-                                        <AccordionTrigger className="px-4 hover:no-underline">
-                                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center w-full gap-2">
+                                        <AccordionTrigger className="px-4">
+                                            <div className="flex justify-between items-center w-full pr-4">
                                                 <div className={cn("text-left", isCancelled && "opacity-50")}>
-                                                    <div className="flex flex-wrap items-center gap-2">
-                                                        <Badge className={cn(event.type === 'Tournament' && 'bg-gold text-black')}>{event.type}</Badge>
-                                                        <span className="font-bold text-sm sm:text-base">{format(new Date(event.date), 'EEE, d MMM')}</span>
+                                                    <div className="flex items-center gap-2">
+                                                        <Badge>{event.type}</Badge>
+                                                        <span className="font-bold">{format(new Date(event.date), 'EEE, d MMM')}</span>
                                                         {isToday(new Date(event.date)) && <Badge variant="outline" className="text-[10px] h-4">Today</Badge>}
                                                     </div>
                                                     <span className="text-xs text-muted-foreground">{event.time}</span>
                                                 </div>
                                                 <div className="flex items-center gap-2">
-                                                    {isRosterFull && !isCancelled && (
-                                                        <Badge variant="secondary" className="bg-primary/20 text-primary border-primary/30 text-[10px] h-5 py-0">
-                                                            Ready
-                                                        </Badge>
-                                                    )}
-                                                    {isCancelled && <Badge variant="destructive" className="text-[10px] h-5 py-0">Cancelled</Badge>}
+                                                    {isRosterFull && !isCancelled && <Badge variant="secondary" className="bg-primary/20 text-primary">Ready</Badge>}
+                                                    {isCancelled && <Badge variant="destructive">Cancelled</Badge>}
                                                 </div>
                                             </div>
                                         </AccordionTrigger>
                                         <AccordionContent className="px-4 space-y-4">
-                                            {isCancelled && <Alert variant="destructive"><Ban className="h-4 w-4" /><AlertTitle>Cancelled</AlertTitle></Alert>}
                                             {isRosterFull && !isCancelled && (
-                                                <Alert className="bg-primary/5 border-primary/20 p-3 sm:p-4">
+                                                <Alert className="bg-primary/5 border-primary/20">
                                                     <Sparkles className="h-4 w-4 text-primary" />
-                                                    <AlertTitle className="text-primary font-bold text-sm sm:text-base">Roster is Ready!</AlertTitle>
-                                                    <div className="mt-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                                                        <p className="text-xs text-muted-foreground">The squad is set with {MINIMUM_PLAYERS}+ players.</p>
+                                                    <AlertTitle className="text-primary font-bold">Roster Ready!</AlertTitle>
+                                                    <div className="mt-2 flex items-center justify-between">
+                                                        <p className="text-xs text-muted-foreground">The squad has reached {MINIMUM_PLAYERS} players.</p>
                                                         {isAdmin && (
-                                                            <Button 
-                                                                size="sm" 
-                                                                onClick={() => handleSendRosterReady(event, availablePlayers, eventOverrides.map(o => o.userId))}
-                                                                disabled={isSendingReady === event.id}
-                                                                className="w-full sm:w-auto text-xs h-8"
-                                                            >
+                                                            <Button size="sm" onClick={() => handleSendRosterReady(event, availablePlayers, eventOverrides.map(o => o.userId))} disabled={isSendingReady === event.id}>
                                                                 {isSendingReady === event.id ? <Loader className="animate-spin w-3 h-3 mr-2" /> : <Send className="w-3 h-3 mr-2" />}
-                                                                Notify Discord
+                                                                Post Roster
                                                             </Button>
                                                         )}
                                                     </div>
                                                 </Alert>
                                             )}
                                             {isAdmin && (
-                                                <div className="flex flex-wrap justify-end gap-2 p-2 bg-muted rounded">
+                                                <div className="flex justify-end gap-2 p-2 bg-muted rounded">
                                                     <Button variant="outline" size="sm" onClick={() => handleToggleCancel(event)}>{isCancelled ? <Undo2 className="h-4 w-4" /> : <CalendarX2 className="h-4 w-4" />}</Button>
                                                     <Button variant="outline" size="sm" onClick={() => handleUploadClick(event.id)}><UploadCloud className="h-4 w-4" /></Button>
                                                     <Button variant="destructive" size="sm" onClick={() => onRemoveEvent(event.id)}><Trash2 className="h-4 w-4" /></Button>
                                                 </div>
                                             )}
                                             {event.imageURL && <div className="relative aspect-video rounded-md overflow-hidden border"><Image src={event.imageURL} alt="Event" fill style={{ objectFit: 'cover' }} unoptimized /></div>}
-                                            {event.description && <p className="text-sm border-l-2 border-primary pl-3 py-1 bg-muted/50">{event.description}</p>}
-                                            
-                                            {uploadingEventId === event.id && uploadStatus && (
-                                                <div className="space-y-1 py-2">
-                                                    <div className='flex items-center justify-between text-[10px]'>
-                                                        <span className='font-medium'>Uploading banner...</span>
-                                                        <span className='font-mono text-[9px]'>{formatBytes(uploadStatus.transferred)} / {formatBytes(uploadStatus.total)}</span>
-                                                    </div>
-                                                    <Progress value={uploadStatus.progress} className="h-1" />
-                                                </div>
-                                            )}
+                                            {event.description && <p className="text-sm italic text-muted-foreground">{event.description}</p>}
                                             
                                             <div className="space-y-4">
                                                 <div>
                                                     <h4 className="text-sm font-bold mb-2">Available Players ({availablePlayers.length})</h4>
-                                                    <div className="flex flex-wrap gap-2">{availablePlayers.map(p => {
-                                                        const prof = usernameToProfileMap.get(p);
-                                                        return <Badge key={p} variant="secondary" className="text-xs py-0.5"><Avatar className="w-4 h-4 mr-1.5"><AvatarImage src={prof?.photoURL} /></Avatar>{p}</Badge>
-                                                    })}</div>
+                                                    <div className="flex flex-wrap gap-2">{availablePlayers.map(p => (
+                                                        <Badge key={p} variant="secondary" className="text-xs"><Avatar className="w-4 h-4 mr-1"><AvatarImage src={usernameToProfileMap.get(p)?.photoURL} /></Avatar>{p}</Badge>
+                                                    ))}</div>
                                                 </div>
 
                                                 {eventOverrides.length > 0 && (
                                                     <div>
-                                                        <h4 className="text-sm font-bold mb-2 flex items-center gap-2">
-                                                            <HelpCircle className="w-3 h-3 text-muted-foreground" />
-                                                            Possibly Available ({eventOverrides.length})
-                                                        </h4>
+                                                        <h4 className="text-sm font-bold mb-2">Possibly Available ({eventOverrides.length})</h4>
                                                         <div className="flex flex-wrap gap-2">
                                                             {eventOverrides.map(o => {
                                                                 const prof = profileMap.get(o.userId);
                                                                 return (
-                                                                    <Badge key={o.id} variant="outline" className="border-dashed flex items-center gap-1 text-xs py-0.5">
-                                                                        <Avatar className="w-4 h-4 mr-1"><AvatarImage src={prof?.photoURL} /></Avatar>
+                                                                    <Badge key={o.id} variant="outline" className="border-dashed flex items-center gap-1">
+                                                                        <Avatar className="w-4 h-4"><AvatarImage src={prof?.photoURL} /></Avatar>
                                                                         {prof?.username || 'Unknown'}
-                                                                        {isAdmin && (
-                                                                            <Button variant="ghost" size="icon" className="h-4 w-4 ml-1 hover:text-destructive" onClick={() => handleRemoveOverride(o.id)}>
-                                                                                <UserMinus className="w-3 h-3" />
-                                                                            </Button>
-                                                                        )}
+                                                                        {isAdmin && <Button variant="ghost" size="icon" className="h-4 w-4 ml-1" onClick={() => handleRemoveOverride(o.id)}><UserMinus className="w-3 h-3" /></Button>}
                                                                     </Badge>
                                                                 )
                                                             })}
@@ -324,42 +273,20 @@ export function ScheduledEvents({
                                                 )}
 
                                                 {isAdmin && (
-                                                    <div className="pt-2">
-                                                        <Separator className="mb-3" />
-                                                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
-                                                            <div className="flex items-center gap-2 w-full sm:w-auto">
-                                                                <Select value={selectedOverrideUser} onValueChange={setSelectedOverrideUser}>
-                                                                    <SelectTrigger className="h-8 text-xs w-full sm:w-[180px]">
-                                                                        <SelectValue placeholder="Add possible player..." />
-                                                                    </SelectTrigger>
-                                                                    <SelectContent>
-                                                                        {profiles?.filter(p => !availablePlayers.includes(p.username) && !eventOverrides.find(o => o.userId === p.id)).map(p => (
-                                                                            <SelectItem key={p.id} value={p.id}>{p.username}</SelectItem>
-                                                                        ))}
-                                                                    </SelectContent>
-                                                                </Select>
-                                                                <TooltipProvider>
-                                                                  <Tooltip>
-                                                                    <TooltipTrigger asChild>
-                                                                      <Info className="h-4 w-4 text-muted-foreground cursor-help shrink-0" />
-                                                                    </TooltipTrigger>
-                                                                    <TooltipContent>
-                                                                      <p className="max-w-xs text-xs">Mark players as "Possibly Available" to track potential roster strength.</p>
-                                                                    </TooltipContent>
-                                                                  </Tooltip>
-                                                                </TooltipProvider>
-                                                            </div>
-                                                            <Button size="sm" variant="outline" className="h-8 text-xs w-full sm:w-auto" onClick={() => handleAddOverride(event.id)} disabled={!selectedOverrideUser}>
-                                                                <UserPlus className="w-3 h-3 mr-2" />
-                                                                Add
-                                                            </Button>
-                                                        </div>
+                                                    <div className="flex items-center gap-2 pt-2 border-t">
+                                                        <Select value={selectedOverrideUser} onValueChange={setSelectedOverrideUser}>
+                                                            <SelectTrigger className="h-8 text-xs w-[180px]"><SelectValue placeholder="Add possible player..." /></SelectTrigger>
+                                                            <SelectContent>{profiles?.map(p => <SelectItem key={p.id} value={p.id}>{p.username}</SelectItem>)}</SelectContent>
+                                                        </Select>
+                                                        <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => handleAddOverride(event.id)} disabled={!selectedOverrideUser}>
+                                                            <UserPlus className="w-3 h-3 mr-2" /> Add
+                                                        </Button>
                                                     </div>
                                                 )}
                                                 
-                                                <div className="flex justify-center sm:justify-end">
+                                                <div className="flex justify-end">
                                                     {!isCancelled && (
-                                                        <Button variant={isVoted ? 'secondary' : 'default'} size="sm" onClick={() => onEventVoteTrigger(event)} className="w-full sm:w-auto">
+                                                        <Button variant={isVoted ? 'secondary' : 'default'} size="sm" onClick={() => onEventVoteTrigger(event)}>
                                                             {isVoted ? <Check className="h-4 w-4 mr-2" /> : <Vote className="h-4 w-4 mr-2" />}
                                                             {isVoted ? 'Attending' : 'Vote'}
                                                         </Button>
@@ -371,10 +298,11 @@ export function ScheduledEvents({
                                 );
                             })}
                         </Accordion>
-                        <ScrollBar orientation="horizontal" />
                     </ScrollArea>
                 ) : <div className="text-center py-10 opacity-50">No upcoming events.</div>}
             </CardContent>
         </Card>
     );
 }
+
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
