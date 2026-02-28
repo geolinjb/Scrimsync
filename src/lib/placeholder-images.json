@@ -1,22 +1,3 @@
 {
-  "placeholderImages": [
-    {
-      "id": "tank-snow-training",
-      "description": "Tank Training - Snowy Ridge",
-      "imageUrl": "https://images.unsplash.com/photo-1702925181075-37cadf282fe9?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
-      "imageHint": "tank snow"
-    },
-    {
-      "id": "tournament-rewards",
-      "description": "Tournament Rewards - Gold & Victory",
-      "imageUrl": "https://images.unsplash.com/photo-1624365168012-7ed139887755?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
-      "imageHint": "gold coins"
-    },
-    {
-      "id": "neon-gamer-arena",
-      "description": "Neon Gamer Arena - Hype Mode",
-      "imageUrl": "https://images.unsplash.com/photo-1559969143-b2defc6419fd?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
-      "imageHint": "neon gamer"
-    }
-  ]
+  "placeholderImages": []
 }

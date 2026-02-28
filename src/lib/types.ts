@@ -13,7 +13,7 @@ export type ScheduleEvent = {
 };
 
 export type FirestoreScheduleEvent = Omit<ScheduleEvent, 'date'> & {
-  date: string; // Firestore stores dates as strings or Timestamps
+  date: string;
 }
 
 export type PlayerProfileData = {
@@ -25,19 +25,19 @@ export type PlayerProfileData = {
   role: (typeof gameRoles)[number] | '';
   rosterStatus?: (typeof rosterStatuses)[number];
   playstyleTags?: (typeof playstyleTags)[number][];
-  lastNotificationReadTimestamp?: string; // ISO 8601 string
+  lastNotificationReadTimestamp?: string;
 };
 
 export type Vote = {
-    id: string; // composite key: `${userId}_${timeslot}` or `${userId}_${eventId}`
+    id: string;
     userId: string;
-    timeslot: string; // format: 'YYYY-MM-DD_HH:mm'
+    timeslot: string;
     voteValue: boolean;
     eventId?: string;
 }
 
 export type AvailabilityOverride = {
-  id: string; // composite key: `${eventId}_${userId}`
+  id: string;
   eventId: string;
   userId: string;
   status: 'Possibly Available';
@@ -46,9 +46,17 @@ export type AvailabilityOverride = {
 export type AppNotification = {
     id: string;
     message: string;
-    timestamp: string; // ISO 8601 string
+    timestamp: string;
     createdBy: string;
-    icon: string; // lucide-react icon name
+    icon: string;
+}
+
+export type EventBanner = {
+    id: string;
+    url: string;
+    description: string;
+    uploadedBy: string;
+    timestamp: string;
 }
 
 export const gameRoles = ['Tank Destroyer', 'Medium Tank', 'Heavy Tank', 'Assaulter', 'Defender', 'Light Tank'] as const;
@@ -66,11 +74,11 @@ export const daysOfWeek = [
 ] as const;
 
 export type UserVotes = {
-  [dateKey: string]: Set<string>; // Key is 'yyyy-MM-dd', value is set of time slots
+  [dateKey: string]: Set<string>;
 };
 
 export type AllVotes = {
-  [voteKey: string]: string[]; // Key is 'yyyy-MM-dd-HH:mm PM/AM', value is array of player usernames
+  [voteKey: string]: string[];
 }
 
 export const MINIMUM_PLAYERS = 7;

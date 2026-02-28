@@ -215,6 +215,20 @@
         }
       },
       "required": ["id", "message", "timestamp", "createdBy", "icon"]
+    },
+    "EventBanner": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "EventBanner",
+      "type": "object",
+      "description": "Represents a banner image saved in the team's shared gallery.",
+      "properties": {
+        "id": { "type": "string" },
+        "url": { "type": "string", "description": "The storage URL of the image." },
+        "description": { "type": "string" },
+        "uploadedBy": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "url", "timestamp"]
     }
   },
   "auth": {
@@ -258,6 +272,12 @@
             "$ref": "#/entities/AppNotification"
         },
         "description": "Stores global app notifications for all users to see."
+    },
+    "/eventBanners/{bannerId}": {
+        "schema": {
+            "$ref": "#/entities/EventBanner"
+        },
+        "description": "Stores reusable banner images in a shared team gallery."
     }
   }
 }
