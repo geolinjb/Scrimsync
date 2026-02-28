@@ -9,12 +9,7 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Helper function to check if the requesting user is the owner of a document.
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
-    // Helper function to check if the user is an admin, either by custom claim or by being the hardcoded owner.
+    // Helper function to check if the user is an admin or a hardcoded Super Admin.
     function isAdmin() {
       return isSignedIn() && (
         request.auth.token.admin == true || 
@@ -24,61 +19,45 @@ service cloud.firestore {
     }
 
     /**
-     * @description Secures user profile documents.
-     * @path /users/{userId}
+     * @description Super Admin catch-all: Admins have full access to everything.
      */
-    match /users/{userId} {
-      allow read;
-      allow create: if isAdmin() || (isOwner(userId) && 
-                      !('rosterStatus' in request.resource.data) && 
-                      !('playstyleTags' in request.resource.data));
-      allow update: if isAdmin() || (isOwner(userId) && 
-                      !request.resource.data.diff(resource.data).affectedKeys().hasAny(['rosterStatus', 'playstyleTags']));
-      allow delete: if isOwner(userId) || isAdmin();
+    match /{document=**} {
+      allow read, write: if isAdmin();
     }
 
     /**
-     * @description Secures user votes.
-     * @path /votes/{voteId}
+     * @description Specific rules for non-admin users.
      */
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.auth.uid == userId && 
+                      !('rosterStatus' in request.resource.data) && 
+                      !('playstyleTags' in request.resource.data);
+      allow update: if isSignedIn() && request.auth.uid == userId && 
+                      !request.resource.data.diff(resource.data).affectedKeys().hasAny(['rosterStatus', 'playstyleTags']);
+      allow delete: if isSignedIn() && request.auth.uid == userId;
+    }
+
     match /votes/{voteId} {
       allow read: if isSignedIn();
       allow create, update: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow delete: if (isSignedIn() && resource.data.userId == request.auth.uid) || isAdmin();
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
 
-    /**
-     * @description Manages scheduled events.
-     * @path /scheduledEvents/{eventId}
-     */
     match /scheduledEvents/{eventId} {
       allow read: if isSignedIn();
-      allow create, update, delete: if isAdmin();
     }
 
-    /**
-     * @description Manages availability overrides set by admins.
-     * @path /availabilityOverrides/{overrideId}
-     */
     match /availabilityOverrides/{overrideId} {
         allow read: if isSignedIn();
-        allow create, update, delete: if isAdmin();
     }
 
-    /**
-     * @description Manages application-wide notifications.
-     */
     match /appNotifications/{notificationId} {
         allow read: if isSignedIn();
-        allow create, update, delete: if isAdmin();
     }
 
-    /**
-     * @description Shared team gallery for reusable banners.
-     */
     match /eventBanners/{bannerId} {
         allow read: if isSignedIn();
-        allow create, update, delete: if isAdmin();
     }
   }
 }

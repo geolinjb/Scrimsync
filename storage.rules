@@ -4,7 +4,7 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
 
-    // Helper function to check if a user is an admin.
+    // Helper function to check if a user is an admin or a hardcoded Super Admin.
     function isAdmin() {
       return request.auth != null && (
         request.auth.token.admin == true || 
@@ -16,6 +16,13 @@ service firebase.storage {
     // Helper function to check if the requesting user is the owner.
     function isOwner(userId) {
         return request.auth != null && request.auth.uid == userId;
+    }
+
+    /**
+     * @description Super Admin catch-all for Storage.
+     */
+    match /{allPaths=**} {
+      allow read, write: if isAdmin();
     }
 
     match /avatars/{userId}/{fileName} {
