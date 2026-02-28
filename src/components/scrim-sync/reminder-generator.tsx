@@ -70,6 +70,8 @@ const EMBED_COLORS = {
   GREEN: 2278750
 };
 
+const WEBSITE_URL = "https://scrimsync.vercel.app/";
+
 export function ReminderGenerator({ events, allVotes, allProfiles, availabilityOverrides, isAdmin, currentUser }: ReminderGeneratorProps) {
   const { toast } = useToast();
   const firestore = useFirestore();
@@ -92,7 +94,6 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
 
   const isUploading = uploadStatus !== null;
 
-  // Ensure we only query when the user is signed in to avoid permission errors
   const galleryQuery = useMemoFirebase(() => {
     if (!firestore || !currentUser) return null;
     return query(collection(firestore, 'eventBanners'), orderBy('timestamp', 'desc'), limit(50));
@@ -135,7 +136,7 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
     const dsRelative = getDiscordTimestamp(event.date, event.time, 'R');
 
     if (isCancelled) {
-        return `🚫 **EVENT CANCELLED** 🚫\n> The **${event.type}** at ${dsTimestamp} has been cancelled.`;
+        return `🚫 **EVENT CANCELLED** 🚫\n> The **${event.type}** at ${dsTimestamp} has been cancelled.\n\n🔗 **View dashboard:** ${WEBSITE_URL}`;
     }
 
     const voteKey = `${format(new Date(event.date), 'yyyy-MM-dd')}-${event.time}`;
@@ -171,6 +172,9 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
             msg += `\n\n⏰ **Awaiting Response (Main Roster):**\n${missingMainRoster.map(p => `- ${p.discordUsername || p.username}`).join('\n')}`;
         }
     }
+
+    msg += `\n\n🔗 **Vote here:** ${WEBSITE_URL}`;
+
     return msg;
   };
 
@@ -204,7 +208,7 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
           color: color,
           image: imageToSend ? { url: imageToSend } : undefined,
           timestamp: new Date().toISOString(),
-          footer: { text: "TeamSync • Coordination made easy" }
+          footer: { text: `TeamSync • ${WEBSITE_URL}` }
         }]
       };
       const res = await fetch(DISCORD_WEBHOOK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
@@ -230,10 +234,10 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
     const payload = {
       embeds: [{
         title: `📅 TEAM SCHEDULE: ${format(today, 'EEEE, d MMM')}`,
-        description: eventSummaries.join('\n'),
+        description: `${eventSummaries.join('\n')}\n\n🔗 **Full Schedule:** ${WEBSITE_URL}`,
         color: EMBED_COLORS.BLUE,
         timestamp: new Date().toISOString(),
-        footer: { text: "Update your availability at scrimsync.vercel.app" }
+        footer: { text: `TeamSync • ${WEBSITE_URL}` }
       }]
     };
     try {
@@ -482,7 +486,7 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
                                 <p className="text-muted-foreground">by {img.uploadedBy}</p>
                             </div>
                             {isAdmin && (
-                                <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => handleRemoveFromGallery(img.id)}>
+                                <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => handleRemoveGallery(img.id)}>
                                     <Trash2 className="w-3 h-3" />
                                 </Button>
                             )}

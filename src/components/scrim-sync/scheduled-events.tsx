@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -46,6 +45,8 @@ type UploadStatus = {
     total: number;
     fileName: string;
 } | null;
+
+const WEBSITE_URL = "https://scrimsync.vercel.app/";
 
 export function ScheduledEvents({ 
     events, 
@@ -177,10 +178,10 @@ export function ScheduledEvents({
             content: mention,
             embeds: [{
                 title: "✅ ROSTER READY!",
-                description: `The **${event.type}** at ${dsTimestamp} (${dsRelative}) is officially ready with **${players.length} confirmed players**!\n\n**Confirmed Squad:**\n${playerTags.map(p => `- ${p}`).join('\n')}${possibleTags.length > 0 ? `\n\n**❓ Possibly Available:**\n${possibleTags.map(p => `- ${p}`).join('\n')}` : ''}`,
+                description: `The **${event.type}** at ${dsTimestamp} (${dsRelative}) is officially ready with **${players.length} confirmed players**!\n\n**Confirmed Squad:**\n${playerTags.map(p => `- ${p}`).join('\n')}${possibleTags.length > 0 ? `\n\n**❓ Possibly Available:**\n${possibleTags.map(p => `- ${p}`).join('\n')}` : ''}\n\n🔗 **View and Vote:** ${WEBSITE_URL}`,
                 color: 2278750, // Green
                 timestamp: new Date().toISOString(),
-                footer: { text: "TeamSync • Coordination made easy" },
+                footer: { text: `TeamSync • ${WEBSITE_URL}` },
                 image: event.imageURL ? { url: event.imageURL } : undefined
             }]
         };
@@ -215,7 +216,7 @@ export function ScheduledEvents({
                 <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
                 {upcomingEvents.length > 0 ? (
                     <ScrollArea className="border rounded-lg h-[500px]">
-                        <Accordion type="single" collapsible className="w-full min-w-[320px]">
+                        <Accordion type="single" collapsible className="w-full min-w-0">
                             {upcomingEvents.map((event) => {
                                 const isVoted = userEventVotes.has(event.id);
                                 const availablePlayers = allEventVotes[event.id] || [];
@@ -226,44 +227,42 @@ export function ScheduledEvents({
 
                                 return (
                                     <AccordionItem key={event.id} value={event.id}>
-                                        <AccordionTrigger className="px-4">
-                                            <div className="flex justify-between items-center w-full">
+                                        <AccordionTrigger className="px-4 hover:no-underline">
+                                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center w-full gap-2">
                                                 <div className={cn("text-left", isCancelled && "opacity-50")}>
-                                                    <div className="flex items-center gap-2">
+                                                    <div className="flex flex-wrap items-center gap-2">
                                                         <Badge className={cn(event.type === 'Tournament' && 'bg-gold text-black')}>{event.type}</Badge>
-                                                        <span className="font-bold">{format(new Date(event.date), 'EEE, d MMM')}</span>
-                                                        {isToday(new Date(event.date)) && <Badge variant="outline">Today</Badge>}
-                                                        {isRosterFull && !isCancelled && (
-                                                            <Badge variant="secondary" className="bg-primary/20 text-primary border-primary/30 flex items-center gap-1">
-                                                                <Check className="w-3 h-3" /> Ready
-                                                            </Badge>
-                                                        )}
-                                                        {eventOverrides.length > 0 && !isCancelled && (
-                                                            <Badge variant="outline" className="text-muted-foreground border-dashed flex items-center gap-1">
-                                                                <HelpCircle className="w-3 h-3" /> {eventOverrides.length} Possible
-                                                            </Badge>
-                                                        )}
+                                                        <span className="font-bold text-sm sm:text-base">{format(new Date(event.date), 'EEE, d MMM')}</span>
+                                                        {isToday(new Date(event.date)) && <Badge variant="outline" className="text-[10px] h-4">Today</Badge>}
                                                     </div>
-                                                    <span className="text-sm text-muted-foreground">{event.time}</span>
+                                                    <span className="text-xs text-muted-foreground">{event.time}</span>
                                                 </div>
-                                                {isCancelled && <Badge variant="destructive" className="mr-2">Cancelled</Badge>}
+                                                <div className="flex items-center gap-2">
+                                                    {isRosterFull && !isCancelled && (
+                                                        <Badge variant="secondary" className="bg-primary/20 text-primary border-primary/30 text-[10px] h-5 py-0">
+                                                            Ready
+                                                        </Badge>
+                                                    )}
+                                                    {isCancelled && <Badge variant="destructive" className="text-[10px] h-5 py-0">Cancelled</Badge>}
+                                                </div>
                                             </div>
                                         </AccordionTrigger>
                                         <AccordionContent className="px-4 space-y-4">
                                             {isCancelled && <Alert variant="destructive"><Ban className="h-4 w-4" /><AlertTitle>Cancelled</AlertTitle></Alert>}
                                             {isRosterFull && !isCancelled && (
-                                                <Alert className="bg-primary/5 border-primary/20">
+                                                <Alert className="bg-primary/5 border-primary/20 p-3 sm:p-4">
                                                     <Sparkles className="h-4 w-4 text-primary" />
-                                                    <AlertTitle className="text-primary font-bold">Roster is Ready!</AlertTitle>
-                                                    <div className="mt-2 flex items-center justify-between gap-4">
-                                                        <p className="text-xs text-muted-foreground">This event has reached the minimum of {MINIMUM_PLAYERS} players.</p>
+                                                    <AlertTitle className="text-primary font-bold text-sm sm:text-base">Roster is Ready!</AlertTitle>
+                                                    <div className="mt-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                                                        <p className="text-xs text-muted-foreground">The squad is set with {MINIMUM_PLAYERS}+ players.</p>
                                                         {isAdmin && (
                                                             <Button 
                                                                 size="sm" 
                                                                 onClick={() => handleSendRosterReady(event, availablePlayers, eventOverrides.map(o => o.userId))}
                                                                 disabled={isSendingReady === event.id}
+                                                                className="w-full sm:w-auto text-xs h-8"
                                                             >
-                                                                {isSendingReady === event.id ? <Loader className="animate-spin w-4 h-4 mr-2" /> : <Send className="w-4 h-4 mr-2" />}
+                                                                {isSendingReady === event.id ? <Loader className="animate-spin w-3 h-3 mr-2" /> : <Send className="w-3 h-3 mr-2" />}
                                                                 Notify Discord
                                                             </Button>
                                                         )}
@@ -271,7 +270,7 @@ export function ScheduledEvents({
                                                 </Alert>
                                             )}
                                             {isAdmin && (
-                                                <div className="flex justify-end gap-2 p-2 bg-muted rounded">
+                                                <div className="flex flex-wrap justify-end gap-2 p-2 bg-muted rounded">
                                                     <Button variant="outline" size="sm" onClick={() => handleToggleCancel(event)}>{isCancelled ? <Undo2 className="h-4 w-4" /> : <CalendarX2 className="h-4 w-4" />}</Button>
                                                     <Button variant="outline" size="sm" onClick={() => handleUploadClick(event.id)}><UploadCloud className="h-4 w-4" /></Button>
                                                     <Button variant="destructive" size="sm" onClick={() => onRemoveEvent(event.id)}><Trash2 className="h-4 w-4" /></Button>
@@ -284,9 +283,9 @@ export function ScheduledEvents({
                                                 <div className="space-y-1 py-2">
                                                     <div className='flex items-center justify-between text-[10px]'>
                                                         <span className='font-medium'>Uploading banner...</span>
-                                                        <span className='font-mono'>{formatBytes(uploadStatus.transferred)} / {formatBytes(uploadStatus.total)}</span>
+                                                        <span className='font-mono text-[9px]'>{formatBytes(uploadStatus.transferred)} / {formatBytes(uploadStatus.total)}</span>
                                                     </div>
-                                                    <Progress value={uploadStatus.progress} className="h-1.5" />
+                                                    <Progress value={uploadStatus.progress} className="h-1" />
                                                 </div>
                                             )}
                                             
@@ -295,7 +294,7 @@ export function ScheduledEvents({
                                                     <h4 className="text-sm font-bold mb-2">Available Players ({availablePlayers.length})</h4>
                                                     <div className="flex flex-wrap gap-2">{availablePlayers.map(p => {
                                                         const prof = usernameToProfileMap.get(p);
-                                                        return <Badge key={p} variant="secondary"><Avatar className="w-4 h-4 mr-2"><AvatarImage src={prof?.photoURL} /></Avatar>{p}</Badge>
+                                                        return <Badge key={p} variant="secondary" className="text-xs py-0.5"><Avatar className="w-4 h-4 mr-1.5"><AvatarImage src={prof?.photoURL} /></Avatar>{p}</Badge>
                                                     })}</div>
                                                 </div>
 
@@ -309,7 +308,7 @@ export function ScheduledEvents({
                                                             {eventOverrides.map(o => {
                                                                 const prof = profileMap.get(o.userId);
                                                                 return (
-                                                                    <Badge key={o.id} variant="outline" className="border-dashed flex items-center gap-1">
+                                                                    <Badge key={o.id} variant="outline" className="border-dashed flex items-center gap-1 text-xs py-0.5">
                                                                         <Avatar className="w-4 h-4 mr-1"><AvatarImage src={prof?.photoURL} /></Avatar>
                                                                         {prof?.username || 'Unknown'}
                                                                         {isAdmin && (
@@ -327,38 +326,40 @@ export function ScheduledEvents({
                                                 {isAdmin && (
                                                     <div className="pt-2">
                                                         <Separator className="mb-3" />
-                                                        <div className="flex items-center gap-2">
-                                                            <Select value={selectedOverrideUser} onValueChange={setSelectedOverrideUser}>
-                                                                <SelectTrigger className="h-8 text-xs w-[200px]">
-                                                                    <SelectValue placeholder="Mark player as possible..." />
-                                                                </SelectTrigger>
-                                                                <SelectContent>
-                                                                    {profiles?.filter(p => !availablePlayers.includes(p.username) && !eventOverrides.find(o => o.userId === p.id)).map(p => (
-                                                                        <SelectItem key={p.id} value={p.id}>{p.username}</SelectItem>
-                                                                    ))}
-                                                                </SelectContent>
-                                                            </Select>
-                                                            <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => handleAddOverride(event.id)} disabled={!selectedOverrideUser}>
+                                                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                                                            <div className="flex items-center gap-2 w-full sm:w-auto">
+                                                                <Select value={selectedOverrideUser} onValueChange={setSelectedOverrideUser}>
+                                                                    <SelectTrigger className="h-8 text-xs w-full sm:w-[180px]">
+                                                                        <SelectValue placeholder="Add possible player..." />
+                                                                    </SelectTrigger>
+                                                                    <SelectContent>
+                                                                        {profiles?.filter(p => !availablePlayers.includes(p.username) && !eventOverrides.find(o => o.userId === p.id)).map(p => (
+                                                                            <SelectItem key={p.id} value={p.id}>{p.username}</SelectItem>
+                                                                        ))}
+                                                                    </SelectContent>
+                                                                </Select>
+                                                                <TooltipProvider>
+                                                                  <Tooltip>
+                                                                    <TooltipTrigger asChild>
+                                                                      <Info className="h-4 w-4 text-muted-foreground cursor-help shrink-0" />
+                                                                    </TooltipTrigger>
+                                                                    <TooltipContent>
+                                                                      <p className="max-w-xs text-xs">Mark players as "Possibly Available" to track potential roster strength.</p>
+                                                                    </TooltipContent>
+                                                                  </Tooltip>
+                                                                </TooltipProvider>
+                                                            </div>
+                                                            <Button size="sm" variant="outline" className="h-8 text-xs w-full sm:w-auto" onClick={() => handleAddOverride(event.id)} disabled={!selectedOverrideUser}>
                                                                 <UserPlus className="w-3 h-3 mr-2" />
-                                                                Add Override
+                                                                Add
                                                             </Button>
-                                                            <TooltipProvider>
-                                                              <Tooltip>
-                                                                <TooltipTrigger asChild>
-                                                                  <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-                                                                </TooltipTrigger>
-                                                                <TooltipContent>
-                                                                  <p className="max-w-xs text-xs">Admins can manually mark players as "Possibly Available" to help track potential roster strength.</p>
-                                                                </TooltipContent>
-                                                              </Tooltip>
-                                                            </TooltipProvider>
                                                         </div>
                                                     </div>
                                                 )}
                                                 
-                                                <div className="flex justify-end">
+                                                <div className="flex justify-center sm:justify-end">
                                                     {!isCancelled && (
-                                                        <Button variant={isVoted ? 'secondary' : 'default'} size="sm" onClick={() => onEventVoteTrigger(event)}>
+                                                        <Button variant={isVoted ? 'secondary' : 'default'} size="sm" onClick={() => onEventVoteTrigger(event)} className="w-full sm:w-auto">
                                                             {isVoted ? <Check className="h-4 w-4 mr-2" /> : <Vote className="h-4 w-4 mr-2" />}
                                                             {isVoted ? 'Attending' : 'Vote'}
                                                         </Button>

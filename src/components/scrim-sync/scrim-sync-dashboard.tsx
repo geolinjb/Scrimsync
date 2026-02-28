@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -71,13 +70,11 @@ export function TeamSyncDashboard({ user: authUser }: TeamSyncDashboardProps) {
 
   React.useEffect(() => {
     if (user) {
-      // Prioritize hardcoded UIDs for immediate access
       if (user.uid === ADMIN_UID || user.uid === FALLBACK_ADMIN_UID) {
           setIsAdmin(true);
           return;
       }
       
-      // Fallback to custom claims
       user.getIdTokenResult().then(idTokenResult => {
         const claims = idTokenResult.claims;
         setIsAdmin(claims.admin === true);
@@ -599,23 +596,25 @@ const hasLastWeekVotes = React.useMemo(() => {
               availabilityOverrides={availabilityOverridesData || []}
           />
 
-          <div className="flex justify-between items-center flex-wrap gap-4">
-              <h2 className="text-2xl font-bold tracking-tight">
-                  Availability for: {format(weekStart, 'd MMM')} - {format(weekEnd, 'd MMM, yyyy')}
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-6">
+              <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-center sm:text-left">
+                  Availability: {format(weekStart, 'd MMM')} - {format(weekEnd, 'd MMM, yyyy')}
               </h2>
-              <div className='flex items-center gap-2'>
-                  <Button onClick={() => setIsEventVotingOpen(true)}>
+              <div className='flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto'>
+                  <Button onClick={() => setIsEventVotingOpen(true)} className="w-full sm:w-auto">
                     <CalendarCheck className="mr-2 h-4 w-4" />
                     Vote on Events
                   </Button>
-                  <Button variant="outline" onClick={goToToday}>Today</Button>
-                  <div className='flex items-center'>
-                      <Button variant="outline" size="icon" onClick={goToPreviousWeek} className="rounded-r-none">
-                          <ChevronLeft className="h-4 w-4" />
-                      </Button>
-                      <Button variant="outline" size="icon" onClick={goToNextWeek} className="rounded-l-none border-l-0">
-                          <ChevronRight className="h-4 w-4" />
-                      </Button>
+                  <div className='flex items-center gap-2'>
+                    <Button variant="outline" onClick={goToToday}>Today</Button>
+                    <div className='flex items-center'>
+                        <Button variant="outline" size="icon" onClick={goToPreviousWeek} className="rounded-r-none">
+                            <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <Button variant="outline" size="icon" onClick={goToNextWeek} className="rounded-l-none border-l-0">
+                            <ChevronRight className="h-4 w-4" />
+                        </Button>
+                    </div>
                   </div>
               </div>
           </div>
@@ -680,7 +679,6 @@ const hasLastWeekVotes = React.useMemo(() => {
               )}
             </TabsContent>
           </Tabs>
-          
           
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pt-8">
               <div className="lg:col-span-1 space-y-8">

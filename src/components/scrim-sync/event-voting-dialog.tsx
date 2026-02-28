@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -56,7 +55,7 @@ export function EventVotingDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-lg p-4 sm:p-6">
         <DialogHeader>
           <div className="flex items-center gap-3">
             <CalendarCheck className="w-6 h-6 text-gold" />
@@ -66,7 +65,7 @@ export function EventVotingDialog({
             Quickly mark your availability for each scheduled event.
           </DialogDescription>
         </DialogHeader>
-        <ScrollArea className="max-h-[60vh] pr-4">
+        <ScrollArea className="max-h-[60vh] pr-2 sm:pr-4">
           <div className="space-y-4">
             {upcomingEvents.length > 0 ? (
               <TooltipProvider>
@@ -79,19 +78,19 @@ export function EventVotingDialog({
                     <div
                       key={event.id}
                       className={cn(
-                        "flex items-start justify-between gap-4 rounded-lg border p-4",
+                        "flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-lg border p-4",
                         isCancelled ? 'bg-muted/50' : 'bg-transparent',
                         isVoted && !isCancelled && 'bg-primary/10 border-primary/50'
                       )}
                     >
-                      <div className="flex flex-1 items-start gap-4 min-w-0">
+                      <div className="flex flex-1 items-start gap-4 min-w-0 w-full">
                         {event.type === 'Tournament' ? (
                           <Trophy className="h-6 w-6 text-gold shrink-0 mt-0.5" />
                         ) : (
                           <Swords className="h-6 w-6 text-blue-400 shrink-0 mt-0.5" />
                         )}
                         <div className="flex flex-col flex-1 min-w-0">
-                          <div className={cn("font-semibold flex items-center gap-2", isCancelled && 'line-through text-muted-foreground')}>
+                          <div className={cn("font-semibold flex items-center flex-wrap gap-2", isCancelled && 'line-through text-muted-foreground')}>
                             {event.type}
                             {isToday(new Date(event.date)) && <Badge variant="outline" className='h-4 text-[10px]'>Today</Badge>}
                             {eventOverrides.length > 0 && !isCancelled && (
@@ -118,23 +117,25 @@ export function EventVotingDialog({
                           )}
                         </div>
                       </div>
-                      {isCancelled ? (
-                         <Badge variant="destructive" className='shrink-0'><Ban className="w-3 h-3 mr-1.5"/>Cancelled</Badge>
-                      ) : (
-                        <Button
-                          variant={isVoted ? 'secondary' : 'default'}
-                          size="sm"
-                          onClick={() => onEventVoteTrigger(event)}
-                          className="shrink-0"
-                        >
-                          {isVoted ? (
-                            <Check className="mr-2 h-4 w-4" />
-                          ) : (
-                            <Vote className="mr-2 h-4 w-4" />
-                          )}
-                          {isVoted ? 'Attending' : 'Vote'}
-                        </Button>
-                      )}
+                      <div className="w-full sm:w-auto flex justify-end">
+                        {isCancelled ? (
+                           <Badge variant="destructive" className='shrink-0'><Ban className="w-3 h-3 mr-1.5"/>Cancelled</Badge>
+                        ) : (
+                          <Button
+                            variant={isVoted ? 'secondary' : 'default'}
+                            size="sm"
+                            onClick={() => onEventVoteTrigger(event)}
+                            className="w-full sm:w-auto"
+                          >
+                            {isVoted ? (
+                              <Check className="mr-2 h-4 w-4" />
+                            ) : (
+                              <Vote className="mr-2 h-4 w-4" />
+                            )}
+                            {isVoted ? 'Attending' : 'Vote'}
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
