@@ -15,7 +15,6 @@ service cloud.firestore {
     }
 
     // Helper function to check if the user is an admin, either by custom claim or by being the hardcoded owner.
-    // Includes hardcoded UIDs for the project owners.
     function isAdmin() {
       return isSignedIn() && (
         request.auth.token.admin == true || 
@@ -68,7 +67,6 @@ service cloud.firestore {
 
     /**
      * @description Manages application-wide notifications.
-     * @path /appNotifications/{notificationId}
      */
     match /appNotifications/{notificationId} {
         allow read: if isSignedIn();
@@ -77,7 +75,6 @@ service cloud.firestore {
 
     /**
      * @description Shared team gallery for reusable banners.
-     * @path /eventBanners/{bannerId}
      */
     match /eventBanners/{bannerId} {
         allow read: if isSignedIn();

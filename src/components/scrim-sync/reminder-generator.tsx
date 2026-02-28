@@ -85,12 +85,13 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
 
   const isUploading = uploadProgress !== null;
 
+  // Ensure we only query when the user is signed in to avoid permission errors
   const galleryQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || !currentUser) return null;
     return query(collection(firestore, 'eventBanners'), orderBy('timestamp', 'desc'), limit(50));
-  }, [firestore]);
+  }, [firestore, currentUser]);
 
-  const { data: teamGallery } = useCollection<EventBanner>(galleryQuery);
+  const { data: teamGallery, isLoading: isGalleryLoading } = useCollection<EventBanner>(galleryQuery);
 
   React.useEffect(() => {
     setMounted(true);
@@ -338,7 +339,11 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
                                   <DialogDescription>Images your team has uploaded. Select one to use it as the banner for this event.</DialogDescription>
                                 </DialogHeader>
                                 <ScrollArea className="h-[60vh]">
-                                  {teamGallery && teamGallery.length > 0 ? (
+                                  {isGalleryLoading ? (
+                                    <div className="flex items-center justify-center py-20">
+                                      <Loader className="w-8 h-8 animate-spin text-primary" />
+                                    </div>
+                                  ) : teamGallery && teamGallery.length > 0 ? (
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-1">
                                       {teamGallery.map((img) => (
                                         <div key={img.id} className="group relative rounded-lg overflow-hidden border bg-muted">
