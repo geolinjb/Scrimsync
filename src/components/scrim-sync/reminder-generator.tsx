@@ -108,6 +108,10 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
       return new Map(allProfiles.map(p => [p.username, p]));
   }, [allProfiles]);
 
+  const profileIdMap = React.useMemo(() => {
+      return new Map(allProfiles.map(p => [p.id, p]));
+  }, [allProfiles]);
+
   const upcomingEvents = React.useMemo(() => {
     if (!events) return [];
     return events
@@ -143,11 +147,26 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
         return prof?.discordUsername || name;
     });
 
-    let msg = `**When:** ${dsTimestamp} (${dsRelative})\n\n✅ **Available (${availablePlayerNames.length}):**\n${availablePlayerTags.length > 0 ? availablePlayerTags.map(p => `- ${p}`).join('\n') : '- No one yet'}\n\n🔥 **Needed: ${Math.max(0, MINIMUM_PLAYERS - totalAvailable)}**`;
+    const eventOverrides = availabilityOverrides.filter(o => o.eventId === eventId);
+    const possiblePlayerTags = eventOverrides.map(o => {
+        const prof = profileIdMap.get(o.userId);
+        return prof?.discordUsername || prof?.username || 'Unknown';
+    });
+
+    let msg = `**When:** ${dsTimestamp} (${dsRelative})\n\n✅ **Available (${availablePlayerNames.length}):**\n${availablePlayerTags.length > 0 ? availablePlayerTags.map(p => `- ${p}`).join('\n') : '- No one yet'}`;
+
+    if (possiblePlayerTags.length > 0) {
+        msg += `\n\n❓ **Possibly Available (${possiblePlayerTags.length}):**\n${possiblePlayerTags.map(p => `- ${p}`).join('\n')}`;
+    }
+
+    msg += `\n\n🔥 **Needed: ${Math.max(0, MINIMUM_PLAYERS - totalAvailable)}**`;
 
     if (includeNudges) {
         const mainRosterPlayers = allProfiles.filter(p => p.rosterStatus === 'Main Roster');
-        const missingMainRoster = mainRosterPlayers.filter(p => !availablePlayerNames.includes(p.username));
+        const missingMainRoster = mainRosterPlayers.filter(p => 
+            !availablePlayerNames.includes(p.username) && 
+            !eventOverrides.some(o => o.userId === p.id)
+        );
         if (missingMainRoster.length > 0) {
             msg += `\n\n⏰ **Awaiting Response (Main Roster):**\n${missingMainRoster.map(p => `- ${p.discordUsername || p.username}`).join('\n')}`;
         }
@@ -162,7 +181,7 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
     setReminderMessage(buildReminderMessage(eventId));
   };
   
-  React.useEffect(() => { if (selectedEventId) generateReminder(selectedEventId); }, [events, selectedEventId]);
+  React.useEffect(() => { if (selectedEventId) generateReminder(selectedEventId); }, [events, selectedEventId, availabilityOverrides]);
 
   const handleNudge = () => {
       if (!selectedEventId) return;

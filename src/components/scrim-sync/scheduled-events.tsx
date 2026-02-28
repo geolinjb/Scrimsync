@@ -2,13 +2,13 @@
 
 import * as React from 'react';
 import { format, startOfToday, isToday } from 'date-fns';
-import { CalendarCheck, Trash2, UploadCloud, Loader, CalendarX2, Undo2, Ban, Vote, Check, Send, Sparkles } from 'lucide-react';
+import { CalendarCheck, Trash2, UploadCloud, Loader, CalendarX2, Undo2, Ban, Vote, Check, Send, Sparkles, UserPlus, UserMinus, HelpCircle } from 'lucide-react';
 import type { User } from 'firebase/auth';
-import { collection, doc, setDoc } from 'firebase/firestore';
+import { collection, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import Image from 'next/image';
 
-import type { ScheduleEvent, PlayerProfileData } from '@/lib/types';
+import type { ScheduleEvent, PlayerProfileData, AvailabilityOverride } from '@/lib/types';
 import { MINIMUM_PLAYERS } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,9 +21,11 @@ import { cn, getDiscordTimestamp, formatBytes } from '@/lib/utils';
 import { useCollection, useFirestore, useMemoFirebase, useFirebaseApp } from '@/firebase';
 import { Progress } from '../ui/progress';
 import { Alert, AlertTitle } from '../ui/alert';
-import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { addDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Skeleton } from '../ui/skeleton';
 import { DISCORD_WEBHOOK_URL } from '@/lib/config';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { Separator } from '../ui/separator';
 
 type ScheduledEventsProps = {
   events: ScheduleEvent[];
@@ -33,6 +35,7 @@ type ScheduledEventsProps = {
   onRemoveEvent: (eventId: string) => void;
   currentUser: User | null;
   isAdmin: boolean;
+  availabilityOverrides: AvailabilityOverride[];
 };
 
 type UploadStatus = {
@@ -42,12 +45,22 @@ type UploadStatus = {
     fileName: string;
 } | null;
 
-export function ScheduledEvents({ events, allEventVotes, userEventVotes, onEventVoteTrigger, onRemoveEvent, currentUser, isAdmin }: ScheduledEventsProps) {
+export function ScheduledEvents({ 
+    events, 
+    allEventVotes, 
+    userEventVotes, 
+    onEventVoteTrigger, 
+    onRemoveEvent, 
+    currentUser, 
+    isAdmin,
+    availabilityOverrides
+}: ScheduledEventsProps) {
     const { toast } = useToast();
     const [mounted, setMounted] = React.useState(false);
     const [uploadingEventId, setUploadingEventId] = React.useState<string | null>(null);
     const [uploadStatus, setUploadStatus] = React.useState<UploadStatus>(null);
     const [isSendingReady, setIsSendingReady] = React.useState<string | null>(null);
+    const [selectedOverrideUser, setSelectedOverrideUser] = React.useState<string>('');
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
     const firestore = useFirestore();
@@ -55,7 +68,8 @@ export function ScheduledEvents({ events, allEventVotes, userEventVotes, onEvent
 
     const profilesRef = useMemoFirebase(() => firestore ? collection(firestore, 'users') : null, [firestore]);
     const { data: profiles } = useCollection<PlayerProfileData>(profilesRef);
-    const profileMap = React.useMemo(() => new Map(profiles?.map(p => [p.username, p]) || []), [profiles]);
+    const profileMap = React.useMemo(() => new Map(profiles?.map(p => [p.id, p]) || []), [profiles]);
+    const usernameToProfileMap = React.useMemo(() => new Map(profiles?.map(p => [p.username, p]) || []), [profiles]);
 
     React.useEffect(() => {
         setMounted(true);
@@ -112,22 +126,56 @@ export function ScheduledEvents({ events, allEventVotes, userEventVotes, onEvent
         });
     };
 
-    const handleSendRosterReady = async (event: ScheduleEvent, players: string[]) => {
+    const handleAddOverride = async (eventId: string) => {
+        if (!firestore || !selectedOverrideUser) return;
+        const overrideId = `${eventId}_${selectedOverrideUser}`;
+        const overrideRef = doc(firestore, 'availabilityOverrides', overrideId);
+        
+        try {
+            await setDoc(overrideRef, {
+                id: overrideId,
+                eventId,
+                userId: selectedOverrideUser,
+                status: 'Possibly Available'
+            });
+            toast({ title: 'Override Added' });
+            setSelectedOverrideUser('');
+        } catch (e) {
+            toast({ variant: 'destructive', title: 'Failed to add override' });
+        }
+    };
+
+    const handleRemoveOverride = async (overrideId: string) => {
+        if (!firestore) return;
+        try {
+            await deleteDoc(doc(firestore, 'availabilityOverrides', overrideId));
+            toast({ title: 'Override Removed' });
+        } catch (e) {
+            toast({ variant: 'destructive', title: 'Failed to remove' });
+        }
+    };
+
+    const handleSendRosterReady = async (event: ScheduleEvent, players: string[], possiblePlayers: string[]) => {
         setIsSendingReady(event.id);
         const dsTimestamp = getDiscordTimestamp(event.date, event.time, 'F');
         const dsRelative = getDiscordTimestamp(event.date, event.time, 'R');
         const mention = event.discordRoleId ? `<@&${event.discordRoleId}>` : '';
         
         const playerTags = players.map(name => {
-            const prof = profileMap.get(name);
+            const prof = usernameToProfileMap.get(name);
             return prof?.discordUsername || name;
+        });
+
+        const possibleTags = possiblePlayers.map(id => {
+            const prof = profileMap.get(id);
+            return prof?.discordUsername || prof?.username || id;
         });
 
         const payload = {
             content: mention,
             embeds: [{
                 title: "✅ ROSTER READY!",
-                description: `The **${event.type}** at ${dsTimestamp} (${dsRelative}) is officially ready with **${players.length} players**!\n\n**Squad:**\n${playerTags.map(p => `- ${p}`).join('\n')}`,
+                description: `The **${event.type}** at ${dsTimestamp} (${dsRelative}) is officially ready with **${players.length} confirmed players**!\n\n**Confirmed Squad:**\n${playerTags.map(p => `- ${p}`).join('\n')}${possibleTags.length > 0 ? `\n\n**❓ Possibly Available:**\n${possibleTags.map(p => `- ${p}`).join('\n')}` : ''}`,
                 color: 2278750, // Green
                 timestamp: new Date().toISOString(),
                 footer: { text: "TeamSync • Coordination made easy" },
@@ -164,13 +212,15 @@ export function ScheduledEvents({ events, allEventVotes, userEventVotes, onEvent
             <CardContent>
                 <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
                 {upcomingEvents.length > 0 ? (
-                    <ScrollArea className="border rounded-lg h-[450px]">
+                    <ScrollArea className="border rounded-lg h-[500px]">
                         <Accordion type="single" collapsible className="w-full min-w-[320px]">
                             {upcomingEvents.map((event) => {
                                 const isVoted = userEventVotes.has(event.id);
                                 const availablePlayers = allEventVotes[event.id] || [];
                                 const isCancelled = event.status === 'Cancelled';
                                 const isRosterFull = availablePlayers.length >= MINIMUM_PLAYERS;
+                                
+                                const eventOverrides = availabilityOverrides.filter(o => o.eventId === event.id);
 
                                 return (
                                     <AccordionItem key={event.id} value={event.id}>
@@ -203,7 +253,7 @@ export function ScheduledEvents({ events, allEventVotes, userEventVotes, onEvent
                                                         {isAdmin && (
                                                             <Button 
                                                                 size="sm" 
-                                                                onClick={() => handleSendRosterReady(event, availablePlayers)}
+                                                                onClick={() => handleSendRosterReady(event, availablePlayers, eventOverrides.map(o => o.userId))}
                                                                 disabled={isSendingReady === event.id}
                                                             >
                                                                 {isSendingReady === event.id ? <Loader className="animate-spin w-4 h-4 mr-2" /> : <Send className="w-4 h-4 mr-2" />}
@@ -233,15 +283,70 @@ export function ScheduledEvents({ events, allEventVotes, userEventVotes, onEvent
                                                 </div>
                                             )}
                                             
-                                            <div className="flex justify-between items-start gap-4">
-                                                <div className="flex-grow">
+                                            <div className="space-y-4">
+                                                <div>
                                                     <h4 className="text-sm font-bold mb-2">Available Players ({availablePlayers.length})</h4>
                                                     <div className="flex flex-wrap gap-2">{availablePlayers.map(p => {
-                                                        const prof = profileMap.get(p);
+                                                        const prof = usernameToProfileMap.get(p);
                                                         return <Badge key={p} variant="secondary"><Avatar className="w-4 h-4 mr-2"><AvatarImage src={prof?.photoURL} /></Avatar>{p}</Badge>
                                                     })}</div>
                                                 </div>
-                                                {!isCancelled && <Button variant={isVoted ? 'secondary' : 'default'} size="sm" onClick={() => onEventVoteTrigger(event)}>{isVoted ? <Check className="h-4 w-4 mr-2" /> : <Vote className="h-4 w-4 mr-2" />}{isVoted ? 'Attending' : 'Vote'}</Button>}
+
+                                                {eventOverrides.length > 0 && (
+                                                    <div>
+                                                        <h4 className="text-sm font-bold mb-2 flex items-center gap-2">
+                                                            <HelpCircle className="w-3 h-3 text-muted-foreground" />
+                                                            Possibly Available ({eventOverrides.length})
+                                                        </h4>
+                                                        <div className="flex flex-wrap gap-2">
+                                                            {eventOverrides.map(o => {
+                                                                const prof = profileMap.get(o.userId);
+                                                                return (
+                                                                    <Badge key={o.id} variant="outline" className="border-dashed flex items-center gap-1">
+                                                                        <Avatar className="w-4 h-4 mr-1"><AvatarImage src={prof?.photoURL} /></Avatar>
+                                                                        {prof?.username || 'Unknown'}
+                                                                        {isAdmin && (
+                                                                            <Button variant="ghost" size="icon" className="h-4 w-4 ml-1 hover:text-destructive" onClick={() => handleRemoveOverride(o.id)}>
+                                                                                <UserMinus className="w-3 h-3" />
+                                                                            </Button>
+                                                                        )}
+                                                                    </Badge>
+                                                                )
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {isAdmin && (
+                                                    <div className="pt-2">
+                                                        <Separator className="mb-3" />
+                                                        <div className="flex items-center gap-2">
+                                                            <Select value={selectedOverrideUser} onValueChange={setSelectedOverrideUser}>
+                                                                <SelectTrigger className="h-8 text-xs w-[200px]">
+                                                                    <SelectValue placeholder="Mark player as possible..." />
+                                                                </SelectTrigger>
+                                                                <SelectContent>
+                                                                    {profiles?.filter(p => !availablePlayers.includes(p.username) && !eventOverrides.find(o => o.userId === p.id)).map(p => (
+                                                                        <SelectItem key={p.id} value={p.id}>{p.username}</SelectItem>
+                                                                    ))}
+                                                                </SelectContent>
+                                                            </Select>
+                                                            <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => handleAddOverride(event.id)} disabled={!selectedOverrideUser}>
+                                                                <UserPlus className="w-3 h-3 mr-2" />
+                                                                Add Override
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                
+                                                <div className="flex justify-end">
+                                                    {!isCancelled && (
+                                                        <Button variant={isVoted ? 'secondary' : 'default'} size="sm" onClick={() => onEventVoteTrigger(event)}>
+                                                            {isVoted ? <Check className="h-4 w-4 mr-2" /> : <Vote className="h-4 w-4 mr-2" />}
+                                                            {isVoted ? 'Attending' : 'Vote'}
+                                                        </Button>
+                                                    )}
+                                                </div>
                                             </div>
                                         </AccordionContent>
                                     </AccordionItem>

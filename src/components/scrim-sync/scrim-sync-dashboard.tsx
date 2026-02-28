@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -7,7 +6,7 @@ import { ChevronLeft, ChevronRight, CalendarCheck } from 'lucide-react';
 import type { User as AuthUser } from 'firebase/auth';
 import { collection, doc, writeBatch } from 'firebase/firestore';
 
-import type { PlayerProfileData, ScheduleEvent, UserVotes, AllVotes, Vote, FirestoreScheduleEvent } from '@/lib/types';
+import type { PlayerProfileData, ScheduleEvent, UserVotes, AllVotes, Vote, FirestoreScheduleEvent, AvailabilityOverride } from '@/lib/types';
 import { timeSlots } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -114,6 +113,11 @@ export function TeamSyncDashboard({ user: authUser }: TeamSyncDashboardProps) {
     return collection(firestore, 'votes');
   }, [firestore]);
 
+  const overridesQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return collection(firestore, 'availabilityOverrides');
+  }, [firestore]);
+
   const { data: profile, isLoading: isProfileLoading } = useDoc<PlayerProfileData>(profileRef);
   
   const allProfilesForHeatmapRef = useMemoFirebase(() => {
@@ -124,6 +128,7 @@ export function TeamSyncDashboard({ user: authUser }: TeamSyncDashboardProps) {
 
   const { data: scheduledEventsData, isLoading: areEventsLoading } = useCollection<FirestoreScheduleEvent>(eventsQuery);
   const { data: allVotesData, isLoading: areVotesLoading } = useCollection<Vote>(votesQuery);
+  const { data: availabilityOverridesData, isLoading: areOverridesLoading } = useCollection<AvailabilityOverride>(overridesQuery);
   
   const scheduledEvents: ScheduleEvent[] = React.useMemo(() => {
     if (!scheduledEventsData) return [];
@@ -536,7 +541,7 @@ const hasLastWeekVotes = React.useMemo(() => {
     );
   }
 
-  const isLoading = areEventsLoading || areVotesLoading || areProfilesLoading;
+  const isLoading = areEventsLoading || areVotesLoading || areProfilesLoading || areOverridesLoading;
   const canSeeAdminPanel = isAdmin;
 
   return (
@@ -590,6 +595,7 @@ const hasLastWeekVotes = React.useMemo(() => {
               onRemoveEvent={handleRemoveEvent}
               currentUser={authUser}
               isAdmin={canSeeAdminPanel}
+              availabilityOverrides={availabilityOverridesData || []}
           />
 
           <div className="flex justify-between items-center flex-wrap gap-4">
@@ -717,6 +723,7 @@ const hasLastWeekVotes = React.useMemo(() => {
                           scheduledEvents={scheduledEvents}
                           currentDate={currentDate}
                           allProfiles={allProfiles}
+                          availabilityOverrides={availabilityOverridesData || []}
                           />
                       )}
                       </TabsContent>

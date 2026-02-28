@@ -1,11 +1,10 @@
-
 'use client';
 
 import * as React from 'react';
-import { Swords, Trophy, Vote, Users, Copy, CalendarX2 } from 'lucide-react';
+import { Swords, Trophy, Vote, Users, Copy, CalendarX2, HelpCircle } from 'lucide-react';
 import { format, startOfWeek, addDays, isSameDay, isToday } from 'date-fns';
 
-import type { ScheduleEvent, AllVotes, PlayerProfileData } from '@/lib/types';
+import type { ScheduleEvent, AllVotes, PlayerProfileData, AvailabilityOverride } from '@/lib/types';
 import { timeSlots, MINIMUM_PLAYERS } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import {
@@ -48,12 +47,14 @@ type HeatmapGridProps = {
   scheduledEvents: ScheduleEvent[];
   currentDate: Date;
   allProfiles: PlayerProfileData[] | null;
+  availabilityOverrides: AvailabilityOverride[];
 };
 
 type SelectedSlot = {
     date: Date;
     slot: string;
     players: {id: string, name: string, photoURL?: string | null, discordUsername?: string}[];
+    event?: ScheduleEvent;
 } | null;
 
 const heatmapColors = [
@@ -69,7 +70,8 @@ export function HeatmapGrid({
   allVotes,
   scheduledEvents,
   currentDate,
-  allProfiles
+  allProfiles,
+  availabilityOverrides
 }: HeatmapGridProps) {
   const [mounted, setMounted] = React.useState(false);
   const [selectedSlot, setSelectedSlot] = React.useState<SelectedSlot>(null);
@@ -82,6 +84,11 @@ export function HeatmapGrid({
   const profileMap = React.useMemo(() => {
     if (!allProfiles) return new Map();
     return new Map(allProfiles.map(p => [p.username, p]));
+  }, [allProfiles]);
+
+  const profileIdMap = React.useMemo(() => {
+    if (!allProfiles) return new Map();
+    return new Map(allProfiles.map(p => [p.id, p]));
   }, [allProfiles]);
 
   const allPlayerNames = React.useMemo(() => {
@@ -123,8 +130,9 @@ export function HeatmapGrid({
         photoURL: profile?.photoURL,
         discordUsername: profile?.discordUsername
       };
-    })
-    setSelectedSlot({date, slot, players: detailedPlayers});
+    });
+    const event = getEventForSlot(date, slot);
+    setSelectedSlot({date, slot, players: detailedPlayers, event});
   };
 
   const handleCopyList = () => {
@@ -144,9 +152,20 @@ export function HeatmapGrid({
           .join('\n');
     };
 
-    const { date, slot, players: availablePlayers } = selectedSlot;
+    const { date, slot, players: availablePlayers, event } = selectedSlot;
     
-    const unavailablePlayerNames = allPlayerNames.filter(name => !availablePlayers.find(ap => ap.name === name));
+    const possiblePlayers = event ? availabilityOverrides
+        .filter(o => o.eventId === event.id)
+        .map(o => {
+            const prof = profileIdMap.get(o.userId);
+            return prof?.discordUsername || prof?.username || 'Unknown';
+        }) : [];
+
+    const unavailablePlayerNames = allPlayerNames.filter(name => 
+        !availablePlayers.find(ap => ap.name === name) && 
+        !possiblePlayers.includes(name)
+    );
+
     const unavailablePlayers = unavailablePlayerNames.map(name => {
         const profile = profileMap.get(name);
         return {
@@ -163,6 +182,8 @@ export function HeatmapGrid({
     const availableHeader = `✅ Available Players (${availablePlayers.length}):`;
     const availableList = formatPlayerList(availablePlayers);
     
+    const possibleHeader = possiblePlayers.length > 0 ? `\n❓ Possibly Available (${possiblePlayers.length}):\n${possiblePlayers.map(p => `- ${p}`).join('\n')}\n` : '';
+    
     const neededText = `🔥 Players Needed: ${neededPlayers}`;
     
     const unavailableHeader = `❌ Unavailable Players (${unavailablePlayers.length}):`;
@@ -175,7 +196,7 @@ export function HeatmapGrid({
         '',
         availableHeader,
         availableList,
-        '',
+        possibleHeader,
         neededText,
         '',
         unavailableHeader,
@@ -198,9 +219,17 @@ export function HeatmapGrid({
     });
   };
 
+  const currentOverrides = React.useMemo(() => {
+      if (!selectedSlot?.event) return [];
+      return availabilityOverrides.filter(o => o.eventId === selectedSlot.event?.id);
+  }, [selectedSlot, availabilityOverrides]);
+
   const unavailablePlayers = selectedSlot ? allPlayerNames
     .map(name => profileMap.get(name))
-    .filter(profile => profile && !selectedSlot.players.some(p => p.id === profile.id)) : [];
+    .filter(profile => profile && 
+        !selectedSlot.players.some(p => p.id === profile.id) &&
+        !currentOverrides.some(o => o.userId === profile.id)
+    ) : [];
 
   if (!mounted) {
     return (
@@ -336,6 +365,36 @@ export function HeatmapGrid({
                                     <p className='text-sm text-muted-foreground italic'>No players available.</p>
                                 )}
                             </div>
+
+                            {currentOverrides.length > 0 && (
+                                <>
+                                    <Separator />
+                                    <div>
+                                        <h4 className='font-semibold mb-2 text-sm flex items-center gap-2'>
+                                            <HelpCircle className="w-3 h-3 text-muted-foreground" />
+                                            Possibly Available ({currentOverrides.length})
+                                        </h4>
+                                        <ul className='space-y-2'>
+                                            {currentOverrides.map(o => {
+                                                const prof = profileIdMap.get(o.userId);
+                                                return prof && (
+                                                    <li key={o.id} className='flex items-center gap-3 text-sm'>
+                                                        <Avatar className='h-6 w-6'>
+                                                            <AvatarImage src={prof.photoURL ?? `https://api.dicebear.com/8.x/pixel-art/svg?seed=${prof.id}`} />
+                                                            <AvatarFallback>{prof.username.charAt(0).toUpperCase()}</AvatarFallback>
+                                                        </Avatar>
+                                                        <div className='flex flex-col'>
+                                                            <span className='font-medium'>{prof.username}</span>
+                                                            {prof.discordUsername && <span className='text-[10px] text-muted-foreground'>{prof.discordUsername}</span>}
+                                                        </div>
+                                                    </li>
+                                                )
+                                            })}
+                                        </ul>
+                                    </div>
+                                </>
+                            )}
+
                             <Separator />
                              <div>
                                 <h4 className='font-semibold mb-2 text-sm'>❌ Unavailable ({unavailablePlayers.length})</h4>
@@ -355,7 +414,7 @@ export function HeatmapGrid({
                                     ))}
                                     </ul>
                                 ) : (
-                                    <p className='text-sm text-muted-foreground italic'>All players are available.</p>
+                                    <p className='text-sm text-muted-foreground italic'>All other players are listed above.</p>
                                 )}
                             </div>
                         </>
