@@ -145,7 +145,7 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
         return formatDiscordMention(prof?.discordUsername || prof?.username || 'Unknown');
     });
 
-    let msg = `**When:** ${dsTimestamp}\n\n✅ **Available (${availablePlayerNames.length}):**\n${availablePlayerTags.join('\n')}`;
+    let msg = `**When:** ${dsTimestamp}\n\n✅ **Available (${availablePlayerNames.length}):**\n${availablePlayerTags.length > 0 ? availablePlayerTags.join('\n') : '- None'}`;
 
     if (possiblePlayerTags.length > 0) {
         msg += `\n\n❓ **Possibly Available (${possiblePlayerTags.length}):**\n${possiblePlayerTags.join('\n')}`;
@@ -206,7 +206,7 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
     const payload = {
       embeds: [{
         title: `📅 SCHEDULE FOR ${format(today, 'EEEE, d MMM')}`,
-        description: `${summaries.join('\n')}\n\n🔗 **Full Dashboard:** ${WEBSITE_URL}`,
+        description: summaries.length > 0 ? `${summaries.join('\n')}\n\n🔗 **Full Dashboard:** ${WEBSITE_URL}` : `No events scheduled for today.\n\n🔗 **Full Dashboard:** ${WEBSITE_URL}`,
         color: EMBED_COLORS.BLUE,
         timestamp: new Date().toISOString(),
         footer: { text: `TeamSync • ${WEBSITE_URL}` }
@@ -326,13 +326,23 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
 
       <Dialog open={isGalleryOpen} onOpenChange={setIsGalleryOpen}>
           <DialogContent className="max-w-xl">
+            <DialogHeader>
+                <DialogTitle>Team Banner Gallery</DialogTitle>
+                <DialogDescription>Select an image to use as the banner for the selected event.</DialogDescription>
+            </DialogHeader>
             <ScrollArea className="h-[50vh]">
                 <div className="grid grid-cols-2 gap-4 p-1">
                     {teamGallery?.map(img => (
-                        <div key={img.id} className="cursor-pointer border rounded p-1 hover:border-primary" onClick={() => { if(selectedEventId) { setDoc(doc(firestore!, 'scheduledEvents', selectedEventId), { imageURL: img.url }, { merge: true }); setImageToSend(img.url); setIsGalleryOpen(false); } }}>
+                        <div key={img.id} className="cursor-pointer border rounded p-1 hover:border-primary transition-colors" onClick={() => { if(selectedEventId) { setDoc(doc(firestore!, 'scheduledEvents', selectedEventId), { imageURL: img.url }, { merge: true }); setImageToSend(img.url); setIsGalleryOpen(false); } }}>
                             <div className="relative aspect-video"><Image src={img.url} alt="Gallery" fill className="object-cover" unoptimized /></div>
+                            <p className="text-[10px] text-muted-foreground mt-1 truncate">{img.description}</p>
                         </div>
                     ))}
+                    {(!teamGallery || teamGallery.length === 0) && (
+                        <div className="col-span-2 text-center py-12 text-muted-foreground">
+                            No images in the gallery yet.
+                        </div>
+                    )}
                 </div>
             </ScrollArea>
           </DialogContent>

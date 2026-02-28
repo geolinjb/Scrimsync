@@ -4,7 +4,7 @@ import * as React from 'react';
 import { format, addDays, startOfWeek, endOfWeek, parseISO } from 'date-fns';
 import { ChevronLeft, ChevronRight, CalendarCheck } from 'lucide-react';
 import type { User as AuthUser } from 'firebase/auth';
-import { collection, doc, writeBatch } from 'firebase/firestore';
+import { collection, doc, writeBatch, setDoc } from 'firebase/firestore';
 
 import type { PlayerProfileData, ScheduleEvent, UserVotes, AllVotes, Vote, FirestoreScheduleEvent, AvailabilityOverride } from '@/lib/types';
 import { timeSlots } from '@/lib/types';
@@ -456,6 +456,41 @@ const handleCopyLastWeeksVotes = React.useCallback(async () => {
     });
   };
 
+  const handleProfileSave = async (updatedProfile: PlayerProfileData) => {
+    if (!firestore || !authUser) return;
+    setIsSavingProfile(true);
+    const userDocRef = doc(firestore, 'users', authUser.uid);
+    
+    // Non-admins cannot update rosterStatus or playstyleTags
+    const dataToSave: any = {
+      username: updatedProfile.username,
+      discordUsername: updatedProfile.discordUsername,
+      photoURL: updatedProfile.photoURL,
+      favoriteTank: updatedProfile.favoriteTank,
+      role: updatedProfile.role,
+    };
+
+    if (isAdmin) {
+      dataToSave.rosterStatus = updatedProfile.rosterStatus;
+      dataToSave.playstyleTags = updatedProfile.playstyleTags;
+    }
+
+    setDoc(userDocRef, dataToSave, { merge: true })
+      .then(() => {
+        toast({ title: 'Profile Updated', description: 'Your changes have been saved.' });
+      })
+      .catch(error => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: userDocRef.path,
+          operation: 'update',
+          requestResourceData: dataToSave,
+        }));
+      })
+      .finally(() => {
+        setIsSavingProfile(false);
+      });
+  };
+
   const goToPreviousWeek = () => {
     setCurrentDate(prev => prev ? addDays(prev, -7) : null);
   };
@@ -537,7 +572,7 @@ const handleCopyLastWeeksVotes = React.useCallback(async () => {
               <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-center">
                   Availability: {format(weekStart, 'd MMM')} - {format(weekEnd, 'd MMM, yyyy')}
               </h2>
-              <div className='flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto'>
+              <div className='flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto justify-center'>
                   <Button onClick={() => setIsEventVotingOpen(true)} className="w-full sm:w-auto">
                     <CalendarCheck className="mr-2 h-4 w-4" />
                     Vote on Events
