@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { ShieldCheck, Users, Trash2, Loader, ChevronLeft, ChevronRight, Copy, CalendarX2, Save, Tags, Check } from 'lucide-react';
+import { ShieldCheck, Users, Trash2, Loader, ChevronLeft, ChevronRight, Copy, CalendarX2, Save, Tags, Check, Info } from 'lucide-react';
 import { collection, doc, writeBatch, query, where, getDocs, updateDoc } from 'firebase/firestore';
 import { format, startOfWeek, endOfWeek, addDays, parseISO, startOfToday, isBefore } from 'date-fns';
 
@@ -47,6 +47,7 @@ import { ScrollArea, ScrollBar } from '../ui/scroll-area';
 import { ReminderGenerator } from './reminder-generator';
 import type { User as AuthUser } from 'firebase/auth';
 import { MultiSelect } from '../ui/multi-select';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 
 type UserDataPanelProps = {
   allProfiles: PlayerProfileData[] | null;
@@ -317,7 +318,7 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent, a
                     <ShieldCheck className="w-6 h-6 text-gold" />
                     <CardTitle>Manage Player Roster</CardTitle>
                 </div>
-                <CardDescription>Update roles, Discord handles, or remove players from the team.</CardDescription>
+                <CardDescription>Update roles, Discord IDs, or remove players from the team.</CardDescription>
             </CardHeader>
             <CardContent>
                 <ScrollArea className="border rounded-lg h-[60vh] w-full">
@@ -326,7 +327,21 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent, a
                             <TableHeader className="sticky top-0 bg-muted/95 backdrop-blur-sm z-10">
                                 <TableRow>
                                     <TableHead className="w-[200px]">Username</TableHead>
-                                    <TableHead className="w-[250px]">Discord Handle</TableHead>
+                                    <TableHead className="w-[250px]">
+                                        <div className='flex items-center gap-2'>
+                                            Discord User ID
+                                            <TooltipProvider>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>
+                                                        <p className='max-w-xs text-xs'>Numeric Discord User ID for tagging (e.g., 118428425023442057). Right-click a user in Discord to copy their ID.</p>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            </TooltipProvider>
+                                        </div>
+                                    </TableHead>
                                     <TableHead className="w-[200px]">Roster Status</TableHead>
                                     <TableHead className='text-right'>Actions</TableHead>
                                 </TableRow>
@@ -344,7 +359,7 @@ export function UserDataPanel({ allProfiles, isLoading, events, onRemoveEvent, a
                                         <div className="flex items-center gap-2">
                                           <Input 
                                             className="h-8 text-xs font-mono"
-                                            placeholder="@username or <@ID>"
+                                            placeholder="Numeric Discord ID"
                                             value={editingDiscord[profile.id] ?? profile.discordUsername ?? ''}
                                             onChange={(e) => handleDiscordChange(profile.id, e.target.value)}
                                           />

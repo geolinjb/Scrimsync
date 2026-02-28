@@ -601,12 +601,12 @@ const hasLastWeekVotes = React.useMemo(() => {
                   Availability: {format(weekStart, 'd MMM')} - {format(weekEnd, 'd MMM, yyyy')}
               </h2>
               <div className='flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto'>
-                  <Button onClick={() => setIsEventVotingOpen(true)} className="w-full sm:w-auto">
+                  <Button onClick={() => setIsEventVotingOpen(true)} className="w-full sm:w-auto order-first sm:order-none">
                     <CalendarCheck className="mr-2 h-4 w-4" />
                     Vote on Events
                   </Button>
-                  <div className='flex items-center gap-2'>
-                    <Button variant="outline" onClick={goToToday}>Today</Button>
+                  <div className='flex items-center gap-2 justify-center w-full sm:w-auto'>
+                    <Button variant="outline" onClick={goToToday} className="flex-1 sm:flex-none">Today</Button>
                     <div className='flex items-center'>
                         <Button variant="outline" size="icon" onClick={goToPreviousWeek} className="rounded-r-none">
                             <ChevronLeft className="h-4 w-4" />

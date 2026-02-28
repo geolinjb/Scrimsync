@@ -17,7 +17,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { ScrollArea, ScrollBar } from '../ui/scroll-area';
-import { cn, getDiscordTimestamp, formatBytes } from '@/lib/utils';
+import { cn, getDiscordTimestamp, formatBytes, formatDiscordMention } from '@/lib/utils';
 import { useCollection, useFirestore, useMemoFirebase, useFirebaseApp } from '@/firebase';
 import { Progress } from '../ui/progress';
 import { Alert, AlertTitle } from '../ui/alert';
@@ -166,12 +166,12 @@ export function ScheduledEvents({
         
         const playerTags = players.map(name => {
             const prof = usernameToProfileMap.get(name);
-            return prof?.discordUsername || name;
+            return formatDiscordMention(prof?.discordUsername || name);
         });
 
         const possibleTags = possiblePlayers.map(id => {
             const prof = profileMap.get(id);
-            return prof?.discordUsername || prof?.username || id;
+            return formatDiscordMention(prof?.discordUsername || prof?.username || id);
         });
 
         const payload = {

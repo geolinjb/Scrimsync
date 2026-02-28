@@ -31,7 +31,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useFirebaseApp, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { Separator } from '../ui/separator';
 import { DISCORD_WEBHOOK_URL } from '@/lib/config';
-import { getDiscordTimestamp, formatBytes } from '@/lib/utils';
+import { getDiscordTimestamp, formatBytes, formatDiscordMention } from '@/lib/utils';
 import { generateEventBanner } from '@/ai/flows/generate-event-banner-flow';
 import {
   Dialog,
@@ -145,13 +145,13 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
 
     const availablePlayerTags = availablePlayerNames.map(name => {
         const prof = profileMap.get(name);
-        return prof?.discordUsername || name;
+        return formatDiscordMention(prof?.discordUsername || name);
     });
 
     const eventOverrides = availabilityOverrides.filter(o => o.eventId === eventId);
     const possiblePlayerTags = eventOverrides.map(o => {
         const prof = profileIdMap.get(o.userId);
-        return prof?.discordUsername || prof?.username || 'Unknown';
+        return formatDiscordMention(prof?.discordUsername || prof?.username || 'Unknown');
     });
 
     let msg = `**When:** ${dsTimestamp} (${dsRelative})\n\n✅ **Available (${availablePlayerNames.length}):**\n${availablePlayerTags.length > 0 ? availablePlayerTags.map(p => `- ${p}`).join('\n') : '- No one yet'}`;
@@ -169,7 +169,7 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
             !eventOverrides.some(o => o.userId === p.id)
         );
         if (missingMainRoster.length > 0) {
-            msg += `\n\n⏰ **Awaiting Response (Main Roster):**\n${missingMainRoster.map(p => `- ${p.discordUsername || p.username}`).join('\n')}`;
+            msg += `\n\n⏰ **Awaiting Response (Main Roster):**\n${missingMainRoster.map(p => `- ${formatDiscordMention(p.discordUsername || p.username)}`).join('\n')}`;
         }
     }
 
@@ -277,7 +277,7 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
     } catch (error) { toast({ variant: 'destructive', title: 'Update Failed' }); }
   };
 
-  const handleRemoveFromGallery = (bannerId: string) => {
+  const handleRemoveGallery = (bannerId: string) => {
     if (!firestore || !isAdmin) return;
     deleteDocumentNonBlocking(doc(firestore, 'eventBanners', bannerId));
     toast({ title: 'Removed from Gallery' });

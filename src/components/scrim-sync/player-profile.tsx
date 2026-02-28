@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -175,21 +174,21 @@ export function PlayerProfile({ initialProfile, onSave, isSaving, isLoading }: P
         <div className="space-y-2"><Label>Username</Label><Input value={profile.username} onChange={(e) => handleInputChange('username', e.target.value)} /></div>
         <div className="space-y-2">
             <div className='flex items-center gap-2'>
-                <Label>Discord Username/ID</Label>
+                <Label>Discord User ID</Label>
                 <TooltipProvider>
                     <Tooltip>
                         <TooltipTrigger asChild>
                             <Info className="h-4 w-4 text-muted-foreground cursor-help" />
                         </TooltipTrigger>
                         <TooltipContent>
-                            <p className="max-w-xs text-xs">Enter your Discord username (e.g., @user) or User ID (e.g., &lt;@123456&gt;) so admins can tag you in notifications.</p>
+                            <p className="max-w-xs text-xs">Enter your numeric Discord User ID (e.g., 1234567890) to enable automatic tagging in notifications. You can get this by right-clicking your name in Discord with "Developer Mode" enabled.</p>
                         </TooltipContent>
                     </Tooltip>
                 </TooltipProvider>
             </div>
             <Input 
                 value={profile.discordUsername ?? ''} 
-                placeholder="e.g. @username or <@123456789>"
+                placeholder="Numeric ID (e.g. 118428425023442057)"
                 onChange={(e) => handleInputChange('discordUsername', e.target.value)} 
             />
         </div>

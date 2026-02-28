@@ -43,3 +43,28 @@ export function formatBytes(bytes: number, decimals = 2) {
 
   return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
 }
+
+/**
+ * Formats a Discord mention string.
+ * If the input is numeric, it wraps it in <@...>.
+ * If it already looks like a mention, it leaves it alone.
+ */
+export function formatDiscordMention(input?: string) {
+  if (!input) return 'Unknown';
+  const trimmed = input.trim();
+  
+  // If it's already a mention format <@...>, <@!...>, or <@&...>
+  if (trimmed.startsWith('<@') && trimmed.endsWith('>')) return trimmed;
+  
+  // If it's just numbers, it's a User ID
+  if (/^\d+$/.test(trimmed)) return `<@${trimmed}>`;
+  
+  // If it starts with @, check if the rest is numeric
+  if (trimmed.startsWith('@')) {
+    const maybeId = trimmed.slice(1);
+    if (/^\d+$/.test(maybeId)) return `<@${maybeId}>`;
+  }
+  
+  // Otherwise, return as plain text
+  return trimmed;
+}
