@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -18,7 +17,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { ScrollArea, ScrollBar } from '../ui/scroll-area';
-import { cn, getDiscordTimestamp } from '@/lib/utils';
+import { cn, getDiscordTimestamp, formatBytes } from '@/lib/utils';
 import { useCollection, useFirestore, useMemoFirebase, useFirebaseApp } from '@/firebase';
 import { Progress } from '../ui/progress';
 import { Alert, AlertTitle } from '../ui/alert';
@@ -36,11 +35,18 @@ type ScheduledEventsProps = {
   isAdmin: boolean;
 };
 
+type UploadStatus = {
+    progress: number;
+    transferred: number;
+    total: number;
+    fileName: string;
+} | null;
+
 export function ScheduledEvents({ events, allEventVotes, userEventVotes, onEventVoteTrigger, onRemoveEvent, currentUser, isAdmin }: ScheduledEventsProps) {
     const { toast } = useToast();
     const [mounted, setMounted] = React.useState(false);
     const [uploadingEventId, setUploadingEventId] = React.useState<string | null>(null);
-    const [uploadProgress, setUploadProgress] = React.useState(0);
+    const [uploadStatus, setUploadStatus] = React.useState<UploadStatus>(null);
     const [isSendingReady, setIsSendingReady] = React.useState<string | null>(null);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -67,18 +73,31 @@ export function ScheduledEvents({ events, allEventVotes, userEventVotes, onEvent
     const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (!file || !firebaseApp || !uploadingEventId || !firestore) return;
-        setUploadProgress(0);
+        
+        setUploadStatus({ progress: 0, transferred: 0, total: file.size, fileName: file.name });
         try {
             const storage = getStorage(firebaseApp);
             const fileRef = storageRef(storage, `event-images/${uploadingEventId}/${file.name}`);
             const task = uploadBytesResumable(fileRef, file);
-            task.on('state_changed', (s) => setUploadProgress((s.bytesTransferred / s.totalBytes) * 100));
+            
+            task.on('state_changed', (s) => {
+                setUploadStatus({
+                    progress: (s.bytesTransferred / s.totalBytes) * 100,
+                    transferred: s.bytesTransferred,
+                    total: s.totalBytes,
+                    fileName: file.name
+                });
+            });
+            
             await task;
             const imageURL = await getDownloadURL(task.snapshot.ref);
             await setDoc(doc(firestore, 'scheduledEvents', uploadingEventId), { imageURL }, { merge: true });
             toast({ title: 'Image Uploaded!' });
         } catch (e) { toast({ variant: 'destructive', title: 'Upload Failed' }); }
-        finally { setUploadingEventId(null); }
+        finally { 
+            setUploadingEventId(null);
+            setUploadStatus(null);
+        }
     };
 
     const handleToggleCancel = (event: ScheduleEvent) => {
@@ -201,9 +220,19 @@ export function ScheduledEvents({ events, allEventVotes, userEventVotes, onEvent
                                                     <Button variant="destructive" size="sm" onClick={() => onRemoveEvent(event.id)}><Trash2 className="h-4 w-4" /></Button>
                                                 </div>
                                             )}
-                                            {event.imageURL && <div className="relative aspect-video rounded-md overflow-hidden border"><Image src={event.imageURL} alt="Event" fill style={{ objectFit: 'cover' }} /></div>}
+                                            {event.imageURL && <div className="relative aspect-video rounded-md overflow-hidden border"><Image src={event.imageURL} alt="Event" fill style={{ objectFit: 'cover' }} unoptimized /></div>}
                                             {event.description && <p className="text-sm border-l-2 border-primary pl-3 py-1 bg-muted/50">{event.description}</p>}
-                                            {uploadingEventId === event.id && <Progress value={uploadProgress} className="h-2" />}
+                                            
+                                            {uploadingEventId === event.id && uploadStatus && (
+                                                <div className="space-y-1 py-2">
+                                                    <div className='flex items-center justify-between text-[10px]'>
+                                                        <span className='font-medium'>Uploading banner...</span>
+                                                        <span className='font-mono'>{formatBytes(uploadStatus.transferred)} / {formatBytes(uploadStatus.total)}</span>
+                                                    </div>
+                                                    <Progress value={uploadStatus.progress} className="h-1.5" />
+                                                </div>
+                                            )}
+                                            
                                             <div className="flex justify-between items-start gap-4">
                                                 <div className="flex-grow">
                                                     <h4 className="text-sm font-bold mb-2">Available Players ({availablePlayers.length})</h4>

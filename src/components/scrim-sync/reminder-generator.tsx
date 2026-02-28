@@ -1,9 +1,8 @@
-
 'use client';
 
 import * as React from 'react';
 import { format, startOfToday, isSameDay } from 'date-fns';
-import { Send, Megaphone, Check, Loader, UploadCloud, Image as ImageIcon, CalendarDays, Sparkles, BellRing, LayoutGrid, Trash2 } from 'lucide-react';
+import { Send, Megaphone, Check, Loader, UploadCloud, Image as ImageIcon, CalendarDays, Sparkles, BellRing, LayoutGrid, Trash2, PlusCircle } from 'lucide-react';
 import Image from 'next/image';
 import type { User as AuthUser } from 'firebase/auth';
 import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL, uploadString } from "firebase/storage";
@@ -32,7 +31,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useFirebaseApp, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { Separator } from '../ui/separator';
 import { DISCORD_WEBHOOK_URL } from '@/lib/config';
-import { getDiscordTimestamp } from '@/lib/utils';
+import { getDiscordTimestamp, formatBytes } from '@/lib/utils';
 import { generateEventBanner } from '@/ai/flows/generate-event-banner-flow';
 import {
   Dialog,
@@ -57,6 +56,13 @@ type ReminderGeneratorProps = {
   currentUser: AuthUser | null;
 };
 
+type UploadStatus = {
+  progress: number;
+  transferred: number;
+  total: number;
+  fileName: string;
+} | null;
+
 const EMBED_COLORS = {
   BLUE: 3892342,
   GOLD: 16766720,
@@ -69,6 +75,7 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
   const firestore = useFirestore();
   const firebaseApp = useFirebaseApp();
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const galleryUploadRef = React.useRef<HTMLInputElement>(null);
 
   const [mounted, setMounted] = React.useState(false);
   const [selectedEventId, setSelectedEventId] = React.useState<string>('');
@@ -78,12 +85,12 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
   const [isSendingSummary, setIsSendingSummary] = React.useState(false);
   const [sendSuccess, setSendSuccess] = React.useState(false);
 
-  const [uploadProgress, setUploadProgress] = React.useState<number | null>(null);
+  const [uploadStatus, setUploadStatus] = React.useState<UploadStatus>(null);
   const [isGeneratingAI, setIsGeneratingAI] = React.useState(false);
   const [isGalleryOpen, setIsGalleryOpen] = React.useState(false);
   const [saveToGallery, setSaveToGallery] = React.useState(true);
 
-  const isUploading = uploadProgress !== null;
+  const isUploading = uploadStatus !== null;
 
   // Ensure we only query when the user is signed in to avoid permission errors
   const galleryQuery = useMemoFirebase(() => {
@@ -254,26 +261,57 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
   };
 
   const handleUploadClick = () => fileInputRef.current?.click();
+  const handleGalleryUploadClick = () => galleryUploadRef.current?.click();
 
-  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>, isDirectToGallery = false) => {
     const file = event.target.files?.[0];
-    if (!file || !firebaseApp || !selectedEventId || !firestore) return;
-    setUploadProgress(0);
+    if (!file || !firebaseApp || !firestore) return;
+
+    if (!isDirectToGallery && !selectedEventId) {
+        toast({ variant: 'destructive', description: "Please select an event first." });
+        return;
+    }
+
+    setUploadStatus({ progress: 0, transferred: 0, total: file.size, fileName: file.name });
     try {
         const storage = getStorage(firebaseApp);
-        const fileRef = storageRef(storage, `event-images/${selectedEventId}/${file.name}`);
+        const path = isDirectToGallery 
+            ? `team-gallery/${Date.now()}-${file.name}`
+            : `event-images/${selectedEventId}/${file.name}`;
+            
+        const fileRef = storageRef(storage, path);
         const uploadTask = uploadBytesResumable(fileRef, file);
-        uploadTask.on('state_changed', (s) => setUploadProgress((s.bytesTransferred / s.totalBytes) * 100));
+        
+        uploadTask.on('state_changed', (s) => {
+            setUploadStatus({
+                progress: (s.bytesTransferred / s.totalBytes) * 100,
+                transferred: s.bytesTransferred,
+                total: s.totalBytes,
+                fileName: file.name
+            });
+        });
+        
         await uploadTask;
         const imageURL = await getDownloadURL(uploadTask.snapshot.ref);
-        await setDoc(doc(firestore, 'scheduledEvents', selectedEventId), { imageURL }, { merge: true });
-        if (saveToGallery) {
-            addDocumentNonBlocking(collection(firestore, 'eventBanners'), { id: `upload-${Date.now()}`, url: imageURL, description: file.name, uploadedBy: currentUser?.displayName || 'User', timestamp: new Date().toISOString() });
+        
+        if (!isDirectToGallery && selectedEventId) {
+            await setDoc(doc(firestore, 'scheduledEvents', selectedEventId), { imageURL }, { merge: true });
+            setImageToSend(imageURL);
         }
-        setImageToSend(imageURL);
-        toast({ title: 'Image Uploaded!' });
+
+        if (isDirectToGallery || saveToGallery) {
+            addDocumentNonBlocking(collection(firestore, 'eventBanners'), { 
+                id: `upload-${Date.now()}`, 
+                url: imageURL, 
+                description: file.name, 
+                uploadedBy: currentUser?.displayName || 'User', 
+                timestamp: new Date().toISOString() 
+            });
+        }
+        
+        toast({ title: isDirectToGallery ? 'Added to Gallery!' : 'Event Banner Updated!' });
     } catch (error) { toast({ variant: 'destructive', title: 'Upload Failed' }); }
-    finally { setUploadProgress(null); }
+    finally { setUploadStatus(null); }
   };
 
   if (!mounted) return null;
@@ -302,6 +340,40 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
         <Separator />
 
         <div className="space-y-4">
+          <div className='flex items-center justify-between'>
+            <h3 className="text-sm font-semibold flex items-center gap-2">
+                <LayoutGrid className="w-4 h-4 text-primary" />
+                Team Gallery
+            </h3>
+            <div className='flex items-center gap-2'>
+                <Button onClick={handleGalleryUploadClick} disabled={isUploading} variant="ghost" size="sm" className="h-8 text-xs">
+                    <PlusCircle className='mr-2 h-3 w-3' />
+                    Quick Upload
+                </Button>
+                <input type="file" ref={galleryUploadRef} onChange={(e) => handleFileChange(e, true)} className="hidden" accept="image/*" />
+            </div>
+          </div>
+          
+          <Button variant="secondary" className="w-full" onClick={() => setIsGalleryOpen(true)}>
+            <LayoutGrid className="mr-2 h-4 w-4" />
+            Open Team Gallery
+          </Button>
+
+          {isUploading && uploadStatus && (
+              <div className="space-y-2 p-3 border rounded-lg bg-muted/30">
+                  <div className='flex items-center justify-between text-[10px]'>
+                      <span className='font-medium truncate max-w-[150px]'>{uploadStatus.fileName}</span>
+                      <span className='font-mono'>{formatBytes(uploadStatus.transferred)} / {formatBytes(uploadStatus.total)}</span>
+                  </div>
+                  <Progress value={uploadStatus.progress} className="h-1.5" />
+                  <p className='text-center text-[10px] text-muted-foreground'>Uploading... {Math.round(uploadStatus.progress)}%</p>
+              </div>
+          )}
+        </div>
+
+        <Separator />
+
+        <div className="space-y-4">
           <h3 className="text-sm font-semibold flex items-center gap-2">
             <Megaphone className="w-4 h-4 text-primary" />
             Event Reminder
@@ -325,75 +397,23 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
                   )}
                   {canManageEvent && (
                     <div className='space-y-3'>
-                        <div className='grid grid-cols-1 sm:grid-cols-3 gap-2'>
-                            <Dialog open={isGalleryOpen} onOpenChange={setIsGalleryOpen}>
-                              <DialogTrigger asChild>
-                                <Button variant="secondary" size="sm" className="text-xs">
-                                  <LayoutGrid className="mr-2 h-3 w-3" />
-                                  Team Gallery
-                                </Button>
-                              </DialogTrigger>
-                              <DialogContent className="max-w-2xl">
-                                <DialogHeader>
-                                  <DialogTitle>Team Banner Gallery</DialogTitle>
-                                  <DialogDescription>Images your team has uploaded. Select one to use it as the banner for this event.</DialogDescription>
-                                </DialogHeader>
-                                <ScrollArea className="h-[60vh]">
-                                  {isGalleryLoading ? (
-                                    <div className="flex items-center justify-center py-20">
-                                      <Loader className="w-8 h-8 animate-spin text-primary" />
-                                    </div>
-                                  ) : teamGallery && teamGallery.length > 0 ? (
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-1">
-                                      {teamGallery.map((img) => (
-                                        <div key={img.id} className="group relative rounded-lg overflow-hidden border bg-muted">
-                                            <div className="relative aspect-video w-full cursor-pointer" onClick={() => handleSelectGalleryImage(img.url)}>
-                                                <Image src={img.url} alt={img.description} fill className="object-cover" unoptimized />
-                                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                    <span className="text-white text-xs font-bold uppercase tracking-widest">Select Banner</span>
-                                                </div>
-                                            </div>
-                                            <div className="p-2 bg-card text-[10px] flex items-center justify-between border-t">
-                                                <div className="truncate flex-1">
-                                                    <p className="font-semibold truncate">{img.description}</p>
-                                                    <p className="text-muted-foreground">by {img.uploadedBy}</p>
-                                                </div>
-                                                {isAdmin && (
-                                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => handleRemoveFromGallery(img.id)}>
-                                                        <Trash2 className="w-3 h-3" />
-                                                    </Button>
-                                                )}
-                                            </div>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  ) : (
-                                    <div className="text-center py-20 text-muted-foreground">
-                                        <ImageIcon className="mx-auto h-10 w-10 opacity-20 mb-4" />
-                                        <p>Gallery is empty. Upload an image and check "Save to Gallery".</p>
-                                    </div>
-                                  )}
-                                </ScrollArea>
-                              </DialogContent>
-                            </Dialog>
-
+                        <div className='grid grid-cols-1 sm:grid-cols-2 gap-2'>
                             <Button onClick={handleUploadClick} disabled={isUploading || isGeneratingAI} variant="outline" size="sm" className="text-xs">
                               {isUploading ? <Loader className='animate-spin mr-2 h-4 w-4' /> : <UploadCloud className='mr-2 h-3 w-3'/>}
-                              {imageToSend ? 'Replace' : 'Upload'}
+                              {imageToSend ? 'Replace Image' : 'Upload Banner'}
                             </Button>
                             <Button onClick={handleGenerateAIBanner} disabled={isUploading || isGeneratingAI} variant="outline" size="sm" className="text-xs">
                               {isGeneratingAI ? <Loader className='animate-spin mr-2 h-4 w-4' /> : <Sparkles className='mr-2 h-3 w-3'/>}
-                              AI Banner
+                              AI Generate
                             </Button>
                         </div>
                         <div className="flex items-center space-x-2">
                             <Checkbox id="save-gallery" checked={saveToGallery} onCheckedChange={(v) => setSaveToGallery(!!v)} />
-                            <Label htmlFor="save-gallery" className="text-xs font-normal cursor-pointer">Save new uploads to Team Gallery</Label>
+                            <Label htmlFor="save-gallery" className="text-xs font-normal cursor-pointer">Save uploads to Team Gallery</Label>
                         </div>
-                        {isUploading && <Progress value={uploadProgress} className="h-1" />}
                     </div>
                   )}
-                  <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
+                  <input type="file" ref={fileInputRef} onChange={(e) => handleFileChange(e, false)} className="hidden" accept="image/*" />
               </div>
           )}
           
@@ -415,6 +435,51 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
           )}
         </div>
       </CardContent>
+
+      <Dialog open={isGalleryOpen} onOpenChange={setIsGalleryOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Team Banner Gallery</DialogTitle>
+              <DialogDescription>Images your team has uploaded. Select one to use it as the banner for the active event.</DialogDescription>
+            </DialogHeader>
+            <ScrollArea className="h-[60vh]">
+              {isGalleryLoading ? (
+                <div className="flex items-center justify-center py-20">
+                  <Loader className="w-8 h-8 animate-spin text-primary" />
+                </div>
+              ) : teamGallery && teamGallery.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-1">
+                  {teamGallery.map((img) => (
+                    <div key={img.id} className="group relative rounded-lg overflow-hidden border bg-muted">
+                        <div className="relative aspect-video w-full cursor-pointer" onClick={() => handleSelectGalleryImage(img.url)}>
+                            <Image src={img.url} alt={img.description} fill className="object-cover" unoptimized />
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                <span className="text-white text-xs font-bold uppercase tracking-widest">{selectedEventId ? 'Select Banner' : 'Uploaded'}</span>
+                            </div>
+                        </div>
+                        <div className="p-2 bg-card text-[10px] flex items-center justify-between border-t">
+                            <div className="truncate flex-1">
+                                <p className="font-semibold truncate">{img.description}</p>
+                                <p className="text-muted-foreground">by {img.uploadedBy}</p>
+                            </div>
+                            {isAdmin && (
+                                <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => handleRemoveFromGallery(img.id)}>
+                                    <Trash2 className="w-3 h-3" />
+                                </Button>
+                            )}
+                        </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-20 text-muted-foreground">
+                    <ImageIcon className="mx-auto h-10 w-10 opacity-20 mb-4" />
+                    <p>Gallery is empty. Upload an image through the Integration panel.</p>
+                </div>
+              )}
+            </ScrollArea>
+          </DialogContent>
+        </Dialog>
     </Card>
   );
 }

@@ -36,7 +36,14 @@ service firebase.storage {
       allow read;
       allow write: if isAdmin()
                    && request.resource.contentType.matches('image/.*')
-                   && request.resource.size < 5 * 1024 * 1024;
+                   && request.resource.size < 10 * 1024 * 1024;
+    }
+
+    match /team-gallery/{fileName} {
+      allow read;
+      allow write: if isAdmin()
+                   && request.resource.contentType.matches('image/.*')
+                   && request.resource.size < 10 * 1024 * 1024;
     }
   }
 }
