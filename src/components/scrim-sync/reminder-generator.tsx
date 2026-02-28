@@ -125,7 +125,7 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
         return prof?.discordUsername || name;
     });
 
-    let msg = `**When:** ${dsTimestamp} (${dsRelative})\n\n✅ **Available (${availablePlayerNames.length}):**\n${availablePlayerTags.map(p => `- ${p}`).join('\n')}\n\n🔥 **Needed: ${Math.max(0, MINIMUM_PLAYERS - totalAvailable)}**`;
+    let msg = `**When:** ${dsTimestamp} (${dsRelative})\n\n✅ **Available (${availablePlayerNames.length}):**\n${availablePlayerTags.length > 0 ? availablePlayerTags.map(p => `- ${p}`).join('\n') : '- No one yet'}\n\n🔥 **Needed: ${Math.max(0, MINIMUM_PLAYERS - totalAvailable)}**`;
 
     if (includeNudges) {
         const mainRosterPlayers = allProfiles.filter(p => p.rosterStatus === 'Main Roster');
@@ -166,7 +166,7 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
         : (selectedEvent.type === 'Tournament' ? EMBED_COLORS.GOLD : EMBED_COLORS.BLUE);
 
       const payload = {
-        content: roleMention, // Pings must be in content
+        content: roleMention,
         embeds: [{
           title: `${isCancelled ? '🚫' : '🔔'} ${selectedEvent.type.toUpperCase()} REMINDER`,
           description: reminderMessage,
@@ -270,7 +270,7 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
       toast({ 
         variant: 'destructive', 
         title: 'AI Generation Unavailable', 
-        description: 'Image generation is currently restricted on the free tier for this project.'
+        description: 'AI Image generation failed. Using default placeholders is recommended.'
       });
     } finally {
       setIsGeneratingAI(false);
@@ -388,14 +388,15 @@ export function ReminderGenerator({ events, allVotes, allProfiles, availabilityO
                                     className="group relative cursor-pointer rounded-lg overflow-hidden border transition-all hover:ring-2 hover:ring-primary"
                                     onClick={() => handleSelectPlaceholder(img.imageUrl)}
                                   >
-                                    <Image 
-                                      src={img.imageUrl} 
-                                      alt={img.description} 
-                                      width={400} 
-                                      height={225} 
-                                      data-ai-hint={img.imageHint}
-                                      className="aspect-video object-cover"
-                                    />
+                                    <div className="relative aspect-video w-full">
+                                      <Image 
+                                        src={img.imageUrl} 
+                                        alt={img.description} 
+                                        fill
+                                        data-ai-hint={img.imageHint}
+                                        className="object-cover"
+                                      />
+                                    </div>
                                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                       <span className="text-white text-xs font-bold uppercase tracking-widest">Select Banner</span>
                                     </div>
